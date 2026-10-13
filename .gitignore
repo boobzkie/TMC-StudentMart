@@ -1,0 +1,26 @@
+# Local environment files
+**/.env
+**/.env.*
+!**/.env.example
+
+# Generated dependencies and build outputs
+**/node_modules/
+**/vendor/
+**/dist/
+**/build/
+**/.dart_tool/
+**/coverage/
+
+# Laravel runtime/cache files and uploaded files
+backend/storage/framework/views/**
+!backend/storage/framework/views/.gitignore
+backend/storage/framework/cache/**
+!backend/storage/framework/cache/.gitignore
+backend/storage/framework/sessions/**
+!backend/storage/framework/sessions/.gitignore
+backend/storage/logs/**
+!backend/storage/logs/.gitignore
+backend/storage/app/private/**
+!backend/storage/app/private/.gitignore
+backend/storage/app/public/**
+!backend/storage/app/public/.gitignore

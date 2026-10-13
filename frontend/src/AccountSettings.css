@@ -1,0 +1,169 @@
+.account-settings-page {
+  display: grid;
+  gap: 22px;
+  color: var(--tmc-admin-text);
+  font-family: var(--tmc-ui-font);
+}
+.account-settings-intro { display: flex; align-items: center; gap: 15px; padding: 4px 2px 2px; }
+.account-settings-intro-icon, .account-panel-icon {
+  display: grid; flex: 0 0 auto; place-items: center; width: 48px; height: 48px;
+  color: var(--tmc-admin-primary); border: 1px solid var(--tmc-admin-border);
+  border-radius: 15px; background: var(--tmc-admin-surface); box-shadow: var(--tmc-admin-card-shadow);
+}
+.account-settings-eyebrow { display: inline-block; margin-bottom: 7px; color: var(--tmc-admin-secondary); font-size: 10px; font-weight: 800; letter-spacing: .17em; }
+.account-settings-intro h2, .account-panel-heading h3 { margin: 0; color: var(--tmc-admin-text); font-size: clamp(21px, 2vw, 27px); font-weight: 800; letter-spacing: -.035em; }
+.account-settings-intro p, .account-panel-heading p { margin: 6px 0 0; color: var(--tmc-admin-secondary); font-size: 13px; line-height: 1.55; }
+.account-settings-notice, .account-settings-feedback { display: flex; align-items: center; gap: 9px; padding: 12px 15px; border: 1px solid var(--tmc-admin-border); border-radius: 12px; color: var(--tmc-admin-text); background: var(--tmc-admin-accent-soft); font-size: 13px; }
+.account-settings-feedback.error, .account-settings-feedback.success { color: var(--tmc-admin-text); background: var(--tmc-admin-surface); }
+.account-settings-layout { display: grid; grid-template-columns: minmax(235px, 285px) minmax(0, 1fr); align-items: start; gap: 20px; }
+.account-settings-sidebar { display: grid; gap: 14px; }
+.account-profile-card, .account-settings-tabs, .account-settings-security-note, .account-settings-panel { border: 1px solid var(--tmc-admin-border); border-radius: 17px; background: var(--tmc-admin-surface); box-shadow: var(--tmc-admin-card-shadow); }
+.account-profile-card { padding: 23px 18px 19px; text-align: center; }
+.account-profile-avatar, .account-photo-current { position: relative; display: grid; flex: 0 0 auto; place-items: center; overflow: hidden; color: var(--tmc-admin-on-primary); border: 1px solid var(--tmc-admin-border); border-radius: 50%; background: var(--tmc-admin-primary); font-size: 22px; font-weight: 800; }
+.account-profile-avatar { width: 78px; height: 78px; margin: 0 auto 13px; }
+.account-profile-avatar img, .account-photo-current img { position: absolute; z-index: 1; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.account-profile-avatar span, .account-photo-current span { position: relative; z-index: 0; }
+.account-profile-card h3 { margin: 0; overflow-wrap: anywhere; color: var(--tmc-admin-text); font-size: 16px; font-weight: 800; }
+.account-profile-card > p { margin: 6px 0 15px; overflow-wrap: anywhere; color: var(--tmc-admin-secondary); font-size: 12px; }
+.account-profile-badges { display: flex; flex-wrap: wrap; justify-content: center; gap: 7px; }
+.account-profile-badges span { display: inline-flex; align-items: center; gap: 5px; padding: 6px 9px; border: 1px solid var(--tmc-admin-border); border-radius: 999px; color: var(--tmc-admin-text); background: var(--tmc-admin-accent-soft); font-size: 11px; font-weight: 700; text-transform: capitalize; }
+.account-settings-tabs { display: grid; gap: 5px; padding: 8px; }
+.account-settings-tabs button { display: flex; align-items: center; gap: 11px; min-height: 43px; padding: 0 12px; border: 1px solid transparent; border-radius: 10px; color: var(--tmc-admin-secondary); background: transparent; font: inherit; font-size: 13px; font-weight: 700; text-align: left; cursor: pointer; transition: color var(--tmc-ui-motion), background var(--tmc-ui-motion), border-color var(--tmc-ui-motion), transform var(--tmc-ui-motion); }
+.account-settings-tabs button:hover { color: var(--tmc-admin-text); background: var(--tmc-admin-accent-soft); transform: translateX(2px); }
+.account-settings-tabs button.active { color: var(--tmc-admin-text); border-color: var(--tmc-admin-border); background: var(--tmc-admin-accent-soft); box-shadow: var(--tmc-admin-input-shadow); }
+.account-settings-security-note { display: flex; align-items: flex-start; gap: 11px; padding: 15px; color: var(--tmc-admin-primary); }
+.account-settings-security-note strong { color: var(--tmc-admin-text); font-size: 12px; }
+.account-settings-security-note p { margin: 4px 0 0; color: var(--tmc-admin-secondary); font-size: 11px; line-height: 1.5; }
+.account-settings-panel { min-width: 0; padding: clamp(19px, 3vw, 30px); }
+.account-settings-form { display: grid; gap: 22px; }
+.account-panel-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
+.account-panel-heading h3 { font-size: 21px; }
+.account-panel-icon { width: 42px; height: 42px; border-radius: 13px; }
+.account-photo-row { display: flex; align-items: center; gap: 14px; padding: 16px; border: 1px solid var(--tmc-admin-border); border-radius: 14px; background: var(--tmc-admin-bg-muted); }
+.account-photo-current { width: 60px; height: 60px; font-size: 18px; }
+.account-photo-copy { flex: 1; min-width: 0; }
+.account-photo-copy strong { color: var(--tmc-admin-text); font-size: 13px; }
+.account-photo-copy p { margin: 4px 0 0; color: var(--tmc-admin-secondary); font-size: 11px; line-height: 1.5; }
+.account-photo-selected { display: block; margin-top: 4px; overflow-wrap: anywhere; color: var(--tmc-admin-text); font-size: 11px; }
+.account-photo-button { position: relative; display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; gap: 7px; min-height: 38px; padding: 0 12px; overflow: hidden; border: 1px solid var(--tmc-admin-border); border-radius: 10px; color: var(--tmc-admin-text); background: var(--tmc-admin-surface); box-shadow: var(--tmc-admin-card-shadow); font-size: 12px; font-weight: 700; cursor: pointer; transition: transform var(--tmc-ui-motion), box-shadow var(--tmc-ui-motion); }
+.account-photo-button:hover { transform: translateY(-1px); box-shadow: var(--tmc-admin-card-hover); }
+.account-photo-button input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.account-form-grid, .account-readonly-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.account-field { display: grid; align-content: start; gap: 7px; min-width: 0; color: var(--tmc-admin-text); }
+.account-field > span { display: inline-flex; align-items: center; gap: 6px; color: var(--tmc-admin-text); font-size: 12px; font-weight: 750; }
+.account-field > span svg { color: var(--tmc-admin-secondary); }
+.account-field > span small { color: var(--tmc-admin-secondary); font-size: 10px; font-weight: 500; }
+.account-field input { width: 100%; min-height: 43px; padding: 0 12px; border: 1px solid var(--tmc-admin-border); border-radius: 10px; outline: none; color: var(--tmc-admin-text); background: var(--tmc-admin-bg-muted); box-shadow: var(--tmc-admin-input-shadow); font: inherit; font-size: 13px; transition: border-color var(--tmc-ui-motion), box-shadow var(--tmc-ui-motion), background var(--tmc-ui-motion); }
+.account-field input:focus-visible { border-color: var(--tmc-admin-accent-border); outline: 3px solid var(--tmc-admin-accent-soft); outline-offset: 1px; }
+.account-field input::placeholder { color: var(--tmc-admin-secondary); opacity: 1; }
+.account-field input[readonly] { cursor: not-allowed; color: var(--tmc-admin-secondary); }
+.account-field-readonly small { color: var(--tmc-admin-secondary); font-size: 10px; line-height: 1.45; }
+.account-field-wide { grid-column: 1 / -1; }
+.account-readonly-section { display: grid; gap: 16px; padding: 17px; border: 1px solid var(--tmc-admin-border); border-radius: 14px; background: var(--tmc-admin-bg-muted); }
+.account-readonly-heading { display: flex; align-items: flex-start; gap: 10px; color: var(--tmc-admin-primary); }
+.account-readonly-heading h4 { margin: 0; color: var(--tmc-admin-text); font-size: 13px; }
+.account-readonly-heading p { margin: 4px 0 0; color: var(--tmc-admin-secondary); font-size: 11px; }
+.account-readonly-grid { gap: 12px; }
+.account-readonly-grid > div { display: grid; gap: 5px; padding: 11px 12px; border: 1px solid var(--tmc-admin-border); border-radius: 10px; background: var(--tmc-admin-surface); }
+.account-readonly-grid span { color: var(--tmc-admin-secondary); font-size: 10px; }
+.account-readonly-grid strong { overflow-wrap: anywhere; color: var(--tmc-admin-text); font-size: 12px; }
+.account-form-footer { display: flex; align-items: center; justify-content: space-between; gap: 15px; padding-top: 17px; border-top: 1px solid var(--tmc-admin-border); }
+.account-form-footer p { display: inline-flex; align-items: center; gap: 7px; margin: 0; color: var(--tmc-admin-secondary); font-size: 11px; }
+.account-primary-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 43px; padding: 0 16px; border: 1px solid var(--tmc-admin-primary); border-radius: 10px; color: var(--tmc-admin-on-primary); background: var(--tmc-admin-primary); box-shadow: var(--tmc-admin-card-shadow); font: inherit; font-size: 12px; font-weight: 750; cursor: pointer; transition: transform var(--tmc-ui-motion), background var(--tmc-ui-motion), box-shadow var(--tmc-ui-motion); }
+.account-primary-button:hover:not(:disabled) { transform: translateY(-1px); background: var(--tmc-admin-primary-hover); box-shadow: var(--tmc-admin-card-hover); }
+.account-primary-button:disabled { opacity: .65; cursor: wait; }
+.account-password-form { min-height: 420px; }
+.account-password-fields { display: grid; gap: 17px; max-width: 580px; }
+.account-password-field input { min-height: 46px; }
+.account-password-visibility { display: inline-flex; align-items: center; justify-self: start; gap: 7px; padding: 4px 0; border: 0; color: var(--tmc-admin-secondary); background: transparent; font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; }
+.account-password-visibility:hover { color: var(--tmc-admin-text); }
+.account-password-guidance { display: flex; align-items: center; gap: 10px; max-width: 580px; padding: 13px 15px; border: 1px solid var(--tmc-admin-border); border-radius: 12px; color: var(--tmc-admin-primary); background: var(--tmc-admin-accent-soft); }
+.account-password-guidance p { margin: 0; color: var(--tmc-admin-text); font-size: 12px; line-height: 1.5; }
+.account-settings-page :is(button, a, input):focus-visible { outline: 3px solid var(--tmc-admin-accent-border); outline-offset: 2px; }
+.account-archives-panel { display: grid; gap: 18px; }
+.account-archive-refresh { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; gap: 7px; min-height: 38px; padding: 0 12px; border: 1px solid var(--tmc-admin-border); border-radius: 10px; color: var(--tmc-admin-text); background: var(--tmc-admin-surface); box-shadow: var(--tmc-admin-card-shadow); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; transition: transform var(--tmc-ui-motion), box-shadow var(--tmc-ui-motion); }
+.account-archive-refresh:hover:not(:disabled) { transform: translateY(-1px); box-shadow: var(--tmc-admin-card-hover); }
+.account-archive-refresh:disabled { opacity: .65; cursor: wait; }
+.account-archive-group { display: grid; gap: 10px; }
+.account-archive-group-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.account-archive-group-heading h4 { display: inline-flex; align-items: center; gap: 8px; margin: 0; color: var(--tmc-admin-text); font-size: 14px; }
+.account-archive-group-heading h4 svg { color: var(--tmc-admin-primary); }
+.account-archive-group-heading > span { min-width: 28px; padding: 4px 8px; border: 1px solid var(--tmc-admin-border); border-radius: 999px; color: var(--tmc-admin-text); background: var(--tmc-admin-accent-soft); font-size: 11px; font-weight: 800; text-align: center; }
+.account-archive-list { display: grid; gap: 8px; }
+.account-archive-item { display: flex; align-items: center; gap: 11px; min-width: 0; padding: 12px; border: 1px solid var(--tmc-admin-border); border-radius: 12px; background: var(--tmc-admin-bg-muted); }
+.account-archive-item-icon { display: grid; flex: 0 0 auto; place-items: center; width: 38px; height: 38px; border: 1px solid var(--tmc-admin-border); border-radius: 11px; color: var(--tmc-admin-primary); background: var(--tmc-admin-surface); box-shadow: var(--tmc-admin-input-shadow); }
+.account-archive-item-copy { display: grid; flex: 1; min-width: 0; gap: 3px; }
+.account-archive-item-copy strong { overflow-wrap: anywhere; color: var(--tmc-admin-text); font-size: 12px; }
+.account-archive-item-copy span, .account-archive-item-copy small { overflow-wrap: anywhere; color: var(--tmc-admin-secondary); font-size: 11px; line-height: 1.45; }
+.account-archive-status { flex: 0 0 auto; padding: 5px 8px; border: 1px solid var(--tmc-admin-border); border-radius: 999px; color: var(--tmc-admin-secondary); background: var(--tmc-admin-surface); font-size: 10px; font-weight: 750; }
+.account-archive-empty { margin: 0; padding: 18px; border: 1px dashed var(--tmc-admin-border); border-radius: 11px; color: var(--tmc-admin-secondary); font-size: 12px; text-align: center; }
+.account-archive-note { display: flex; align-items: flex-start; gap: 8px; margin: 0; padding: 12px; border: 1px solid var(--tmc-admin-border); border-radius: 11px; color: var(--tmc-admin-secondary); background: var(--tmc-admin-accent-soft); font-size: 11px; line-height: 1.5; }
+.account-archive-note svg { flex: 0 0 auto; color: var(--tmc-admin-primary); }
+@media (max-width: 900px) {
+  .account-settings-layout { grid-template-columns: minmax(0, 1fr); }
+  .account-settings-sidebar { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: stretch; }
+  .account-profile-card { grid-row: span 2; }
+  .account-settings-security-note { min-height: 80px; }
+}
+@media (max-width: 600px) {
+  .account-settings-page { gap: 16px; }
+  .account-settings-layout, .account-settings-sidebar { gap: 12px; }
+  .account-settings-sidebar { grid-template-columns: minmax(0, 1fr); }
+  .account-profile-card { grid-row: auto; }
+  .account-settings-tabs { grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); }
+  .account-settings-tabs button { justify-content: center; padding-inline: 7px; }
+  .account-settings-panel { padding: 17px 14px; }
+  .account-photo-row { flex-wrap: wrap; }
+  .account-photo-copy { flex-basis: calc(100% - 78px); }
+  .account-photo-button { width: 100%; }
+  .account-form-grid, .account-readonly-grid { grid-template-columns: minmax(0, 1fr); gap: 13px; }
+  .account-field-wide { grid-column: auto; }
+  .account-panel-heading h3 { font-size: 19px; }
+  .account-form-footer { align-items: stretch; flex-direction: column; }
+  .account-primary-button { width: 100%; }
+  .account-settings-intro { align-items: flex-start; }
+  .account-settings-intro-icon { width: 42px; height: 42px; }
+  .account-archive-item { align-items: flex-start; flex-wrap: wrap; }
+  .account-archive-item-copy { flex-basis: calc(100% - 52px); }
+  .account-archive-status { margin-left: 49px; }
+  .account-archive-refresh { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .account-settings-page *, .account-settings-page *::before, .account-settings-page *::after {
+    scroll-behavior: auto !important; animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important; transition-duration: .01ms !important;
+  }
+}
+
+/* Keep these two controls distinct from shared portal button defaults. */
+.admin-layout[data-theme] .admin-content .account-settings-page .account-settings-tabs button {
+  color: var(--tmc-admin-secondary) !important;
+  border-color: transparent !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.admin-layout[data-theme] .admin-content .account-settings-page .account-settings-tabs button.active {
+  color: var(--tmc-admin-text) !important;
+  border-color: var(--tmc-admin-border) !important;
+  background: var(--tmc-admin-accent-soft) !important;
+  box-shadow: var(--tmc-admin-input-shadow) !important;
+}
+.admin-layout[data-theme] .admin-content .account-settings-page .account-settings-tabs button:hover:not(:disabled) {
+  color: var(--tmc-admin-text) !important;
+  border-color: var(--tmc-admin-border) !important;
+  background: var(--tmc-admin-accent-soft) !important;
+}
+.admin-layout[data-theme] .admin-content .account-settings-page .account-password-visibility {
+  min-height: 0 !important;
+  padding: 4px 0 !important;
+  border: 0 !important;
+  color: var(--tmc-admin-secondary) !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.admin-layout[data-theme] .admin-content .account-settings-page .account-password-visibility:hover:not(:disabled) {
+  color: var(--tmc-admin-text) !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  transform: none !important;
+}

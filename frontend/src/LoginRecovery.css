@@ -1,0 +1,15 @@
+.login-forgot-row {
+  margin-top: -8px;
+  text-align: right;
+}
+
+.login-page[data-theme] .login-forgot-row a {
+  color: var(--tmc-admin-primary) !important;
+  font-size: 12px;
+  font-weight: 750;
+  text-decoration: none;
+}
+
+.login-page[data-theme] .login-forgot-row a:hover {
+  text-decoration: underline;
+}

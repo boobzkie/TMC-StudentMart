@@ -1,0 +1,257 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100%;
+}
+
+body {
+  font-family: Arial, sans-serif;
+  background: #f4f7fb;
+}
+
+/* LOGIN + REGISTER */
+
+.page {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 30px;
+}
+
+.auth-card {
+  width: 700px;
+  max-width: 100%;
+  padding: 45px 55px;
+  background: white;
+  border: 2px solid #c8dafa;
+  border-radius: 20px;
+  box-shadow: 0 8px 25px rgba(0,0,0,.08);
+  text-align: center;
+}
+
+.logo {
+  font-size: 52px;
+  margin-bottom: 10px;
+}
+
+.auth-card h1 {
+  margin: 0;
+  font-size: 34px;
+  color: #111;
+}
+
+.auth-card h2 {
+  margin: 20px 0 5px;
+  font-size: 28px;
+  color: #0751bd;
+}
+
+.subtitle {
+  margin: 0 0 30px;
+  color: #666;
+  font-size: 17px;
+}
+
+.auth-card form {
+  text-align: left;
+}
+
+.auth-card label {
+  display: block;
+  margin-bottom: 7px;
+  font-weight: bold;
+}
+
+.auth-card input[type="text"],
+.auth-card input[type="email"],
+.auth-card input[type="password"] {
+  width: 100%;
+  height: 50px;
+  padding: 0 15px;
+  margin-bottom: 18px;
+  border: 1px solid #bfd2ef;
+  border-radius: 8px;
+  font-size: 16px;
+  outline: none;
+}
+
+.auth-card form button {
+  width: 100%;
+  height: 50px;
+  border: 0;
+  border-radius: 8px;
+  background: #0751bd;
+  color: white;
+  font-size: 17px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.register-text {
+  margin-top: 20px;
+  color: #555;
+}
+
+.register-text a {
+  color: #0751bd;
+  font-weight: bold;
+  text-decoration: none;
+}
+
+.error {
+  color: red;
+  text-align: center;
+}
+
+/* REGISTER */
+
+.register-card h1 {
+  color: #0751bd;
+}
+
+.profile-icon {
+  width: 85px;
+  height: 85px;
+  margin: 15px auto;
+  border: 3px solid #0751bd;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40px;
+}
+
+.upload-button {
+  border: 0;
+  padding: 9px 18px;
+  margin-bottom: 20px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.terms {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  font-weight: normal !important;
+}
+
+.terms input {
+  width: 16px !important;
+  height: 16px !important;
+  margin: 0 !important;
+}
+
+/* DASHBOARD */
+
+.dashboard {
+  min-height: 100vh;
+  background: #f4f7fb;
+}
+
+.dashboard-header {
+  height: 90px;
+  background: white;
+  border-bottom: 1px solid #ddd;
+  padding: 18px 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.dashboard-header h1 {
+  margin: 0;
+  color: #0751bd;
+}
+
+.dashboard-header button {
+  padding: 10px 20px;
+  border: 0;
+  border-radius: 7px;
+  background: #0751bd;
+  color: white;
+  cursor: pointer;
+}
+
+.sidebar {
+  position: fixed;
+  top: 90px;
+  left: 0;
+  bottom: 0;
+  width: 220px;
+  padding: 20px 12px;
+  background: white;
+  border-right: 1px solid #ddd;
+}
+
+.menu {
+  padding: 13px;
+  margin: 5px 0;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.menu:hover,
+.menu.active {
+  background: #e8f0ff;
+  color: #0751bd;
+  font-weight: bold;
+}
+
+.dashboard-content {
+  margin-left: 220px;
+  padding: 35px;
+}
+
+.dashboard-cards {
+  display: flex;
+  gap: 20px;
+}
+
+.dash-card,
+.recent {
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  padding: 20px;
+}
+
+.dash-card {
+  width: 200px;
+}
+
+.dash-card strong {
+  font-size: 30px;
+  color: #0751bd;
+}
+
+@media (max-width: 700px) {
+  .auth-card {
+    padding: 35px 25px;
+  }
+
+  .auth-card h1 {
+    font-size: 28px;
+  }
+
+  .sidebar {
+    display: none;
+  }
+
+  .dashboard-content {
+    margin-left: 0;
+  }
+
+  .dashboard-cards {
+    flex-direction: column;
+  }
+}

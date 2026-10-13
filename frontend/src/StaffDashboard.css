@@ -1,0 +1,63 @@
+.staff-dashboard { display: grid; gap: 22px; }
+.staff-welcome-card,.staff-recent-card,.staff-metric-card {
+  background: #fff; border: 1px solid #e8edf4; border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(18,38,63,.05);
+}
+.staff-welcome-card {
+  min-height: 150px; padding: 26px 30px; display: flex; align-items: center;
+  justify-content: space-between; gap: 20px;
+}
+.staff-eyebrow { color: #2563eb; font-size: 11px; font-weight: 800; letter-spacing: .12em; }
+.staff-welcome-card h2 { margin: 8px 0 6px; color: #152238; font-size: 24px; }
+.staff-welcome-card p,.staff-recent-heading p { margin: 0; color: #65748b; font-size: 13px; }
+.staff-primary-link {
+  min-height: 42px; padding: 0 16px; display: inline-flex; align-items: center; gap: 9px;
+  border-radius: 9px; background: #2563eb; color: #fff; font-size: 13px;
+  font-weight: 700; text-decoration: none;
+}
+.staff-primary-link:hover { background: #1d4ed8; }
+.staff-metric-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 16px; }
+.staff-metric-card { min-height: 140px; padding: 19px; display: grid; align-content: start; gap: 9px; }
+.staff-metric-icon { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 11px; }
+.staff-metric-card>span { color: #68778d; font-size: 12px; font-weight: 600; }
+.staff-metric-card>strong { color: #152238; font-size: 25px; line-height: 1; }
+.staff-metric-card.blue .staff-metric-icon { color: #2563eb; background: #eff6ff; }
+.staff-metric-card.green .staff-metric-icon { color: #059669; background: #ecfdf5; }
+.staff-metric-card.amber .staff-metric-icon { color: #d97706; background: #fffbeb; }
+.staff-metric-card.purple .staff-metric-icon { color: #7c3aed; background: #f5f3ff; }
+.staff-recent-card { overflow: hidden; }
+.staff-recent-heading {
+  padding: 20px 22px; display: flex; justify-content: space-between; align-items: center;
+  gap: 15px; border-bottom: 1px solid #edf0f5;
+}
+.staff-recent-heading h3 { margin: 0 0 5px; color: #18263c; font-size: 16px; }
+.staff-dashboard-refresh-button {
+  display: inline-flex; align-items: center; gap: 8px; border: 1px solid #dbe3ee;
+  border-radius: 8px; padding: 8px 11px; background: #fff; color: #42536b;
+  font-size: 12px; cursor: pointer;
+}
+.staff-dashboard-refresh-button:disabled { opacity: .6; cursor: wait; }
+.staff-recent-table-wrap { overflow-x: auto; }
+.staff-recent-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 12px; }
+.staff-recent-table th { padding: 12px 18px; background: #f8fafc; color: #718096; font-size: 10px; letter-spacing: .06em; }
+.staff-recent-table td { padding: 14px 18px; border-top: 1px solid #f0f2f6; color: #34445b; white-space: nowrap; }
+.staff-status { padding: 4px 8px; border-radius: 20px; background: #f1f5f9; color: #64748b; font-size: 10px; font-weight: 700; text-transform: capitalize; }
+.staff-status.active { background: #ecfdf5; color: #059669; }
+.staff-status.inactive,.staff-status.suspended { background: #fff1f2; color: #e11d48; }
+.staff-recent-empty { padding: 30px 20px; color: #748198; font-size: 13px; text-align: center; }
+.staff-dashboard-error {
+  padding: 12px 15px; display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; border: 1px solid #fecaca; border-radius: 10px; background: #fff7f7;
+  color: #b42318; font-size: 13px;
+}
+.staff-dashboard-error button { border: 0; background: transparent; color: #b42318; font-weight: 700; cursor: pointer; }
+@media (max-width: 900px) { .staff-metric-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+@media (max-width: 600px) {
+  .staff-welcome-card { align-items: stretch; flex-direction: column; padding: 22px; }
+  .staff-welcome-card h2 { font-size: 20px; }
+  .staff-primary-link { justify-content: center; }
+  .staff-recent-heading { align-items: flex-start; flex-direction: column; }
+  .staff-metric-grid { gap: 10px; }
+  .staff-metric-card { min-height: 125px; padding: 14px; }
+}
+.staff-no-permission{max-width:760px;margin:30px auto;padding:28px;border-radius:20px;background:#edf4fb;box-shadow:8px 9px 22px rgba(57,83,115,.1),-7px -7px 20px rgba(255,255,255,.78)}.staff-no-permission h2{margin:0 0 8px;color:#102a56}.staff-no-permission p{margin:0;color:#627999;line-height:1.6}.staff-no-permission .staff-primary-link{margin-top:16px}

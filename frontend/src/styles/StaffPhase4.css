@@ -1,0 +1,272 @@
+/* Phase 4: Staff workspace presentation. These rules apply only to approved Staff routes. */
+.admin-layout[data-role="staff"] .admin-main { min-width: 0; }
+.admin-layout[data-role="staff"] .admin-sidebar-profile {
+  margin: 12px 13px 7px;
+  padding: 11px;
+  border: 1px solid rgba(189, 216, 233, 0.14);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.045);
+}
+.admin-layout[data-role="staff"][data-sidebar-collapsed="true"] .admin-sidebar-profile {
+  margin: 12px 8px 5px;
+  padding: 8px 4px;
+}
+.admin-layout[data-role="staff"] .admin-content :is(
+  .staff-dashboard, .staff-complaints-page, .staff-insights-page,
+  .moderation-page, .users-page
+) {
+  width: 100%; max-width: 1560px; margin-inline: auto;
+}
+
+/* Staff landing dashboard */
+.admin-layout[data-role="staff"] .staff-dashboard { display: grid; gap: 20px; }
+.admin-layout[data-role="staff"] .staff-dashboard :is(
+  .staff-welcome-card, .staff-recent-card, .staff-metric-card,
+  .staff-tool-card, .staff-no-permission
+) {
+  border: 1px solid var(--tmc-admin-border) !important;
+  border-radius: 17px;
+  color: var(--tmc-admin-text) !important;
+  background: var(--tmc-admin-surface) !important;
+  box-shadow: var(--tmc-admin-card-shadow) !important;
+}
+.admin-layout[data-role="staff"] .staff-welcome-card {
+  min-height: 154px; padding: clamp(20px, 3vw, 30px);
+  background: linear-gradient(125deg, var(--tmc-admin-surface), var(--tmc-admin-accent-soft)) !important;
+}
+.admin-layout[data-role="staff"] .staff-welcome-card h2,
+.admin-layout[data-role="staff"] .staff-recent-heading h3,
+.admin-layout[data-role="staff"] .staff-tool-heading h2,
+.admin-layout[data-role="staff"] .staff-metric-card strong,
+.admin-layout[data-role="staff"] .staff-tool-card strong,
+.admin-layout[data-role="staff"] .staff-no-permission h2 {
+  color: var(--tmc-admin-text) !important;
+}
+.admin-layout[data-role="staff"] .staff-welcome-card p,
+.admin-layout[data-role="staff"] .staff-recent-heading p,
+.admin-layout[data-role="staff"] .staff-tool-card p,
+.admin-layout[data-role="staff"] .staff-no-permission p {
+  color: var(--tmc-admin-secondary) !important;
+}
+.admin-layout[data-role="staff"] .staff-eyebrow {
+  color: var(--tmc-admin-primary) !important; font-size: 10px; letter-spacing: .14em;
+}
+.admin-layout[data-role="staff"] .staff-metric-grid { gap: 14px; }
+.admin-layout[data-role="staff"] .staff-metric-card {
+  min-height: 144px; padding: 18px;
+  transition: transform var(--tmc-ui-motion), box-shadow var(--tmc-ui-motion);
+}
+.admin-layout[data-role="staff"] .staff-metric-card:hover {
+  transform: translateY(-2px); box-shadow: var(--tmc-admin-card-hover) !important;
+}
+.admin-layout[data-role="staff"] .staff-metric-card > span,
+.admin-layout[data-role="staff"] .staff-recent-empty { color: var(--tmc-admin-secondary) !important; }
+.admin-layout[data-role="staff"] .staff-metric-icon,
+.admin-layout[data-role="staff"] .staff-tool-icon {
+  border: 1px solid var(--tmc-admin-border); border-radius: 12px;
+  color: var(--tmc-admin-primary) !important; background: var(--tmc-admin-accent-soft) !important;
+}
+.admin-layout[data-role="staff"] .staff-primary-link,
+.admin-layout[data-role="staff"] .staff-insights-filters button,
+.admin-layout[data-role="staff"] .staff-complaint-filters > button,
+.admin-layout[data-role="staff"] .staff-complaint-dialog form footer button[type="submit"] {
+  border-color: var(--tmc-admin-primary) !important;
+  color: var(--tmc-admin-on-primary) !important;
+  background: var(--tmc-admin-primary) !important;
+  box-shadow: var(--tmc-admin-card-shadow) !important;
+}
+.admin-layout[data-role="staff"] .staff-primary-link:hover,
+.admin-layout[data-role="staff"] .staff-insights-filters button:hover:not(:disabled),
+.admin-layout[data-role="staff"] .staff-complaint-filters > button:hover:not(:disabled),
+.admin-layout[data-role="staff"] .staff-complaint-dialog form footer button[type="submit"]:hover:not(:disabled) {
+  background: var(--tmc-admin-primary-hover) !important;
+}
+.admin-layout[data-role="staff"] .staff-dashboard-refresh-button,
+.admin-layout[data-role="staff"] .staff-complaint-view,
+.admin-layout[data-role="staff"] .staff-complaint-pagination button,
+.admin-layout[data-role="staff"] .staff-insights-hero button,
+.admin-layout[data-role="staff"] .staff-insights-error button,
+.admin-layout[data-role="staff"] .staff-complaint-dialog header button {
+  min-height: 38px; border: 1px solid var(--tmc-admin-border); border-radius: 10px;
+  color: var(--tmc-admin-primary) !important; background: var(--tmc-admin-surface) !important;
+}
+.admin-layout[data-role="staff"] .staff-tool-section { margin-top: 0; }
+.admin-layout[data-role="staff"] .staff-tool-heading { margin-bottom: 13px; }
+.admin-layout[data-role="staff"] .staff-tool-grid { gap: 14px; }
+.admin-layout[data-role="staff"] .staff-tool-card {
+  min-height: 160px; border-color: var(--tmc-admin-border) !important;
+  transition: transform var(--tmc-ui-motion), border-color var(--tmc-ui-motion), box-shadow var(--tmc-ui-motion);
+}
+.admin-layout[data-role="staff"] .staff-tool-card:hover {
+  transform: translateY(-2px); border-color: var(--tmc-admin-accent-border) !important;
+  box-shadow: var(--tmc-admin-card-hover) !important;
+}
+.admin-layout[data-role="staff"] .staff-tool-icon,
+.admin-layout[data-role="staff"] .staff-tool-open { color: var(--tmc-admin-primary) !important; }
+.admin-layout[data-role="staff"] .staff-recent-heading,
+.admin-layout[data-role="staff"] .staff-recent-table td,
+.admin-layout[data-role="staff"] .staff-recent-table th { border-color: var(--tmc-admin-border) !important; }
+.admin-layout[data-role="staff"] .staff-recent-table th {
+  color: var(--tmc-admin-secondary) !important; background: var(--tmc-admin-surface-muted) !important;
+}
+.admin-layout[data-role="staff"] .staff-recent-table td { color: var(--tmc-admin-text) !important; }
+.admin-layout[data-role="staff"] .staff-status {
+  border: 1px solid var(--tmc-admin-border); color: var(--tmc-admin-secondary) !important;
+  background: var(--tmc-admin-surface-muted) !important;
+}
+.admin-layout[data-role="staff"] .staff-status.active,
+.admin-layout[data-role="staff"] .staff-complaint-status.status-resolved {
+  border-color: var(--tmc-admin-success-soft); color: var(--tmc-admin-success) !important;
+  background: var(--tmc-admin-success-soft) !important;
+}
+.admin-layout[data-role="staff"] .staff-status.inactive,
+.admin-layout[data-role="staff"] .staff-status.suspended,
+.admin-layout[data-role="staff"] .staff-complaint-status.status-rejected {
+  border-color: var(--tmc-admin-danger-soft); color: var(--tmc-admin-danger) !important;
+  background: var(--tmc-admin-danger-soft) !important;
+}
+
+/* Complaints, reports, analytics, and shared moderation screens */
+.admin-layout[data-role="staff"] .admin-content :is(
+  .staff-complaints-hero, .staff-complaint-list, .staff-complaint-filters,
+  .staff-complaint-stats article, .staff-complaint-dialog,
+  .staff-insights-hero, .staff-insights-filters, .staff-insights-cards article,
+  .staff-insights-panel, .moderation-hero, .moderation-panel, .moderation-card,
+  .moderation-modal, .reject-modal, .users-filter-card, .users-table-card
+) {
+  border-color: var(--tmc-admin-border) !important;
+  color: var(--tmc-admin-text) !important;
+  background-color: var(--tmc-admin-surface) !important;
+  box-shadow: var(--tmc-admin-card-shadow) !important;
+}
+.admin-layout[data-role="staff"] .admin-content :is(
+  .staff-complaints-hero, .staff-insights-hero, .moderation-hero
+) {
+  background: linear-gradient(125deg, var(--tmc-admin-surface), var(--tmc-admin-accent-soft)) !important;
+}
+.admin-layout[data-role="staff"] .admin-content :is(
+  .staff-complaints-hero h2, .staff-insights-hero h2, .staff-insights-panel h3,
+  .staff-complaint-dialog h2, .staff-complaint-detail-grid strong
+) { color: var(--tmc-admin-text) !important; }
+.admin-layout[data-role="staff"] .admin-content :is(
+  .staff-complaints-hero p, .staff-insights-hero p, .staff-complaint-detail-grid span,
+  .staff-complaint-description span, .staff-complaint-dialog form label small,
+  .staff-insights-cards article small
+) { color: var(--tmc-admin-secondary) !important; }
+.admin-layout[data-role="staff"] .admin-content :is(
+  .staff-complaints-hero-icon, .staff-insights-icon, .moderation-hero-icon,
+  .moderation-icon, .staff-insights-panel header svg
+) {
+  border-color: var(--tmc-admin-border); color: var(--tmc-admin-primary) !important;
+  background: var(--tmc-admin-accent-soft) !important;
+}
+.admin-layout[data-role="staff"] .admin-content :is(.staff-complaint-filters, .staff-insights-filters) {
+  display: flex; align-items: end; gap: 12px;
+}
+.admin-layout[data-role="staff"] .admin-content :is(
+  .staff-complaint-search, .staff-insights-filters input, .staff-complaint-filters input,
+  .staff-complaint-filters select, .staff-complaint-dialog select, .staff-complaint-dialog textarea
+) {
+  border-color: var(--tmc-admin-border) !important; color: var(--tmc-admin-text) !important;
+  background: var(--tmc-admin-bg-muted) !important; box-shadow: var(--tmc-admin-input-shadow) !important;
+}
+.admin-layout[data-role="staff"] .admin-content :is(.staff-complaint-search input, .staff-complaint-dialog textarea) {
+  color: var(--tmc-admin-text) !important;
+}
+.admin-layout[data-role="staff"] .admin-content :is(.staff-complaint-stats article, .staff-insights-cards article) {
+  border-radius: 14px;
+}
+.admin-layout[data-role="staff"] .staff-complaint-stats article strong,
+.admin-layout[data-role="staff"] .staff-insights-cards article strong { color: var(--tmc-admin-text) !important; }
+.admin-layout[data-role="staff"] .admin-content :is(
+  .staff-complaint-table-wrap, .staff-insights-table-wrap, .staff-recent-table-wrap,
+  .moderation-grid, .staff-table-wrap
+) { overflow-x: auto; }
+.admin-layout[data-role="staff"] .admin-content :is(
+  .staff-complaint-table-wrap th, .staff-insights-table-wrap th, .staff-recent-table th, .staff-table th
+) {
+  color: var(--tmc-admin-secondary) !important; background: var(--tmc-admin-surface-muted) !important;
+}
+.admin-layout[data-role="staff"] .admin-content :is(
+  .staff-complaint-table-wrap td, .staff-insights-table-wrap td, .staff-recent-table td, .staff-table td
+) { border-color: var(--tmc-admin-border) !important; color: var(--tmc-admin-text) !important; }
+.admin-layout[data-role="staff"] .admin-content tbody tr:hover { background: var(--tmc-admin-accent-soft) !important; }
+.admin-layout[data-role="staff"] .admin-content :is(
+  .staff-complaints-error, .staff-insights-error, .staff-dashboard-error
+) {
+  border-color: var(--tmc-admin-danger-soft) !important; color: var(--tmc-admin-danger) !important;
+  background: var(--tmc-admin-danger-soft) !important;
+}
+.admin-layout[data-role="staff"] .admin-content :is(
+  .staff-complaint-state, .staff-insights-state, .staff-recent-empty
+) { color: var(--tmc-admin-secondary) !important; }
+.admin-layout[data-role="staff"] .admin-content :is(.staff-complaint-dialog, .moderation-modal, .reject-modal) {
+  border-radius: 18px;
+}
+.admin-layout[data-role="staff"] .staff-complaint-backdrop,
+.admin-layout[data-role="staff"] .moderation-modal-overlay { background: var(--tmc-admin-overlay) !important; }
+.admin-layout[data-role="staff"] .staff-complaint-status {
+  border: 1px solid var(--tmc-admin-border); color: var(--tmc-admin-secondary) !important;
+  background: var(--tmc-admin-surface-muted) !important;
+}
+.admin-layout[data-role="staff"] .staff-complaint-status.status-pending {
+  border-color: var(--tmc-admin-warning-soft); color: var(--tmc-admin-warning) !important;
+  background: var(--tmc-admin-warning-soft) !important;
+}
+.admin-layout[data-role="staff"] .staff-complaint-status.status-in_review {
+  border-color: var(--tmc-admin-accent-border); color: var(--tmc-admin-primary) !important;
+  background: var(--tmc-admin-accent-soft) !important;
+}
+.admin-layout[data-role="staff"] .staff-complaint-status.status-resolved {
+  border-color: var(--tmc-admin-success-soft); color: var(--tmc-admin-success) !important;
+  background: var(--tmc-admin-success-soft) !important;
+}
+.admin-layout[data-role="staff"] .staff-complaint-status.status-rejected {
+  border-color: var(--tmc-admin-danger-soft); color: var(--tmc-admin-danger) !important;
+  background: var(--tmc-admin-danger-soft) !important;
+}
+.admin-layout[data-role="staff"] .admin-content :is(.staff-complaint-pagination, .staff-insights-panel header) {
+  border-color: var(--tmc-admin-border) !important;
+}
+.admin-layout[data-role="staff"] .admin-content :is(
+  .staff-primary-link, .staff-dashboard-refresh-button, .staff-complaint-view,
+  .staff-complaint-pagination button, .staff-insights-hero button,
+  .staff-insights-error button, .staff-complaint-dialog header button,
+  .staff-complaint-dialog form footer button
+):hover:not(:disabled) {
+  border-color: var(--tmc-admin-accent-border) !important;
+  box-shadow: var(--tmc-admin-card-hover) !important; transform: translateY(-1px);
+}
+.admin-layout[data-role="staff"] .admin-content :is(button:disabled, [aria-disabled="true"]) {
+  opacity: .62; cursor: not-allowed; transform: none;
+}
+
+@media (max-width: 900px) {
+  .admin-layout[data-role="staff"] .staff-complaint-stats,
+  .admin-layout[data-role="staff"] .staff-insights-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .admin-layout[data-role="staff"] .staff-complaint-stats,
+  .admin-layout[data-role="staff"] .staff-insights-cards,
+  .admin-layout[data-role="staff"] .staff-metric-grid { grid-template-columns: 1fr; }
+  .admin-layout[data-role="staff"] .staff-complaints-hero,
+  .admin-layout[data-role="staff"] .staff-insights-hero {
+    align-items: flex-start; flex-wrap: wrap; padding: 18px;
+  }
+  .admin-layout[data-role="staff"] .staff-complaints-hero > button,
+  .admin-layout[data-role="staff"] .staff-insights-hero button { margin-left: 0; }
+  .admin-layout[data-role="staff"] .staff-complaint-pagination {
+    align-items: flex-start; flex-direction: column;
+  }
+  .admin-layout[data-role="staff"] .staff-complaint-dialog {
+    max-height: calc(100dvh - 28px); padding: 17px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .admin-layout[data-role="staff"] *,
+  .admin-layout[data-role="staff"] *::before,
+  .admin-layout[data-role="staff"] *::after {
+    animation-duration: 0.01ms !important; animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important; transition-duration: 0.01ms !important;
+  }
+}

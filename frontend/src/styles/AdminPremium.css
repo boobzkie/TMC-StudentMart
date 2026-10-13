@@ -1,0 +1,1636 @@
+/* ============================================================
+   TMC STUDENTMART
+   PREMIUM ADMIN UI POLISH
+   ============================================================
+
+   Purpose:
+   - Premium light neumorphism
+   - Larger readable typography
+   - Refined TMC blue palette
+   - Softer shadows
+   - Better spacing
+   - Better buttons
+   - Better inputs
+   - Better tables
+   - Subtle animations
+   - Improved accessibility
+
+   IMPORTANT:
+   Presentation only.
+   No API, route, authentication, database,
+   or business logic is changed.
+============================================================ */
+
+
+/* ============================================================
+   1. PREMIUM DESIGN TOKENS
+============================================================ */
+
+:root {
+
+  /* ----------------------------------------------------------
+     TMC BRAND
+  ---------------------------------------------------------- */
+
+  --tmc-premium-primary: #2563eb;
+  --tmc-premium-primary-hover: #1d4ed8;
+  --tmc-premium-primary-dark: #1e3a8a;
+  --tmc-premium-primary-soft: #eaf2ff;
+
+  /* ----------------------------------------------------------
+     SURFACES
+  ---------------------------------------------------------- */
+
+  --tmc-premium-bg: #e8f0f8;
+  --tmc-premium-surface: #f3f8fd;
+  --tmc-premium-surface-bright: #f8fbff;
+  --tmc-premium-surface-dark: #dfeaf5;
+
+  /* ----------------------------------------------------------
+     TEXT
+  ---------------------------------------------------------- */
+
+  --tmc-premium-text: #102a56;
+  --tmc-premium-text-strong: #081d45;
+  --tmc-premium-text-secondary: #4f6585;
+  --tmc-premium-text-muted: #7185a3;
+  --tmc-premium-text-soft: #91a3bd;
+
+  /* ----------------------------------------------------------
+     STATUS
+  ---------------------------------------------------------- */
+
+  --tmc-premium-success: #16a34a;
+  --tmc-premium-success-soft: #e9f8ef;
+
+  --tmc-premium-warning: #d97706;
+  --tmc-premium-warning-soft: #fff5e5;
+
+  --tmc-premium-danger: #dc2626;
+  --tmc-premium-danger-soft: #fdecec;
+
+  --tmc-premium-purple: #7c3aed;
+  --tmc-premium-purple-soft: #f1ebff;
+
+  /* ----------------------------------------------------------
+     NEUMORPHIC SHADOWS
+  ---------------------------------------------------------- */
+
+  --tmc-premium-shadow:
+    10px 10px 24px rgba(123, 149, 179, 0.18),
+    -8px -8px 20px rgba(255, 255, 255, 0.86);
+
+  --tmc-premium-shadow-sm:
+    6px 6px 14px rgba(123, 149, 179, 0.16),
+    -5px -5px 12px rgba(255, 255, 255, 0.82);
+
+  --tmc-premium-shadow-button:
+    5px 6px 14px rgba(49, 103, 190, 0.22),
+    -4px -4px 10px rgba(255, 255, 255, 0.78);
+
+  --tmc-premium-shadow-inset:
+    inset 4px 4px 10px rgba(123, 149, 179, 0.13),
+    inset -4px -4px 10px rgba(255, 255, 255, 0.78);
+
+  /* ----------------------------------------------------------
+     RADIUS
+  ---------------------------------------------------------- */
+
+  --tmc-premium-radius-sm: 12px;
+  --tmc-premium-radius-md: 16px;
+  --tmc-premium-radius-lg: 22px;
+  --tmc-premium-radius-xl: 28px;
+
+  /* ----------------------------------------------------------
+     MOTION
+  ---------------------------------------------------------- */
+
+  --tmc-premium-fast: 150ms ease;
+  --tmc-premium-normal: 190ms ease;
+  --tmc-premium-slow: 260ms ease;
+
+}
+
+
+/* ============================================================
+   2. ADMIN ROOT
+============================================================ */
+
+.admin-layout {
+
+  background:
+    radial-gradient(
+      circle at 8% 5%,
+      rgba(255, 255, 255, 0.80),
+      transparent 28%
+    ),
+    radial-gradient(
+      circle at 92% 15%,
+      rgba(191, 218, 245, 0.28),
+      transparent 30%
+    ),
+    linear-gradient(
+      135deg,
+      #edf5fc 0%,
+      #e7f0f8 48%,
+      #e0ebf5 100%
+    ) !important;
+
+  color: var(--tmc-premium-text) !important;
+
+}
+
+
+/* ============================================================
+   3. SIDEBAR
+============================================================ */
+
+.admin-sidebar {
+
+  background:
+    linear-gradient(
+      160deg,
+      #f0f7fd 0%,
+      #e4eef8 100%
+    ) !important;
+
+  box-shadow:
+    9px 0 25px rgba(109, 137, 169, 0.13),
+    inset -1px 0 rgba(255, 255, 255, 0.75) !important;
+
+}
+
+
+/* ============================================================
+   4. SIDEBAR BRAND
+============================================================ */
+
+.admin-sidebar-header {
+
+  padding: 6px !important;
+
+}
+
+
+.admin-brand {
+
+  min-height: 142px !important;
+
+  padding: 20px !important;
+
+  border-radius: 22px !important;
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(248, 252, 255, 0.92),
+      rgba(231, 241, 250, 0.78)
+    ) !important;
+
+  box-shadow:
+    var(--tmc-premium-shadow-sm) !important;
+
+  transition:
+    transform var(--tmc-premium-normal),
+    box-shadow var(--tmc-premium-normal) !important;
+
+}
+
+
+.admin-brand:hover {
+
+  transform: translateY(-1px);
+
+  box-shadow:
+    var(--tmc-premium-shadow) !important;
+
+}
+
+
+/* ============================================================
+   5. BRAND ICON
+============================================================ */
+
+.admin-brand-icon {
+
+  width: 54px !important;
+  height: 54px !important;
+
+  border-radius: 17px !important;
+
+  background:
+    linear-gradient(
+      145deg,
+      #3b82f6,
+      #1d4ed8
+    ) !important;
+
+  color: #ffffff !important;
+
+  box-shadow:
+    var(--tmc-premium-shadow-button) !important;
+
+}
+
+
+.admin-brand-icon svg {
+
+  width: 25px !important;
+  height: 25px !important;
+
+  stroke-width: 2 !important;
+
+}
+
+
+/* ============================================================
+   6. BRAND TEXT
+============================================================ */
+
+.admin-brand-text h2 {
+
+  margin: 0 !important;
+
+  color: var(--tmc-premium-text-strong) !important;
+
+  font-size: 19px !important;
+
+  line-height: 1.2 !important;
+
+  font-weight: 800 !important;
+
+  letter-spacing: -0.45px !important;
+
+}
+
+
+.admin-brand-text span {
+
+  display: block !important;
+
+  margin-top: 7px !important;
+
+  color: var(--tmc-premium-primary) !important;
+
+  font-size: 10px !important;
+
+  font-weight: 800 !important;
+
+  letter-spacing: 2.2px !important;
+
+}
+
+
+/* ============================================================
+   7. SIDEBAR SECTION LABELS
+============================================================ */
+
+.admin-nav-section-title {
+
+  margin: 17px 0 8px !important;
+
+  padding-left: 9px !important;
+
+  color: #7186a4 !important;
+
+  font-size: 11px !important;
+
+  font-weight: 800 !important;
+
+  letter-spacing: 1.25px !important;
+
+}
+
+
+/* ============================================================
+   8. SIDEBAR NAVIGATION
+============================================================ */
+
+.admin-nav-link {
+
+  min-height: 50px !important;
+
+  margin: 5px 0 !important;
+
+  padding: 0 15px !important;
+
+  border-radius: 16px !important;
+
+  color: #38567f !important;
+
+  font-size: 14px !important;
+
+  font-weight: 650 !important;
+
+  gap: 13px !important;
+
+  transition:
+    transform var(--tmc-premium-fast),
+    background var(--tmc-premium-fast),
+    color var(--tmc-premium-fast),
+    box-shadow var(--tmc-premium-fast) !important;
+
+}
+
+
+.admin-nav-link svg {
+
+  width: 20px !important;
+  height: 20px !important;
+
+  stroke-width: 2 !important;
+
+}
+
+
+.admin-nav-link:hover {
+
+  color: var(--tmc-premium-primary) !important;
+
+  background:
+    rgba(255, 255, 255, 0.58) !important;
+
+  transform: translateX(3px) !important;
+
+  box-shadow:
+    var(--tmc-premium-shadow-sm) !important;
+
+}
+
+
+.admin-nav-link.active {
+
+  color: #ffffff !important;
+
+  background:
+    linear-gradient(
+      135deg,
+      #3b82f6,
+      #2563eb 55%,
+      #1d4ed8
+    ) !important;
+
+  box-shadow:
+    6px 8px 17px rgba(37, 99, 235, 0.25),
+    -4px -4px 10px rgba(255, 255, 255, 0.70) !important;
+
+  transform: translateX(0) !important;
+
+}
+
+
+.admin-nav-link.active svg {
+
+  stroke-width: 2.2 !important;
+
+}
+
+
+/* ============================================================
+   9. SIDEBAR FOOTER
+============================================================ */
+
+.admin-sidebar-footer {
+
+  padding: 12px 5px 4px !important;
+
+}
+
+
+.admin-logout-button {
+
+  min-height: 46px !important;
+
+  border-radius: 15px !important;
+
+  color: #617797 !important;
+
+  font-size: 14px !important;
+
+  font-weight: 650 !important;
+
+  transition:
+    transform var(--tmc-premium-fast),
+    background var(--tmc-premium-fast),
+    color var(--tmc-premium-fast),
+    box-shadow var(--tmc-premium-fast) !important;
+
+}
+
+
+.admin-logout-button:hover {
+
+  color: var(--tmc-premium-danger) !important;
+
+  background:
+    var(--tmc-premium-danger-soft) !important;
+
+  transform: translateX(2px) !important;
+
+  box-shadow:
+    var(--tmc-premium-shadow-inset) !important;
+
+}
+
+
+/* ============================================================
+   10. MOBILE SIDEBAR CLOSE
+============================================================ */
+
+.admin-sidebar-close {
+
+  width: 38px !important;
+  height: 38px !important;
+
+  border: 0 !important;
+
+  border-radius: 12px !important;
+
+  background:
+    rgba(255, 255, 255, 0.72) !important;
+
+  color:
+    var(--tmc-premium-text-secondary) !important;
+
+  box-shadow:
+    var(--tmc-premium-shadow-sm) !important;
+
+  transition:
+    transform var(--tmc-premium-fast),
+    color var(--tmc-premium-fast) !important;
+
+}
+
+
+.admin-sidebar-close:hover {
+
+  color:
+    var(--tmc-premium-danger) !important;
+
+  transform:
+    rotate(4deg) scale(1.03) !important;
+
+}
+
+
+/* ============================================================
+   11. MAIN AREA
+============================================================ */
+
+.admin-main {
+
+  background: transparent !important;
+
+}
+
+
+/* ============================================================
+   12. TOP HEADER
+============================================================ */
+
+.admin-header {
+
+  min-height: 94px !important;
+
+  padding:
+    18px 34px !important;
+
+  background:
+    rgba(238, 246, 253, 0.72) !important;
+
+  border: 0 !important;
+
+  box-shadow:
+    0 5px 18px rgba(107, 136, 168, 0.07) !important;
+
+  -webkit-backdrop-filter:
+    blur(14px) !important;
+
+  backdrop-filter:
+    blur(14px) !important;
+
+}
+
+
+.admin-page-heading h1 {
+
+  margin: 0 !important;
+
+  color:
+    var(--tmc-premium-text-strong) !important;
+
+  font-size: 30px !important;
+
+  line-height: 1.1 !important;
+
+  font-weight: 800 !important;
+
+  letter-spacing: -0.85px !important;
+
+}
+
+
+.admin-page-heading p {
+
+  margin:
+    7px 0 0 !important;
+
+  color:
+    var(--tmc-premium-text-muted) !important;
+
+  font-size: 14px !important;
+
+  line-height: 1.45 !important;
+
+}
+
+
+.admin-header-left {
+
+  gap: 14px !important;
+
+}
+
+
+.admin-header-right {
+
+  gap: 14px !important;
+
+}
+
+
+/* ============================================================
+   13. MOBILE MENU
+============================================================ */
+
+.admin-menu-button {
+
+  width: 42px !important;
+  height: 42px !important;
+
+  border: 0 !important;
+
+  border-radius: 13px !important;
+
+  background:
+    var(--tmc-premium-surface) !important;
+
+  color:
+    var(--tmc-premium-primary) !important;
+
+  box-shadow:
+    var(--tmc-premium-shadow-sm) !important;
+
+  transition:
+    transform var(--tmc-premium-fast),
+    box-shadow var(--tmc-premium-fast) !important;
+
+}
+
+
+.admin-menu-button:hover {
+
+  transform:
+    translateY(-1px) !important;
+
+}
+
+
+/* ============================================================
+   14. ACCOUNT AREA
+============================================================ */
+
+.admin-account {
+
+  min-height: 52px !important;
+
+  padding:
+    6px 12px 6px 7px !important;
+
+  border-radius: 17px !important;
+
+  background:
+    rgba(246, 251, 255, 0.70) !important;
+
+  box-shadow:
+    var(--tmc-premium-shadow-sm) !important;
+
+}
+
+
+.admin-account-avatar {
+
+  width: 40px !important;
+  height: 40px !important;
+
+  border-radius: 13px !important;
+
+  background:
+    linear-gradient(
+      145deg,
+      #3b82f6,
+      #1d4ed8
+    ) !important;
+
+  color: #ffffff !important;
+
+  box-shadow:
+    var(--tmc-premium-shadow-button) !important;
+
+}
+
+
+.admin-account-info {
+
+  padding-left: 3px !important;
+
+}
+
+
+.admin-account-info strong {
+
+  display: block !important;
+
+  color:
+    var(--tmc-premium-text-strong) !important;
+
+  font-size: 14px !important;
+
+  line-height: 1.25 !important;
+
+  font-weight: 750 !important;
+
+}
+
+
+.admin-account-info span {
+
+  display: block !important;
+
+  margin-top: 3px !important;
+
+  color:
+    var(--tmc-premium-text-muted) !important;
+
+  font-size: 12px !important;
+
+  line-height: 1.2 !important;
+
+}
+
+
+/* ============================================================
+   15. PAGE CONTENT
+============================================================ */
+
+.admin-content {
+
+  padding:
+    28px 34px 42px !important;
+
+  animation:
+    tmcAdminPageEnter 220ms ease-out both;
+
+}
+
+
+@keyframes tmcAdminPageEnter {
+
+  from {
+
+    opacity: 0;
+
+    transform:
+      translateY(6px);
+
+  }
+
+  to {
+
+    opacity: 1;
+
+    transform:
+      translateY(0);
+
+  }
+
+}
+
+
+/* ============================================================
+   16. COMMON HEADINGS
+============================================================ */
+
+.admin-content h1,
+.admin-content h2,
+.admin-content h3 {
+
+  color:
+    var(--tmc-premium-text-strong);
+
+}
+
+
+.admin-content p {
+
+  color:
+    var(--tmc-premium-text-secondary);
+
+}
+
+
+/* ============================================================
+   17. COMMON CARDS
+============================================================ */
+
+.admin-content
+.dashboard-stat-card,
+.admin-content
+.secondary-stat,
+.admin-content
+.dashboard-panel,
+.admin-content
+.users-card,
+.admin-content
+.users-filter-card,
+.admin-content
+.users-summary,
+.admin-content
+.products-toolbar,
+.admin-content
+.products-table-card,
+.admin-content
+.categories-card,
+.admin-content
+.sellers-card,
+.admin-content
+.seller-card,
+.admin-content
+.moderation-card {
+
+  border: 0 !important;
+
+  box-shadow:
+    var(--tmc-premium-shadow-sm) !important;
+
+  transition:
+    transform var(--tmc-premium-normal),
+    box-shadow var(--tmc-premium-normal) !important;
+
+}
+
+
+.admin-content
+.dashboard-stat-card:hover,
+.admin-content
+.secondary-stat:hover,
+.admin-content
+.seller-card:hover {
+
+  transform:
+    translateY(-2px);
+
+  box-shadow:
+    var(--tmc-premium-shadow) !important;
+
+}
+
+
+/* ============================================================
+   18. SEARCH / FILTER CONTROLS
+============================================================ */
+
+.admin-content input,
+.admin-content select,
+.admin-content textarea {
+
+  min-height: 46px;
+
+  border-radius:
+    14px !important;
+
+  border:
+    0 !important;
+
+  background:
+    rgba(240, 247, 253, 0.84) !important;
+
+  color:
+    var(--tmc-premium-text) !important;
+
+  box-shadow:
+    var(--tmc-premium-shadow-inset) !important;
+
+  font-size:
+    14px !important;
+
+  transition:
+    box-shadow var(--tmc-premium-fast),
+    background var(--tmc-premium-fast) !important;
+
+}
+
+
+.admin-content input::placeholder,
+.admin-content textarea::placeholder {
+
+  color:
+    #8a9db7 !important;
+
+  opacity:
+    1 !important;
+
+}
+
+
+.admin-content input:focus,
+.admin-content select:focus,
+.admin-content textarea:focus {
+
+  outline:
+    3px solid rgba(37, 99, 235, 0.10) !important;
+
+  background:
+    rgba(248, 252, 255, 0.96) !important;
+
+  box-shadow:
+    inset 3px 3px 8px rgba(123, 149, 179, 0.10),
+    inset -3px -3px 8px rgba(255, 255, 255, 0.84),
+    0 0 0 2px rgba(37, 99, 235, 0.08) !important;
+
+}
+
+
+/* ============================================================
+   19. PRIMARY BUTTONS
+============================================================ */
+
+.admin-content button,
+.admin-content a {
+
+  -webkit-tap-highlight-color:
+    transparent;
+
+}
+
+
+.admin-content button[type="submit"],
+.admin-content
+.primary-button,
+.admin-content
+.search-button,
+.admin-content
+.users-search-button,
+.admin-content
+.products-search-button,
+.admin-content
+.categories-add-button,
+.admin-content
+.sellers-search-button {
+
+  min-height:
+    44px !important;
+
+  border:
+    0 !important;
+
+  border-radius:
+    14px !important;
+
+  background:
+    linear-gradient(
+      135deg,
+      #3b82f6,
+      #2563eb 58%,
+      #1d4ed8
+    ) !important;
+
+  color:
+    #ffffff !important;
+
+  box-shadow:
+    var(--tmc-premium-shadow-button) !important;
+
+  font-size:
+    14px !important;
+
+  font-weight:
+    700 !important;
+
+  transition:
+    transform var(--tmc-premium-fast),
+    box-shadow var(--tmc-premium-fast),
+    filter var(--tmc-premium-fast) !important;
+
+}
+
+
+.admin-content button[type="submit"]:hover,
+.admin-content
+.primary-button:hover,
+.admin-content
+.search-button:hover,
+.admin-content
+.users-search-button:hover,
+.admin-content
+.products-search-button:hover {
+
+  transform:
+    translateY(-1px) !important;
+
+  filter:
+    brightness(1.02);
+
+}
+
+
+.admin-content button[type="submit"]:active,
+.admin-content
+.primary-button:active,
+.admin-content
+.search-button:active {
+
+  transform:
+    translateY(1px) !important;
+
+  box-shadow:
+    var(--tmc-premium-shadow-inset) !important;
+
+}
+
+
+/* ============================================================
+   20. REFRESH BUTTONS
+============================================================ */
+
+.admin-content
+.refresh-button,
+.admin-content
+.users-refresh-button,
+.admin-content
+.products-refresh,
+.admin-content
+.categories-refresh,
+.admin-content
+.sellers-refresh {
+
+  min-height:
+    42px !important;
+
+  padding:
+    0 15px !important;
+
+  border:
+    0 !important;
+
+  border-radius:
+    13px !important;
+
+  background:
+    var(--tmc-premium-surface) !important;
+
+  color:
+    var(--tmc-premium-primary) !important;
+
+  box-shadow:
+    var(--tmc-premium-shadow-sm) !important;
+
+  font-size:
+    13px !important;
+
+  font-weight:
+    700 !important;
+
+  transition:
+    transform var(--tmc-premium-fast),
+    box-shadow var(--tmc-premium-fast) !important;
+
+}
+
+
+.admin-content
+.refresh-button:hover,
+.admin-content
+.users-refresh-button:hover,
+.admin-content
+.products-refresh:hover,
+.admin-content
+.categories-refresh:hover,
+.admin-content
+.sellers-refresh:hover {
+
+  transform:
+    translateY(-1px) !important;
+
+}
+
+
+/* ============================================================
+   21. STAT NUMBERS
+============================================================ */
+
+.stat-card-value,
+.secondary-content strong,
+.users-count,
+.products-count,
+.sellers-count,
+.categories-count {
+
+  color:
+    var(--tmc-premium-text-strong) !important;
+
+  font-weight:
+    850 !important;
+
+}
+
+
+/* ============================================================
+   22. TABLES
+============================================================ */
+
+.admin-content table {
+
+  width:
+    100%;
+
+  border-collapse:
+    separate;
+
+  border-spacing:
+    0;
+
+}
+
+
+.admin-content table th {
+
+  color:
+    #657c9e !important;
+
+  font-size:
+    11px !important;
+
+  font-weight:
+    800 !important;
+
+  letter-spacing:
+    0.85px;
+
+}
+
+
+.admin-content table td {
+
+  color:
+    var(--tmc-premium-text-secondary) !important;
+
+  font-size:
+    14px !important;
+
+  line-height:
+    1.4 !important;
+
+}
+
+
+.admin-content table td strong {
+
+  color:
+    var(--tmc-premium-text-strong) !important;
+
+  font-size:
+    14px !important;
+
+  font-weight:
+    700 !important;
+
+}
+
+
+.admin-content table tbody tr {
+
+  transition:
+    background var(--tmc-premium-fast),
+    transform var(--tmc-premium-fast) !important;
+
+}
+
+
+.admin-content table tbody tr:hover {
+
+  background:
+    rgba(255, 255, 255, 0.42) !important;
+
+}
+
+
+/* ============================================================
+   23. STATUS BADGES
+============================================================ */
+
+.status-badge,
+.product-status,
+.user-status,
+.category-status,
+.seller-status {
+
+  min-height:
+    28px;
+
+  padding:
+    4px 10px;
+
+  border-radius:
+    999px;
+
+  font-size:
+    12px !important;
+
+  font-weight:
+    700 !important;
+
+}
+
+
+/* ============================================================
+   24. EMPTY STATES
+============================================================ */
+
+.admin-content
+.products-empty,
+.admin-content
+.users-empty,
+.admin-content
+.categories-empty,
+.admin-content
+.sellers-empty,
+.admin-content
+.moderation-empty {
+
+  min-height:
+    330px;
+
+  padding:
+    50px 24px !important;
+
+  border:
+    0 !important;
+
+  border-radius:
+    22px !important;
+
+  background:
+    rgba(244, 249, 253, 0.76) !important;
+
+  box-shadow:
+    var(--tmc-premium-shadow-sm) !important;
+
+}
+
+
+.admin-content
+.products-empty h2,
+.admin-content
+.users-empty h2,
+.admin-content
+.categories-empty h2,
+.admin-content
+.sellers-empty h2,
+.admin-content
+.moderation-empty h2 {
+
+  margin-top:
+    16px;
+
+  color:
+    var(--tmc-premium-text-strong) !important;
+
+  font-size:
+    19px !important;
+
+  font-weight:
+    800 !important;
+
+}
+
+
+.admin-content
+.products-empty p,
+.admin-content
+.users-empty p,
+.admin-content
+.categories-empty p,
+.admin-content
+.sellers-empty p,
+.admin-content
+.moderation-empty p {
+
+  max-width:
+    520px;
+
+  margin-left:
+    auto;
+
+  margin-right:
+    auto;
+
+  color:
+    var(--tmc-premium-text-muted) !important;
+
+  font-size:
+    14px !important;
+
+  line-height:
+    1.6 !important;
+
+}
+
+
+/* ============================================================
+   25. ICON CONTAINERS
+============================================================ */
+
+.admin-content
+.stat-icon,
+.admin-content
+.secondary-icon,
+.admin-content
+.products-empty-icon,
+.admin-content
+.users-empty-icon,
+.admin-content
+.categories-empty-icon,
+.admin-content
+.sellers-empty-icon {
+
+  box-shadow:
+    var(--tmc-premium-shadow-sm) !important;
+
+}
+
+
+.admin-content svg {
+
+  stroke-linecap:
+    round;
+
+  stroke-linejoin:
+    round;
+
+}
+
+
+/* ============================================================
+   26. MODALS
+============================================================ */
+
+.modal-overlay {
+
+  -webkit-backdrop-filter:
+    blur(7px) !important;
+
+  backdrop-filter:
+    blur(7px) !important;
+
+  background:
+    rgba(16, 42, 86, 0.18) !important;
+
+}
+
+
+.modal-content,
+.modal-card,
+.confirm-modal {
+
+  border:
+    0 !important;
+
+  border-radius:
+    22px !important;
+
+  background:
+    linear-gradient(
+      145deg,
+      #f6faff,
+      #e7f0f9
+    ) !important;
+
+  box-shadow:
+    14px 14px 30px rgba(96, 123, 153, 0.22),
+    -10px -10px 24px rgba(255, 255, 255, 0.82) !important;
+
+}
+
+
+.modal-content h2,
+.modal-card h2,
+.confirm-modal h2 {
+
+  color:
+    var(--tmc-premium-text-strong) !important;
+
+  font-size:
+    21px !important;
+
+  font-weight:
+    800 !important;
+
+}
+
+
+.modal-content p,
+.modal-card p,
+.confirm-modal p {
+
+  color:
+    var(--tmc-premium-text-secondary) !important;
+
+  font-size:
+    14px !important;
+
+  line-height:
+    1.6 !important;
+
+}
+
+
+/* ============================================================
+   27. LOADING SKELETONS
+============================================================ */
+
+.dashboard-stat-skeleton,
+.product-skeleton,
+.users-loading-row,
+.skeleton {
+
+  background:
+    linear-gradient(
+      90deg,
+      #e4edf7 20%,
+      #f7fbff 50%,
+      #e4edf7 80%
+    ) !important;
+
+  background-size:
+    220% 100% !important;
+
+  animation:
+    tmcPremiumSkeleton 1.45s ease-in-out infinite !important;
+
+}
+
+
+@keyframes tmcPremiumSkeleton {
+
+  0% {
+
+    background-position:
+      220% 0;
+
+  }
+
+  100% {
+
+    background-position:
+      -220% 0;
+
+  }
+
+}
+
+
+/* ============================================================
+   28. BUTTON SPINNERS
+============================================================ */
+
+.products-spin,
+.refresh-spin {
+
+  animation:
+    tmcPremiumSpin 0.8s linear infinite !important;
+
+}
+
+
+@keyframes tmcPremiumSpin {
+
+  from {
+
+    transform:
+      rotate(0deg);
+
+  }
+
+  to {
+
+    transform:
+      rotate(360deg);
+
+  }
+
+}
+
+
+/* ============================================================
+   29. HOVERABLE CARDS
+============================================================ */
+
+.product-card,
+.seller-card,
+.dashboard-stat-card,
+.secondary-stat {
+
+  will-change:
+    transform;
+
+}
+
+
+/* ============================================================
+   30. MOBILE
+============================================================ */
+
+@media (max-width: 1050px) {
+
+  .admin-header {
+
+    padding:
+      16px 24px !important;
+
+  }
+
+  .admin-content {
+
+    padding:
+      24px !important;
+
+  }
+
+}
+
+
+@media (max-width: 900px) {
+
+  .admin-sidebar {
+
+    width:
+      278px !important;
+
+  }
+
+  .admin-main {
+
+    width:
+      100% !important;
+
+    margin-left:
+      0 !important;
+
+  }
+
+  .admin-header {
+
+    min-height:
+      78px !important;
+
+    padding:
+      14px 20px !important;
+
+  }
+
+  .admin-page-heading h1 {
+
+    font-size:
+      27px !important;
+
+  }
+
+  .admin-content {
+
+    padding:
+      22px 20px 35px !important;
+
+  }
+
+}
+
+
+@media (max-width: 700px) {
+
+  .admin-header {
+
+    padding:
+      13px 16px !important;
+
+  }
+
+  .admin-page-heading h1 {
+
+    font-size:
+      24px !important;
+
+  }
+
+  .admin-page-heading p {
+
+    font-size:
+      13px !important;
+
+  }
+
+  .admin-account {
+
+    padding:
+      5px !important;
+
+  }
+
+  .admin-account-info {
+
+    display:
+      none !important;
+
+  }
+
+  .admin-content {
+
+    padding:
+      18px 15px 30px !important;
+
+  }
+
+  .admin-content input,
+  .admin-content select,
+  .admin-content textarea {
+
+    min-height:
+      48px;
+
+    font-size:
+      14px !important;
+
+  }
+
+}
+
+
+@media (max-width: 480px) {
+
+  .admin-page-heading h1 {
+
+    font-size:
+      22px !important;
+
+  }
+
+  .admin-content {
+
+    padding:
+      16px 12px 25px !important;
+
+  }
+
+}
+
+
+/* ============================================================
+   31. ACCESSIBILITY
+============================================================ */
+
+.admin-content button:focus-visible,
+.admin-content a:focus-visible,
+.admin-content input:focus-visible,
+.admin-content select:focus-visible,
+.admin-content textarea:focus-visible,
+.admin-nav-link:focus-visible {
+
+  outline:
+    3px solid rgba(37, 99, 235, 0.24) !important;
+
+  outline-offset:
+    3px !important;
+
+}
+
+
+/* ============================================================
+   32. REDUCED MOTION
+============================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+
+  .admin-content,
+  .admin-content *,
+  .admin-nav-link,
+  .admin-brand {
+
+    animation:
+      none !important;
+
+    transition:
+      none !important;
+
+  }
+
+}

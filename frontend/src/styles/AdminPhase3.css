@@ -1,0 +1,564 @@
+/* Phase 3: Admin portal visual layer. Scoped to Admin so shared Staff routes keep their current workflow styling. */
+.admin-layout[data-role="admin"] {
+  --tmc-admin-content-gutter: clamp(16px, 2.2vw, 32px);
+}
+
+.admin-layout[data-role="admin"] .admin-main {
+  min-width: 0;
+}
+
+.admin-layout[data-role="admin"] .admin-icon-rail {
+  border-right-color: rgba(189, 216, 233, 0.16);
+  box-shadow: 3px 0 16px rgba(0, 18, 36, 0.12);
+}
+
+.admin-layout[data-role="admin"] .admin-sidebar {
+  border-right-color: rgba(189, 216, 233, 0.18) !important;
+}
+
+.admin-layout[data-role="admin"] .admin-sidebar-header {
+  min-height: 78px;
+}
+
+.admin-layout[data-role="admin"] .admin-sidebar-profile {
+  margin: 12px 13px 7px;
+  padding: 11px;
+  border: 1px solid rgba(189, 216, 233, 0.14);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.admin-layout[data-role="admin"][data-sidebar-collapsed="true"] .admin-sidebar-profile {
+  margin: 12px 8px 5px;
+  padding: 8px 4px;
+}
+
+.admin-layout[data-role="admin"] .admin-nav-section {
+  margin-bottom: 14px;
+}
+
+.admin-layout[data-role="admin"] .admin-nav-section + .admin-nav-section {
+  padding-top: 12px;
+  border-top-color: rgba(189, 216, 233, 0.11);
+}
+
+.admin-layout[data-role="admin"] .admin-nav-label {
+  letter-spacing: 0.15em;
+}
+
+.admin-layout[data-role="admin"] .admin-sidebar .admin-nav-link {
+  min-height: 42px;
+}
+
+.admin-layout[data-role="admin"] .admin-sidebar .admin-nav-link.active {
+  border-color: rgba(123, 189, 232, 0.3) !important;
+  background: linear-gradient(100deg, rgba(10, 65, 116, 0.92), rgba(78, 142, 162, 0.52)) !important;
+  box-shadow: inset 3px 0 #7bbde8, 0 5px 14px rgba(0, 18, 36, 0.13) !important;
+}
+
+.admin-layout[data-role="admin"] .admin-header {
+  min-height: 84px;
+  box-shadow: 0 3px 12px rgba(0, 29, 57, 0.045) !important;
+}
+
+.admin-layout[data-role="admin"] .admin-page-heading h1 {
+  letter-spacing: -0.025em;
+}
+
+.admin-layout[data-role="admin"] .admin-content {
+  padding-inline: var(--tmc-admin-content-gutter) !important;
+}
+
+.admin-layout[data-role="admin"] .admin-content :is(
+  .analytics-page,
+  .categories-page,
+  .commission-page,
+  .complaints-page,
+  .dashboard-page,
+  .moderation-page,
+  .sellers-page,
+  .staff-management-page,
+  .transactions-page,
+  .users-page
+) {
+  width: 100%;
+  max-width: 1560px;
+  margin-inline: auto;
+}
+
+/* Shared Admin page headers and refresh actions. */
+.admin-layout[data-role="admin"] .admin-content :is(
+  .analytics-hero,
+  .categories-hero,
+  .commission-hero,
+  .complaints-hero,
+  .dashboard-hero,
+  .moderation-hero,
+  .reports-hero,
+  .sellers-hero,
+  .staff-page-header,
+  .transactions-hero,
+  .products-page-header
+) {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--tmc-admin-border) !important;
+  border-radius: 20px !important;
+  color: var(--tmc-admin-text) !important;
+  background: linear-gradient(125deg, var(--tmc-admin-surface), var(--tmc-admin-accent-soft)) !important;
+  box-shadow: var(--tmc-admin-card-shadow) !important;
+}
+
+.admin-layout[data-role="admin"] .admin-content :is(
+  .analytics-hero-content,
+  .categories-hero-content,
+  .commission-hero-content,
+  .complaints-hero-content,
+  .hero-content,
+  .moderation-hero-content,
+  .reports-hero-content,
+  .sellers-hero-content,
+  .transactions-hero-content
+) {
+  position: relative;
+  z-index: 1;
+}
+
+.admin-layout[data-role="admin"] .admin-content :is(
+  .analytics-refresh-button,
+  .categories-refresh-button,
+  .complaints-refresh-button,
+  .dashboard-hero-refresh,
+  .moderation-refresh,
+  .products-refresh,
+  .reports-refresh-button,
+  .sellers-refresh-button,
+  .staff-refresh-button,
+  .transactions-refresh-button,
+  .users-refresh-button
+) {
+  min-height: 42px;
+  border-radius: 11px;
+  font-weight: 750;
+}
+
+/* Bring dashboard metrics, summaries, and work panels onto one surface system. */
+.admin-layout[data-role="admin"] .admin-content :is(
+  .analytics-panel,
+  .analytics-stat-card,
+  .categories-panel,
+  .categories-summary-card,
+  .commission-overview-card,
+  .commission-empty-card,
+  .complaints-panel,
+  .complaints-status-card,
+  .dashboard-panel,
+  .dashboard-stat-card,
+  .course-stat-section,
+  .course-stat-card,
+  .secondary-stat,
+  .moderation-panel,
+  .moderation-card,
+  .products-table-card,
+  .reports-panel,
+  .reports-stat-card,
+  .reports-summary-item,
+  .seller-card,
+  .seller-stat-card,
+  .sellers-content-card,
+  .sellers-filter-card,
+  .staff-table-card,
+  .transactions-status-card,
+  .users-filter-card,
+  .users-table-card
+) {
+  border: 1px solid var(--tmc-admin-border) !important;
+  border-radius: 16px;
+  color: var(--tmc-admin-text);
+  background: var(--tmc-admin-surface) !important;
+  box-shadow: var(--tmc-admin-card-shadow) !important;
+}
+
+.admin-layout[data-role="admin"] .admin-content :is(
+  .dashboard-stat-card,
+  .secondary-stat,
+  .course-stat-card,
+  .analytics-stat-card,
+  .reports-stat-card,
+  .seller-card,
+  .seller-stat-card,
+  .moderation-card
+) {
+  transition: transform var(--tmc-ui-motion), box-shadow var(--tmc-ui-motion), border-color var(--tmc-ui-motion);
+}
+
+.admin-layout[data-role="admin"] .admin-content :is(
+  .dashboard-stat-card,
+  .secondary-stat,
+  .course-stat-card,
+  .analytics-stat-card,
+  .reports-stat-card,
+  .seller-card,
+  .seller-stat-card,
+  .moderation-card
+):hover {
+  transform: translateY(-2px);
+  border-color: var(--tmc-admin-accent-border) !important;
+  box-shadow: var(--tmc-admin-card-hover) !important;
+}
+
+.admin-layout[data-role="admin"] .admin-content :is(
+  .analytics-section-heading,
+  .reports-section-heading,
+  .course-stat-heading,
+  .dashboard-section-heading
+) h2 {
+  color: var(--tmc-admin-text) !important;
+  letter-spacing: -0.025em;
+}
+
+.admin-layout[data-role="admin"] .admin-content :is(
+  .analytics-section-heading,
+  .reports-section-heading,
+  .course-stat-heading,
+  .dashboard-section-heading
+) p {
+  color: var(--tmc-admin-secondary) !important;
+}
+
+.admin-layout[data-role="admin"] .admin-content :is(
+  .dashboard-stat-card,
+  .secondary-stat,
+  .course-stat-card,
+  .dashboard-panel,
+  .course-stat-section
+) {
+  border-radius: 17px;
+}
+
+.admin-layout[data-role="admin"] .dashboard-hero {
+  min-height: 172px;
+  margin-bottom: 26px;
+  padding: clamp(23px, 3vw, 34px);
+}
+
+.admin-layout[data-role="admin"] .hero-pattern {
+  background: var(--tmc-admin-accent-soft) !important;
+  box-shadow: none !important;
+}
+
+.admin-layout[data-role="admin"] .hero-icon,
+.admin-layout[data-role="admin"] .stat-icon,
+.admin-layout[data-role="admin"] .secondary-icon,
+.admin-layout[data-role="admin"] .panel-header-icon {
+  border: 1px solid var(--tmc-admin-border);
+  color: var(--tmc-admin-primary) !important;
+  background: var(--tmc-admin-accent-soft) !important;
+  box-shadow: var(--tmc-admin-input-shadow) !important;
+}
+
+.admin-layout[data-role="admin"] .hero-text h2,
+.admin-layout[data-role="admin"] .stat-card-value,
+.admin-layout[data-role="admin"] .stat-card-title,
+.admin-layout[data-role="admin"] .secondary-content strong,
+.admin-layout[data-role="admin"] .panel-header h2,
+.admin-layout[data-role="admin"] .overview-left strong,
+.admin-layout[data-role="admin"] .course-stat-card b {
+  color: var(--tmc-admin-text) !important;
+}
+
+.admin-layout[data-role="admin"] .hero-text span,
+.admin-layout[data-role="admin"] .dashboard-section-heading > div:first-child > span,
+.admin-layout[data-role="admin"] .panel-label,
+.admin-layout[data-role="admin"] .course-stat-heading span {
+  color: var(--tmc-admin-primary) !important;
+}
+
+.admin-layout[data-role="admin"] .dashboard-live {
+  border: 1px solid color-mix(in srgb, var(--tmc-admin-success) 24%, transparent);
+  color: var(--tmc-admin-success) !important;
+  background: var(--tmc-admin-success-soft) !important;
+  box-shadow: none !important;
+}
+
+.admin-layout[data-role="admin"] .dashboard-live span,
+.admin-layout[data-role="admin"] .online-indicator > span {
+  background: var(--tmc-admin-success) !important;
+  box-shadow: 0 0 0 4px var(--tmc-admin-success-soft) !important;
+}
+
+.admin-layout[data-role="admin"] .dashboard-stats {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.admin-layout[data-role="admin"] .dashboard-stat-card {
+  min-height: 154px;
+  padding: 18px;
+}
+
+.admin-layout[data-role="admin"] .secondary-stats {
+  gap: 14px;
+}
+
+.admin-layout[data-role="admin"] .secondary-stat {
+  min-height: 88px;
+}
+
+.admin-layout[data-role="admin"] .dashboard-bottom-grid {
+  grid-template-columns: minmax(0, 1.35fr) minmax(300px, 0.9fr);
+  gap: 16px;
+}
+
+.admin-layout[data-role="admin"] .dashboard-panel {
+  padding: clamp(17px, 2vw, 23px);
+}
+
+.admin-layout[data-role="admin"] .panel-header {
+  border-bottom-color: var(--tmc-admin-border) !important;
+}
+
+.admin-layout[data-role="admin"] .overview-item {
+  border-bottom-color: var(--tmc-admin-border);
+}
+
+.admin-layout[data-role="admin"] .course-stat-grid {
+  gap: 13px;
+}
+
+.admin-layout[data-role="admin"] .course-stat-card {
+  padding: 14px;
+}
+
+.admin-layout[data-role="admin"] .course-stat-card strong {
+  color: var(--tmc-admin-primary) !important;
+}
+
+.admin-layout[data-role="admin"] .course-stat-card span,
+.admin-layout[data-role="admin"] .stat-card-description,
+.admin-layout[data-role="admin"] .secondary-content span,
+.admin-layout[data-role="admin"] .secondary-content small,
+.admin-layout[data-role="admin"] .panel-header p,
+.admin-layout[data-role="admin"] .overview-left span,
+.admin-layout[data-role="admin"] .system-status p,
+.admin-layout[data-role="admin"] .system-mini-stats span,
+.admin-layout[data-role="admin"] .dashboard-footer {
+  color: var(--tmc-admin-secondary) !important;
+}
+
+.admin-layout[data-role="admin"] .open-management {
+  border: 1px solid var(--tmc-admin-primary) !important;
+  border-radius: 11px;
+  color: var(--tmc-admin-on-primary) !important;
+  background: var(--tmc-admin-primary) !important;
+  box-shadow: var(--tmc-admin-card-shadow) !important;
+}
+
+.admin-layout[data-role="admin"] .open-management:hover:not(:disabled) {
+  background: var(--tmc-admin-primary-hover) !important;
+}
+
+.admin-layout[data-role="admin"] .dashboard-error {
+  border: 1px solid var(--tmc-admin-danger-soft) !important;
+  border-radius: 13px;
+  color: var(--tmc-admin-danger) !important;
+  background: var(--tmc-admin-danger-soft) !important;
+}
+
+.admin-layout[data-role="admin"] .dashboard-error > button {
+  border: 1px solid var(--tmc-admin-danger) !important;
+  border-radius: 9px;
+  color: var(--tmc-admin-danger) !important;
+  background: var(--tmc-admin-surface) !important;
+}
+
+/* Shared Admin data-view surfaces and toolbars. */
+.admin-layout[data-role="admin"] .admin-content :is(
+  [class*="-panel"],
+  [class*="-stat-card"],
+  [class*="-summary-card"],
+  [class*="-status-card"],
+  [class*="-filter-card"],
+  [class*="-table-card"],
+  [class*="-overview-card"],
+  [class*="-empty-card"],
+  [class*="-content-card"]
+) {
+  border-color: var(--tmc-admin-border) !important;
+  color: var(--tmc-admin-text);
+  background-color: var(--tmc-admin-surface) !important;
+  box-shadow: var(--tmc-admin-card-shadow) !important;
+}
+
+.admin-layout[data-role="admin"] .admin-content :is(
+  .categories-toolbar,
+  .complaints-toolbar,
+  .moderation-filters,
+  .moderation-toolbar,
+  .products-toolbar,
+  .sellers-search-form,
+  .staff-filter-bar,
+  .transactions-filters,
+  .users-toolbar-top
+) {
+  border: 1px solid var(--tmc-admin-border);
+  border-radius: 14px;
+  background: var(--tmc-admin-surface);
+  box-shadow: var(--tmc-admin-card-shadow);
+}
+
+.admin-layout[data-role="admin"] .admin-content :is(
+  .categories-table-wrapper,
+  .complaints-table-wrapper,
+  .products-table-wrapper,
+  .staff-table-wrap,
+  .transactions-table-wrap,
+  .users-table-wrapper
+) {
+  overflow: auto;
+  border: 1px solid var(--tmc-admin-border);
+  border-radius: 14px;
+  background: var(--tmc-admin-surface);
+  box-shadow: var(--tmc-admin-card-shadow);
+}
+
+.admin-layout[data-role="admin"] .admin-content table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.admin-layout[data-role="admin"] .admin-content :is(thead th, th) {
+  font-weight: 750;
+}
+
+.admin-layout[data-role="admin"] .admin-content tbody tr {
+  transition: background-color var(--tmc-ui-motion);
+}
+
+.admin-layout[data-role="admin"] .admin-content tbody tr:hover {
+  background: var(--tmc-admin-accent-soft) !important;
+}
+
+.admin-layout[data-role="admin"] .admin-content :is(
+  .analytics-error,
+  .categories-alert-error,
+  .complaints-error,
+  .dashboard-error,
+  .moderation-alert-error,
+  .products-error,
+  .reports-error,
+  .sellers-error,
+  .staff-error,
+  .transactions-error,
+  .users-error
+) {
+  color: var(--tmc-admin-danger) !important;
+  border-color: var(--tmc-admin-danger-soft) !important;
+  background: var(--tmc-admin-danger-soft) !important;
+}
+
+.admin-layout[data-role="admin"] .admin-content :is(
+  button,
+  a,
+  input,
+  select,
+  textarea,
+  [role="button"]
+):focus-visible {
+  outline: 3px solid var(--tmc-admin-accent-border) !important;
+  outline-offset: 2px !important;
+}
+
+@media (max-width: 1180px) {
+  .admin-layout[data-role="admin"] .dashboard-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .admin-layout[data-role="admin"] .dashboard-bottom-grid {
+    grid-template-columns: minmax(0, 1.2fr) minmax(260px, 0.9fr);
+  }
+}
+
+@media (max-width: 960px) {
+  .admin-layout[data-role="admin"] .dashboard-stats,
+  .admin-layout[data-role="admin"] .secondary-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-layout[data-role="admin"] .dashboard-bottom-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-layout[data-role="admin"] .admin-sidebar-profile {
+    margin: 10px 12px 5px;
+  }
+
+  .admin-layout[data-role="admin"] .dashboard-hero {
+    min-height: auto;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 17px;
+    margin-bottom: 22px;
+    padding: 20px;
+  }
+
+  .admin-layout[data-role="admin"] .hero-content {
+    align-items: flex-start;
+    gap: 13px;
+  }
+
+  .admin-layout[data-role="admin"] .hero-icon {
+    width: 46px;
+    height: 46px;
+    flex: 0 0 46px;
+    border-radius: 13px;
+  }
+
+  .admin-layout[data-role="admin"] .hero-text h2 {
+    font-size: clamp(19px, 5vw, 24px);
+  }
+
+  .admin-layout[data-role="admin"] .hero-text p {
+    max-width: 44ch;
+  }
+
+  .admin-layout[data-role="admin"] .dashboard-hero-refresh {
+    width: 100%;
+    min-width: 0 !important;
+  }
+
+  .admin-layout[data-role="admin"] .dashboard-section-heading {
+    align-items: flex-start;
+  }
+
+  .admin-layout[data-role="admin"] .dashboard-live {
+    flex: 0 0 auto;
+  }
+
+  .admin-layout[data-role="admin"] .dashboard-stats,
+  .admin-layout[data-role="admin"] .secondary-stats,
+  .admin-layout[data-role="admin"] .course-stat-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-layout[data-role="admin"] .dashboard-stat-card {
+    min-height: 138px;
+  }
+
+  .admin-layout[data-role="admin"] .course-stat-card > div:first-child {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-layout[data-role="admin"] *,
+  .admin-layout[data-role="admin"] *::before,
+  .admin-layout[data-role="admin"] *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

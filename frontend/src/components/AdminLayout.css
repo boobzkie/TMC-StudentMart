@@ -1,0 +1,579 @@
+.admin-layout {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+/* =========================
+   SIDEBAR
+========================= */
+
+.admin-sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 250px;
+  height: 100vh;
+  z-index: 1000;
+
+  display: flex;
+  flex-direction: column;
+
+  background: #0f172a;
+  color: #ffffff;
+
+  border-right: 1px solid
+    rgba(255, 255, 255, 0.06);
+
+  transition: transform 0.25s ease;
+}
+
+/* =========================
+   BRAND
+========================= */
+
+.admin-brand {
+  height: 82px;
+  padding: 0 20px;
+
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  border-bottom: 1px solid
+    rgba(255, 255, 255, 0.08);
+}
+
+.admin-brand-logo {
+  width: 40px;
+  height: 40px;
+
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 11px;
+
+  background: #2563eb;
+
+  color: #ffffff;
+
+  font-size: 20px;
+  font-weight: 800;
+
+  box-shadow:
+    0 8px 20px
+    rgba(37, 99, 235, 0.25);
+}
+
+.admin-brand-text {
+  display: flex;
+  flex-direction: column;
+
+  min-width: 0;
+}
+
+.admin-brand-text strong {
+  color: #ffffff;
+
+  font-size: 14px;
+  font-weight: 800;
+
+  white-space: nowrap;
+}
+
+.admin-brand-text span {
+  margin-top: 3px;
+
+  color: #94a3b8;
+
+  font-size: 9px;
+  font-weight: 800;
+
+  letter-spacing: 1.5px;
+}
+
+/* =========================
+   CLOSE BUTTON
+========================= */
+
+.sidebar-close {
+  display: none;
+
+  margin-left: auto;
+
+  width: 36px;
+  height: 36px;
+
+  align-items: center;
+  justify-content: center;
+
+  border: 0;
+  border-radius: 8px;
+
+  background: transparent;
+  color: #cbd5e1;
+}
+
+.sidebar-close:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* =========================
+   NAVIGATION
+========================= */
+
+.admin-navigation {
+  flex: 1;
+  padding: 25px 13px;
+}
+
+.navigation-title {
+  padding: 0 12px 10px;
+
+  color: #64748b;
+
+  font-size: 10px;
+  font-weight: 800;
+
+  letter-spacing: 1.5px;
+}
+
+.admin-nav-link {
+  height: 46px;
+
+  margin-bottom: 5px;
+  padding: 0 13px;
+
+  display: flex;
+  align-items: center;
+  gap: 13px;
+
+  border-radius: 10px;
+
+  color: #94a3b8;
+
+  font-size: 13px;
+  font-weight: 600;
+
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.admin-nav-link svg {
+  flex-shrink: 0;
+}
+
+.admin-nav-link:hover {
+  color: #ffffff;
+
+  background:
+    rgba(255, 255, 255, 0.06);
+
+  transform: translateX(2px);
+}
+
+.admin-nav-link.active {
+  color: #ffffff;
+
+  background: #2563eb;
+
+  box-shadow:
+    0 8px 18px
+    rgba(37, 99, 235, 0.22);
+}
+
+.admin-nav-link.active svg {
+  color: #ffffff;
+}
+
+/* =========================
+   FOOTER
+========================= */
+
+.sidebar-footer {
+  padding: 15px;
+
+  border-top: 1px solid
+    rgba(255, 255, 255, 0.08);
+}
+
+.sidebar-admin {
+  min-width: 0;
+
+  padding: 10px;
+
+  margin-bottom: 10px;
+
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  border-radius: 10px;
+
+  background:
+    rgba(255, 255, 255, 0.05);
+}
+
+.sidebar-avatar {
+  width: 36px;
+  height: 36px;
+
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+
+  background: #3b82f6;
+
+  color: #ffffff;
+
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.sidebar-admin-info {
+  min-width: 0;
+
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-admin-info strong {
+  max-width: 150px;
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  color: #f8fafc;
+
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.sidebar-admin-info span {
+  margin-top: 3px;
+
+  color: #64748b;
+
+  font-size: 10px;
+}
+
+.sidebar-logout {
+  width: 100%;
+  height: 42px;
+
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  padding: 0 12px;
+
+  border: 0;
+  border-radius: 9px;
+
+  background: transparent;
+
+  color: #94a3b8;
+
+  font-size: 12px;
+  font-weight: 600;
+
+  transition:
+    background 0.2s ease,
+    color 0.2s ease;
+}
+
+.sidebar-logout:hover {
+  background:
+    rgba(220, 38, 38, 0.12);
+
+  color: #fca5a5;
+}
+
+/* =========================
+   MAIN
+========================= */
+
+.admin-main {
+  width: calc(100% - 250px);
+
+  min-height: 100vh;
+
+  margin-left: 250px;
+}
+
+/* =========================
+   TOPBAR
+========================= */
+
+.admin-topbar {
+  min-height: 94px;
+
+  padding: 22px 32px;
+
+  display: flex;
+  align-items: center;
+
+  background: #ffffff;
+
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.admin-heading {
+  min-width: 0;
+
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-heading-label {
+  margin-bottom: 5px;
+
+  color: #2563eb;
+
+  font-size: 9px;
+  font-weight: 800;
+
+  letter-spacing: 1.5px;
+}
+
+.admin-heading h1 {
+  margin: 0;
+
+  color: #0f172a;
+
+  font-size: 24px;
+  line-height: 1.2;
+  font-weight: 800;
+}
+
+.admin-heading p {
+  margin: 5px 0 0;
+
+  color: #64748b;
+
+  font-size: 12px;
+}
+
+.admin-header-security {
+  margin-left: auto;
+
+  height: 36px;
+
+  padding: 0 12px;
+
+  display: flex;
+  align-items: center;
+  gap: 7px;
+
+  border: 1px solid #dbeafe;
+  border-radius: 9px;
+
+  background: #eff6ff;
+
+  color: #2563eb;
+
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.mobile-menu-button {
+  display: none;
+
+  width: 40px;
+  height: 40px;
+
+  margin-right: 12px;
+
+  align-items: center;
+  justify-content: center;
+
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+
+  background: #ffffff;
+  color: #0f172a;
+}
+
+/* =========================
+   CONTENT
+========================= */
+
+.admin-page-content {
+  width: 100%;
+
+  padding: 30px 32px 40px;
+
+  animation: adminPageIn 0.25s ease;
+}
+
+@keyframes adminPageIn {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* =========================
+   MOBILE
+========================= */
+
+.admin-overlay {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .admin-sidebar {
+    transform: translateX(-100%);
+  }
+
+  .admin-sidebar.sidebar-open {
+    transform: translateX(0);
+  }
+
+  .sidebar-close {
+    display: flex;
+  }
+
+  .admin-main {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .mobile-menu-button {
+    display: flex;
+  }
+
+  .admin-overlay {
+    display: block;
+
+    position: fixed;
+    inset: 0;
+
+    z-index: 900;
+
+    background:
+      rgba(15, 23, 42, 0.55);
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-topbar {
+    min-height: 82px;
+    padding: 17px;
+  }
+
+  .admin-heading h1 {
+    font-size: 20px;
+  }
+
+  .admin-heading p {
+    font-size: 11px;
+  }
+
+  .admin-header-security {
+    display: none;
+  }
+
+  .admin-page-content {
+    padding: 20px 15px 30px;
+  }
+}
+/* Official TMC seal and accessible sidebar navigation */
+.admin-brand-logo { display:block; width:54px; height:54px; flex:0 0 54px; object-fit:contain; }
+.admin-navigation { overflow-y:auto; overscroll-behavior:contain; scrollbar-width:thin; }
+.admin-nav-restricted { margin:9px 10px 12px; color:#c4d2e5; font-size:12px; line-height:1.5; }
+.admin-header-logo { width:36px; height:36px; flex:0 0 36px; object-fit:contain; }
+@media (max-width:700px) { .admin-header-logo { display:none; } }
+/* Compact header for the Staff Student Accounts screen */
+.admin-layout .admin-main .admin-header.admin-header-users {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  flex-wrap: nowrap !important;
+  gap: 20px !important;
+  width: 100%;
+}
+
+.admin-layout .admin-main .admin-header.admin-header-users .admin-header-left {
+  display: flex !important;
+  align-items: center !important;
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+}
+
+.admin-layout .admin-main .admin-header.admin-header-users .admin-page-heading {
+  min-width: 0;
+}
+
+.admin-layout .admin-main .admin-header.admin-header-users .admin-page-heading h1 {
+  overflow-wrap: anywhere;
+}
+
+.admin-layout .admin-main .admin-header.admin-header-users .admin-account {
+  display: flex !important;
+  align-items: center !important;
+  flex: 0 0 auto !important;
+  width: max-content !important;
+  max-width: 100%;
+  margin-left: auto !important;
+}
+
+@media (max-width: 700px) {
+  .admin-layout .admin-main .admin-header.admin-header-users {
+    gap: 10px !important;
+  }
+
+  .admin-layout .admin-main .admin-header.admin-header-users .admin-account {
+    flex: 0 0 auto !important;
+  }
+}
+
+/* Apply the reference palette only to the Staff Student Accounts header */
+.admin-layout .admin-main .admin-header.admin-header-users {
+  border-bottom: 1px solid rgba(189, 216, 233, 0.72) !important;
+  background: linear-gradient(125deg, rgba(189, 216, 233, 0.62), rgba(247, 251, 254, 0.92)) !important;
+  box-shadow: 0 7px 20px rgba(10, 65, 116, 0.08) !important;
+}
+
+.admin-layout .admin-main .admin-header.admin-header-users .admin-page-heading h1 {
+  color: #001d39 !important;
+}
+
+.admin-layout .admin-main .admin-header.admin-header-users .admin-page-heading p {
+  color: #49769f !important;
+}
+
+.admin-layout .admin-main .admin-header.admin-header-users .admin-account {
+  border: 1px solid rgba(189, 216, 233, 0.68) !important;
+  background: linear-gradient(145deg, #f7fbfe, #e7f1f7) !important;
+  box-shadow: 5px 6px 16px rgba(73, 118, 159, 0.12), -5px -5px 14px rgba(255, 255, 255, 0.86) !important;
+}
+
+.admin-layout .admin-main .admin-header.admin-header-users .admin-account-avatar {
+  background: linear-gradient(145deg, #0a4174, #4e8ea2) !important;
+}
+
+.admin-layout .admin-main .admin-header.admin-header-users .admin-account-info strong {
+  color: #001d39 !important;
+}
+
+.admin-layout .admin-main .admin-header.admin-header-users .admin-account-info span {
+  color: #49769f !important;
+}

@@ -1,0 +1,27 @@
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.status-badge.active,
+.status-badge.approved {
+  color: #166534;
+  background: #DCFCE7;
+}
+
+.status-badge.pending {
+  color: #92400E;
+  background: #FEF3C7;
+}
+
+.status-badge.rejected,
+.status-badge.inactive {
+  color: #991B1B;
+  background: #FEE2E2;
+}
