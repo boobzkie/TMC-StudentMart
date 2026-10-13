@@ -272,7 +272,7 @@ class _ProductGalleryState extends State<ProductGallery> {
     return SizedBox(
       height: widget.height,
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(13),
+        borderRadius: BorderRadius.circular(TmcRadius.lg),
         child: Stack(
           children: [
             PageView.builder(

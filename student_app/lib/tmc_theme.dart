@@ -26,11 +26,32 @@ abstract final class TmcPalette {
 
 abstract final class TmcTypography {
   static const fontFamily = 'Roboto';
-  static const label = 12.0;
-  static const body = 14.0;
-  static const title = 20.0;
-  static const headline = 28.0;
+
+  static const labelSize = 12.0;
+  static const bodySize = 14.0;
+  static const titleSize = 20.0;
+  static const headlineSize = 28.0;
   static const lineHeight = 1.5;
+
+  static const weightLabel = FontWeight.w600;
+  static const weightBody = FontWeight.w400;
+  static const weightTitle = FontWeight.w700;
+  static const weightHeadline = FontWeight.w800;
+}
+
+abstract final class TmcLayout {
+  static const breakpointSmall = 360.0;
+  static const breakpointMedium = 600.0;
+  static const breakpointLarge = 840.0;
+  static const gridMinColumnWidth = 230.0;
+}
+
+abstract final class TmcControlSize {
+  static const minimumTapTarget = 44.0;
+  static const inputHeight = 50.0;
+  static const filledButtonHeight = 50.0;
+  static const outlinedButtonHeight = 48.0;
+  static const textButtonHeight = 44.0;
 }
 
 abstract final class TmcSpacing {

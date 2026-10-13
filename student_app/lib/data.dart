@@ -812,5 +812,5 @@ class CartState extends ChangeNotifier {
 
 String peso(double amount) {
   final formatted = amount.toStringAsFixed(2);
-  return '₱$formatted';
+  return '\u20b1$formatted';
 }

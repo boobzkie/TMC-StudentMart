@@ -515,16 +515,20 @@ class ProfilePage extends StatelessWidget {
               Text(
                 student.name,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   color: TmcPalette.deepNavyBlack,
-                  fontSize: 20,
                   fontWeight: FontWeight.w900,
+                  fontSize: 22,
                 ),
               ),
               const SizedBox(height: 4),
               Text(
                 student.course.isEmpty ? 'TMC Student' : student.course,
-                style: const TextStyle(color: TmcPalette.darkGray),
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: TmcPalette.darkGray,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               if (student.status.isNotEmpty) ...[
                 const SizedBox(height: 9),

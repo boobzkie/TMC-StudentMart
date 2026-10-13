@@ -430,13 +430,15 @@ class ProductDetailsPage extends StatelessWidget {
           const SizedBox(height: 18),
           Text(
             product.name,
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w900,
+              color: TmcPalette.deepNavyBlack,
+            ),
           ),
           const SizedBox(height: 7),
           Text(
             peso(product.price),
-            style: const TextStyle(
-              fontSize: 22,
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
               color: TmcPalette.navyBlue,
               fontWeight: FontWeight.w900,
             ),
@@ -471,11 +473,15 @@ class ProductDetailsPage extends StatelessWidget {
             style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
           ),
           const SizedBox(height: 7),
-          Text(
-            product.description.isEmpty
-                ? 'No description provided.'
-                : product.description,
-            style: const TextStyle(height: 1.5),
+          TmcPanel(
+            color: TmcPalette.white,
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              product.description.isEmpty
+                  ? 'No description provided.'
+                  : product.description,
+              style: const TextStyle(height: 1.5),
+            ),
           ),
           const SizedBox(height: 18),
           Card(

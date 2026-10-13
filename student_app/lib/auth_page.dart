@@ -84,218 +84,234 @@ class _AuthPageState extends State<AuthPage> {
   Widget build(BuildContext context) {
     final busy = context.watch<AuthState>().busy;
     return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 520),
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(24, 22, 24, 28),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const SizedBox(height: 12),
-                    const Center(child: BrandLogo(size: 92)),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'TMC StudentMart',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 25,
-                        fontWeight: FontWeight.w900,
-                        color: TmcPalette.deepNavy,
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      _registering
-                          ? 'Create your student account'
-                          : 'Your campus marketplace',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: TmcPalette.darkGray),
-                    ),
-                    const SizedBox(height: 28),
-                    Text(
-                      _registering ? 'Join the TMC community' : 'Welcome back',
-                      style: const TextStyle(
-                        fontSize: 23,
-                        fontWeight: FontWeight.w800,
-                        color: TmcPalette.deepNavyBlack,
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    if (_registering) ...[
-                      TextFormField(
-                        controller: _name,
-                        textCapitalization: TextCapitalization.words,
-                        decoration: const InputDecoration(
-                          labelText: 'Full name',
-                          prefixIcon: Icon(Icons.person_outline),
-                        ),
-                        validator: (value) => _required(value, 'Full name'),
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: _studentId,
-                        decoration: const InputDecoration(
-                          labelText: 'Student ID',
-                          prefixIcon: Icon(Icons.badge_outlined),
-                        ),
-                        validator: (value) => _required(value, 'Student ID'),
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-                    TextFormField(
-                      controller: _email,
-                      keyboardType: TextInputType.emailAddress,
-                      autofillHints: const [AutofillHints.email],
-                      decoration: const InputDecoration(
-                        labelText: 'Email address',
-                        prefixIcon: Icon(Icons.email_outlined),
-                      ),
-                      validator: _validateEmail,
-                    ),
-                    if (_registering) ...[
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: _contact,
-                        keyboardType: TextInputType.phone,
-                        decoration: const InputDecoration(
-                          labelText: 'Contact number',
-                          prefixIcon: Icon(Icons.phone_outlined),
-                        ),
-                        validator: (value) =>
-                            _required(value, 'Contact number'),
-                      ),
-                      const SizedBox(height: 12),
-                      DropdownButtonFormField<String>(
-                        initialValue: _course,
-                        decoration: const InputDecoration(
-                          labelText: 'Course / Department',
-                          prefixIcon: Icon(Icons.school_outlined),
-                        ),
-                        items: courseOptions
-                            .map(
-                              (course) => DropdownMenuItem(
-                                value: course.code,
-                                child: Text(
-                                  course.code,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            )
-                            .toList(),
-                        validator: (value) => value == null
-                            ? 'Select your course / department.'
-                            : null,
-                        onChanged: (value) => setState(() => _course = value),
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-                    TextFormField(
-                      controller: _password,
-                      obscureText: !_showPassword,
-                      autofillHints: _registering
-                          ? const [AutofillHints.newPassword]
-                          : const [AutofillHints.password],
-                      decoration: InputDecoration(
-                        labelText: 'Password',
-                        prefixIcon: const Icon(Icons.lock_outline),
-                        suffixIcon: IconButton(
-                          onPressed: () =>
-                              setState(() => _showPassword = !_showPassword),
-                          tooltip: _showPassword
-                              ? 'Hide password'
-                              : 'Show password',
-                          icon: Icon(
-                            _showPassword
-                                ? Icons.visibility_off_outlined
-                                : Icons.visibility_outlined,
+      body: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: <Color>[
+              TmcPalette.paleBlue.withValues(alpha: .58),
+              TmcPalette.pageBackground,
+            ],
+          ),
+        ),
+        child: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 500),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: TmcPanel(
+                  color: TmcPalette.white,
+                  radius: TmcRadius.xl,
+                  padding: const EdgeInsets.all(26),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: <Widget>[
+                        const Center(child: BrandLogo(size: 84)),
+                        const SizedBox(height: 12),
+                        Text(
+                          'TMC StudentMart',
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            color: TmcPalette.deepNavy,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 26,
                           ),
                         ),
-                      ),
-                      validator: (value) {
-                        final required = _required(value, 'Password');
-                        if (required != null) {
-                          return required;
-                        }
-                        if (_registering && value!.length < 8) {
-                          return 'Use at least 8 characters.';
-                        }
-                        return null;
-                      },
-                    ),
-                    if (!_registering)
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton(
-                          onPressed: busy ? null : _showPasswordRecovery,
-                          child: const Text('Forgot password?'),
+                        const SizedBox(height: 5),
+                        Text(
+                          _registering
+                              ? 'Create your student account'
+                              : 'Your campus marketplace',
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: TmcPalette.darkGray,
+                          ),
                         ),
-                      ),
-                    if (_registering) ...[
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: _confirm,
-                        obscureText: !_showPassword,
-                        decoration: const InputDecoration(
-                          labelText: 'Confirm password',
-                          prefixIcon: Icon(Icons.lock_reset_outlined),
+                        const SizedBox(height: 26),
+                        Text(
+                          _registering ? 'Join the TMC community' : 'Welcome back',
+                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                            color: TmcPalette.deepNavyBlack,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please confirm your password.';
-                          }
-                          if (value != _password.text) {
-                            return 'Passwords do not match.';
-                          }
-                          return null;
-                        },
-                      ),
-                    ],
-                    if (_error != null) ...[
-                      const SizedBox(height: 14),
-                      _InlineError(message: _error!),
-                    ],
-                    const SizedBox(height: 18),
-                    FilledButton(
-                      onPressed: busy ? null : _submit,
-                      child: busy
-                          ? const SizedBox(
-                              width: 22,
-                              height: 22,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
+                        const SizedBox(height: 18),
+                        if (_registering) ...<Widget>[
+                          TextFormField(
+                            controller: _name,
+                            textCapitalization: TextCapitalization.words,
+                            decoration: const InputDecoration(
+                              labelText: 'Full name',
+                              prefixIcon: Icon(Icons.person_outline),
+                            ),
+                            validator: (value) => _required(value, 'Full name'),
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _studentId,
+                            decoration: const InputDecoration(
+                              labelText: 'Student ID',
+                              prefixIcon: Icon(Icons.badge_outlined),
+                            ),
+                            validator: (value) => _required(value, 'Student ID'),
+                          ),
+                          const SizedBox(height: 12),
+                        ],
+                        TextFormField(
+                          controller: _email,
+                          keyboardType: TextInputType.emailAddress,
+                          autofillHints: const <String>[AutofillHints.email],
+                          decoration: const InputDecoration(
+                            labelText: 'Email address',
+                            prefixIcon: Icon(Icons.email_outlined),
+                          ),
+                          validator: _validateEmail,
+                        ),
+                        if (_registering) ...<Widget>[
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _contact,
+                            keyboardType: TextInputType.phone,
+                            decoration: const InputDecoration(
+                              labelText: 'Contact number',
+                              prefixIcon: Icon(Icons.phone_outlined),
+                            ),
+                            validator: (value) =>
+                                _required(value, 'Contact number'),
+                          ),
+                          const SizedBox(height: 12),
+                          DropdownButtonFormField<String>(
+                            initialValue: _course,
+                            decoration: const InputDecoration(
+                              labelText: 'Course / Department',
+                              prefixIcon: Icon(Icons.school_outlined),
+                            ),
+                            items: courseOptions
+                                .map(
+                                  (course) => DropdownMenuItem<String>(
+                                    value: course.code,
+                                    child: Text(
+                                      course.code,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                            validator: (value) => value == null
+                                ? 'Select your course / department.'
+                                : null,
+                            onChanged: (value) => setState(() => _course = value),
+                          ),
+                          const SizedBox(height: 12),
+                        ],
+                        TextFormField(
+                          controller: _password,
+                          obscureText: !_showPassword,
+                          autofillHints: _registering
+                              ? const <String>[AutofillHints.newPassword]
+                              : const <String>[AutofillHints.password],
+                          decoration: InputDecoration(
+                            labelText: 'Password',
+                            prefixIcon: const Icon(Icons.lock_outline),
+                            suffixIcon: IconButton(
+                              onPressed: () =>
+                                  setState(() => _showPassword = !_showPassword),
+                              tooltip: _showPassword
+                                  ? 'Hide password'
+                                  : 'Show password',
+                              icon: Icon(
+                                _showPassword
+                                    ? Icons.visibility_off_outlined
+                                    : Icons.visibility_outlined,
                               ),
-                            )
-                          : Text(_registering ? 'Create account' : 'Sign in'),
+                            ),
+                          ),
+                          validator: (value) {
+                            final required = _required(value, 'Password');
+                            if (required != null) {
+                              return required;
+                            }
+                            if (_registering && value!.length < 8) {
+                              return 'Use at least 8 characters.';
+                            }
+                            return null;
+                          },
+                        ),
+                        if (!_registering)
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton(
+                              onPressed: busy ? null : _showPasswordRecovery,
+                              child: const Text('Forgot password?'),
+                            ),
+                          ),
+                        if (_registering) ...<Widget>[
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _confirm,
+                            obscureText: !_showPassword,
+                            decoration: const InputDecoration(
+                              labelText: 'Confirm password',
+                              prefixIcon: Icon(Icons.lock_reset_outlined),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please confirm your password.';
+                              }
+                              if (value != _password.text) {
+                                return 'Passwords do not match.';
+                              }
+                              return null;
+                            },
+                          ),
+                        ],
+                        if (_error != null) ...<Widget>[
+                          const SizedBox(height: 14),
+                          _InlineError(message: _error!),
+                        ],
+                        const SizedBox(height: 18),
+                        FilledButton(
+                          onPressed: busy ? null : _submit,
+                          child: busy
+                              ? const SizedBox(
+                                  width: 22,
+                                  height: 22,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : Text(_registering ? 'Create account' : 'Sign in'),
+                        ),
+                        const SizedBox(height: 10),
+                        TextButton(
+                          onPressed: busy
+                              ? null
+                              : () => setState(() {
+                                    _registering = !_registering;
+                                    _error = null;
+                                  }),
+                          child: Text(
+                            _registering
+                                ? 'Already registered? Sign in'
+                                : 'New to StudentMart? Create an account',
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Student accounts are handled by the TMC StudentMart service. Use the email address registered with your account.',
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: TmcPalette.darkGray,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 10),
-                    TextButton(
-                      onPressed: busy
-                          ? null
-                          : () => setState(() {
-                              _registering = !_registering;
-                              _error = null;
-                            }),
-                      child: Text(
-                        _registering
-                            ? 'Already registered? Sign in'
-                            : 'New to StudentMart? Create an account',
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Student accounts are handled by the TMC StudentMart service. Use the email address registered with your account.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: TmcPalette.darkGray,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -362,7 +378,7 @@ class _PasswordRecoveryDialogState extends State<_PasswordRecoveryDialog> {
             key: _formKey,
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              children: [
+              children: <Widget>[
                 const Text(
                   'Enter the email address registered to your student account. We will send a reset link if an account matches.',
                 ),
@@ -370,7 +386,7 @@ class _PasswordRecoveryDialogState extends State<_PasswordRecoveryDialog> {
                 TextFormField(
                   controller: _email,
                   keyboardType: TextInputType.emailAddress,
-                  autofillHints: const [AutofillHints.email],
+                  autofillHints: const <String>[AutofillHints.email],
                   decoration: const InputDecoration(
                     labelText: 'Email address',
                     prefixIcon: Icon(Icons.email_outlined),
@@ -378,14 +394,14 @@ class _PasswordRecoveryDialogState extends State<_PasswordRecoveryDialog> {
                   validator: _validateEmail,
                   enabled: !_loading,
                 ),
-                if (_error != null) ...[
+                if (_error != null) ...<Widget>[
                   const SizedBox(height: 12),
                   _InlineError(message: _error!),
                 ],
               ],
             ),
           ),
-    actions: [
+    actions: <Widget>[
       TextButton(
         onPressed: _loading ? null : () => Navigator.of(context).pop(),
         child: Text(_sent ? 'Close' : 'Cancel'),
