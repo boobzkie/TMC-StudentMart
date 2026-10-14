@@ -1,7 +1,15 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+val signingPropertiesFile = rootProject.file("key.properties")
+val signingProperties = Properties()
+if (signingPropertiesFile.exists()) {
+    signingPropertiesFile.inputStream().use { signingProperties.load(it) }
 }
 
 android {
@@ -25,11 +33,31 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        if (signingPropertiesFile.exists()) {
+            create("release") {
+                keyAlias = signingProperties.getProperty("keyAlias")
+                    ?: throw GradleException("Missing keyAlias in android/key.properties.")
+                keyPassword = signingProperties.getProperty("keyPassword")
+                    ?: throw GradleException("Missing keyPassword in android/key.properties.")
+                storeFile = file(
+                    signingProperties.getProperty("storeFile")
+                        ?: throw GradleException("Missing storeFile in android/key.properties.")
+                )
+                storePassword = signingProperties.getProperty("storePassword")
+                    ?: throw GradleException("Missing storePassword in android/key.properties.")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            // Use the ignored local release key when it is present; otherwise retain the dev fallback.
+            signingConfig = if (signingPropertiesFile.exists()) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
         }
     }
 }
@@ -43,4 +71,3 @@ kotlin {
 flutter {
     source = "../.."
 }
-
