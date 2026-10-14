@@ -65,6 +65,25 @@ class _AuthPageState extends State<AuthPage> {
           'password': _password.text,
           'password_confirmation': _confirm.text,
         });
+        if (!mounted) return;
+        setState(() {
+          _registering = false;
+          _error = null;
+          _showPassword = false;
+          _name.clear();
+          _studentId.clear();
+          _contact.clear();
+          _password.clear();
+          _confirm.clear();
+          _course = null;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Account created successfully. Please sign in with your email and password.',
+            ),
+          ),
+        );
       } else {
         await auth.login(_email.text.trim(), _password.text);
       }
@@ -90,8 +109,8 @@ class _AuthPageState extends State<AuthPage> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: <Color>[
-              TmcPalette.paleBlue.withValues(alpha: .58),
-              TmcPalette.pageBackground,
+              TmcPalette.tikTokCyan.withValues(alpha: .08),
+              TmcPalette.neutralSurface,
             ],
           ),
         ),
@@ -330,20 +349,30 @@ class _PasswordRecoveryDialog extends StatefulWidget {
 }
 
 class _PasswordRecoveryDialogState extends State<_PasswordRecoveryDialog> {
-  final _formKey = GlobalKey<FormState>();
+  final _requestFormKey = GlobalKey<FormState>();
+  final _resetFormKey = GlobalKey<FormState>();
   final _email = TextEditingController();
+  final _token = TextEditingController();
+  final _password = TextEditingController();
+  final _confirm = TextEditingController();
   bool _loading = false;
   bool _sent = false;
+  bool _resetMode = false;
+  bool _resetComplete = false;
+  bool _showPassword = false;
   String? _error;
 
   @override
   void dispose() {
     _email.dispose();
+    _token.dispose();
+    _password.dispose();
+    _confirm.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_requestFormKey.currentState!.validate()) return;
     setState(() {
       _loading = true;
       _error = null;
@@ -351,6 +380,26 @@ class _PasswordRecoveryDialogState extends State<_PasswordRecoveryDialog> {
     try {
       await context.read<AuthState>().requestPasswordReset(_email.text);
       if (mounted) setState(() => _sent = true);
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _reset() async {
+    if (!_resetFormKey.currentState!.validate()) return;
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      await context.read<AuthState>().resetPassword(
+        email: _email.text,
+        token: _token.text,
+        password: _password.text,
+      );
+      if (mounted) setState(() => _resetComplete = true);
     } catch (error) {
       if (mounted) setState(() => _error = error.toString());
     } finally {
@@ -368,59 +417,195 @@ class _PasswordRecoveryDialogState extends State<_PasswordRecoveryDialog> {
   }
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: Text(_sent ? 'Check your email' : 'Reset your password'),
-    content: _sent
-        ? const Text(
-            'If an account matches that email, password-reset instructions have been sent. Open the link from your email to choose a new password.',
-          )
-        : Form(
-            key: _formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                const Text(
-                  'Enter the email address registered to your student account. We will send a reset link if an account matches.',
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _email,
-                  keyboardType: TextInputType.emailAddress,
-                  autofillHints: const <String>[AutofillHints.email],
-                  decoration: const InputDecoration(
-                    labelText: 'Email address',
-                    prefixIcon: Icon(Icons.email_outlined),
-                  ),
-                  validator: _validateEmail,
-                  enabled: !_loading,
-                ),
-                if (_error != null) ...<Widget>[
-                  const SizedBox(height: 12),
-                  _InlineError(message: _error!),
-                ],
-              ],
-            ),
-          ),
-    actions: <Widget>[
-      TextButton(
-        onPressed: _loading ? null : () => Navigator.of(context).pop(),
-        child: Text(_sent ? 'Close' : 'Cancel'),
-      ),
-      if (!_sent)
-        FilledButton(
-          onPressed: _loading ? null : _submit,
-          child: _loading
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Send reset link'),
-        ),
-    ],
-  );
-}
+  Widget build(BuildContext context) {
+    final Widget content;
 
+    if (_resetComplete) {
+      content = const Text(
+        'Your password has been reset successfully. Return to the login screen and sign in with your new password.',
+      );
+    } else if (_resetMode) {
+      content = Form(
+        key: _resetFormKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            const Text(
+              'Enter the reset code from the email you received, then choose a new password.',
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _email,
+              keyboardType: TextInputType.emailAddress,
+              decoration: const InputDecoration(
+                labelText: 'Email address',
+                prefixIcon: Icon(Icons.email_outlined),
+              ),
+              validator: _validateEmail,
+              enabled: !_loading,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _token,
+              decoration: const InputDecoration(
+                labelText: 'Reset token',
+                prefixIcon: Icon(Icons.key_outlined),
+              ),
+              validator: (value) =>
+                  (value == null || value.trim().isEmpty)
+                      ? 'Reset token is required.'
+                      : null,
+              enabled: !_loading,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _password,
+              obscureText: !_showPassword,
+              decoration: InputDecoration(
+                labelText: 'New password',
+                prefixIcon: const Icon(Icons.lock_outline),
+                suffixIcon: IconButton(
+                  onPressed: () =>
+                      setState(() => _showPassword = !_showPassword),
+                  icon: Icon(
+                    _showPassword
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                  ),
+                ),
+              ),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'New password is required.';
+                }
+                if (value.length < 8) {
+                  return 'Use at least 8 characters.';
+                }
+                return null;
+              },
+              enabled: !_loading,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _confirm,
+              obscureText: !_showPassword,
+              decoration: const InputDecoration(
+                labelText: 'Confirm new password',
+                prefixIcon: Icon(Icons.lock_reset_outlined),
+              ),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please confirm your new password.';
+                }
+                if (value != _password.text) {
+                  return 'Passwords do not match.';
+                }
+                return null;
+              },
+              enabled: !_loading,
+            ),
+            if (_error != null) ...<Widget>[
+              const SizedBox(height: 12),
+              _InlineError(message: _error!),
+            ],
+          ],
+        ),
+      );
+    } else if (_sent) {
+      content = Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          const Text(
+            'If an account matches that email, password-reset instructions have been sent. Check your email for the reset token and open this dialog to choose a new password.',
+          ),
+          if (_error != null) ...<Widget>[
+            const SizedBox(height: 12),
+            _InlineError(message: _error!),
+          ],
+        ],
+      );
+    } else {
+      content = Form(
+        key: _requestFormKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            const Text(
+              'Enter the email address registered to your student account. We will send reset instructions if an account matches.',
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _email,
+              keyboardType: TextInputType.emailAddress,
+              autofillHints: const <String>[AutofillHints.email],
+              decoration: const InputDecoration(
+                labelText: 'Email address',
+                prefixIcon: Icon(Icons.email_outlined),
+              ),
+              validator: _validateEmail,
+              enabled: !_loading,
+            ),
+            if (_error != null) ...<Widget>[
+              const SizedBox(height: 12),
+              _InlineError(message: _error!),
+            ],
+          ],
+        ),
+      );
+    }
+
+    return AlertDialog(
+      title: Text(
+        _resetComplete
+            ? 'Password reset complete'
+            : _resetMode
+            ? 'Choose a new password'
+            : _sent
+            ? 'Check your email'
+            : 'Reset your password',
+      ),
+      content: content,
+      actions: <Widget>[
+        TextButton(
+          onPressed: _loading ? null : () => Navigator.of(context).pop(),
+          child: const Text('Close'),
+        ),
+        if (!_resetComplete && !_resetMode && !_sent)
+          FilledButton(
+            onPressed: _loading ? null : _submit,
+            child: _loading
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('Send reset link'),
+          ),
+        if (_sent && !_resetMode)
+          FilledButton(
+            onPressed: _loading
+                ? null
+                : () => setState(() {
+                      _resetMode = true;
+                      _error = null;
+                    }),
+            child: const Text('I have a token'),
+          ),
+        if (_resetMode && !_resetComplete)
+          FilledButton(
+            onPressed: _loading ? null : _reset,
+            child: _loading
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('Reset password'),
+          ),
+      ],
+    );
+  }
+}
 class _InlineError extends StatelessWidget {
   const _InlineError({required this.message});
   final String message;

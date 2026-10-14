@@ -38,6 +38,7 @@ class AdminProductController extends Controller
             ->with([
                 'user:id,name,student_id,email',
                 'images',
+                'variants',
                 'categoryRecord:id,name',
                 'moderationEvents.actor:id,name',
                 'warnings.actor:id,name',
@@ -229,6 +230,40 @@ class AdminProductController extends Controller
         ]);
     }
 
+    public function restore(Request $request, Product $product): JsonResponse
+    {
+        $restored = DB::transaction(function () use ($request, $product): Product {
+            $lockedProduct = Product::query()->whereKey($product->id)->lockForUpdate()->firstOrFail();
+
+            abort_unless(
+                $lockedProduct->status === 'archived',
+                409,
+                'Only archived products can be restored.'
+            );
+
+            $stockBefore = (int) $lockedProduct->stock_quantity;
+            $fromStatus = $lockedProduct->status;
+            $lockedProduct->status = 'pending';
+            $lockedProduct->save();
+
+            $lockedProduct->historyEvents()->create([
+                'actor_id' => $request->user()->id,
+                'event' => 'admin_restored',
+                'stock_before' => $stockBefore,
+                'stock_after' => $stockBefore,
+                'note' => 'Administrator restored listing from archived. Reopened for moderation review (moved to pending).',
+            ]);
+
+            return $lockedProduct->fresh();
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Archived product restored for moderation review. It is not active in the marketplace until approved.',
+            'product' => $this->loadProduct($restored),
+        ]);
+    }
+
     private function recordDecision(Request $request, Product $product, string $toStatus, ?string $reason): JsonResponse
     {
         $result = DB::transaction(function () use ($request, $product, $toStatus, $reason) {
@@ -280,6 +315,7 @@ class AdminProductController extends Controller
         return $product->load([
             'user:id,name,student_id,email',
             'images',
+            'variants',
             'categoryRecord:id,name',
             'moderationEvents.actor:id,name',
             'warnings.actor:id,name',

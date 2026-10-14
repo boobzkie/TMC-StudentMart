@@ -575,6 +575,8 @@ class _Item extends StatelessWidget {
     final quantity = int.tryParse(valueOf(item['quantity'])) ?? 0;
     final price = double.tryParse(valueOf(item['unit_price'])) ?? 0;
     final lineTotal = double.tryParse(valueOf(item['line_total'])) ?? 0;
+    final variantLabel = valueOf(item['variant_label']);
+    final variantAttributes = asMap(item['variant_attributes']);
     return Row(
       children: [
         ClipRRect(
@@ -614,6 +616,20 @@ class _Item extends StatelessWidget {
                   fontSize: 12,
                 ),
               ),
+              if (variantLabel.isNotEmpty || variantAttributes.isNotEmpty) ...[
+                const SizedBox(height: 3),
+                Text(
+                  [
+                    if (variantLabel.isNotEmpty) variantLabel,
+                    ...variantAttributes.entries.map((entry) => '${entry.key}: ${entry.value}'),
+                  ].join(' · '),
+                  style: const TextStyle(
+                    color: TmcPalette.navyBlue,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
             ],
           ),
         ),

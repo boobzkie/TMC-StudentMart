@@ -111,7 +111,7 @@ return response()->json([
         $user = User::query()
             ->where('role', 'staff')
             ->where('email', strtolower($validated['email']))
-            ->with('staffProfile')
+            ->with(['staffProfile.events' => fn ($query) => $query->oldest()])
             ->first();
         $profile = $user?->staffProfile;
 
@@ -134,6 +134,14 @@ return response()->json([
             default => 'Your application status is '.strtolower((string) $status).'.',
         };
 
+        $history = $profile->events->map(fn ($event) => [
+            'event' => $event->event,
+            'from_status' => $event->from_status,
+            'to_status' => $event->to_status,
+            'note' => $event->note,
+            'created_at' => $event->created_at,
+        ])->values();
+
         return response()->json([
             'success' => true,
             'status' => $status,
@@ -141,6 +149,7 @@ return response()->json([
             'decision_reason' => $status === 'rejected' ? $profile->decision_reason : null,
             'submitted_at' => $user->created_at,
             'reviewed_at' => $profile->reviewed_at,
+            'history' => $history,
         ]);
     }
 }

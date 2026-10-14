@@ -1,27 +1,34 @@
 import 'package:flutter/material.dart';
 
 abstract final class TmcPalette {
-  static const deepNavy = Color(0xFF001D39);
-  static const navyBlue = Color(0xFF0A4174);
-  static const slateBlue = Color(0xFF49769F);
-  static const tealBlue = Color(0xFF4E8EA2);
-  static const mutedTeal = Color(0xFF6EA2B3);
-  static const lightBlue = Color(0xFF7BBDE8);
-  static const paleBlue = Color(0xFFBDD8E9);
+  // TikTok-inspired black/neutral foundation with restrained cyan and pink accents.
+  static const deepNavy = Color(0xFF101010);
+  static const navyBlue = Color(0xFF1F1F1F);
+  static const slateBlue = Color(0xFF6B7280);
+  static const tealBlue = Color(0xFF25F4EE);
+  static const mutedTeal = Color(0xFF7AECE7);
+  static const lightBlue = Color(0xFFFE2C55);
+  static const paleBlue = Color(0xFFF2F2F3);
 
   static const white = Color(0xFFFFFFFF);
-  static const lightGray = Color(0xFFD6D6D6);
-  static const mediumGray = Color(0xFF898A8C);
-  static const darkGray = Color(0xFF545A5B);
-  static const deepNavyBlack = Color(0xFF06151E);
+  static const lightGray = Color(0xFFE5E5E7);
+  static const mediumGray = Color(0xFF9A9AA0);
+  static const darkGray = Color(0xFF5A5A60);
+  static const deepNavyBlack = Color(0xFF0F0F10);
 
-  static const success = Color(0xFF166534);
-  static const warning = Color(0xFF92400E);
-  static const error = Color(0xFFB42332);
+  // Adapted TikTok accent colors for the student system UI.
+  static const tikTokBlack = Color(0xFF0F0F10);
+  static const tikTokCyan = Color(0xFF25F4EE);
+  static const tikTokPink = Color(0xFFFE2C55);
+  static const neutralSurface = Color(0xFFF7F7F8);
+
+  static const success = Color(0xFF15803D);
+  static const warning = Color(0xFFB45309);
+  static const error = Color(0xFFE02650);
   static const information = navyBlue;
 
   static Color get pageBackground =>
-      Color.alphaBlend(white.withValues(alpha: .72), paleBlue);
+      Color.alphaBlend(white.withValues(alpha: .88), paleBlue);
 }
 
 abstract final class TmcTypography {
@@ -65,9 +72,9 @@ abstract final class TmcSpacing {
 
 abstract final class TmcRadius {
   static const sm = 8.0;
-  static const md = 12.0;
-  static const lg = 18.0;
-  static const xl = 22.0;
+  static const md = 14.0;
+  static const lg = 20.0;
+  static const xl = 24.0;
   static const pill = 999.0;
 }
 
@@ -241,7 +248,7 @@ abstract final class TmcTheme {
       ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: TmcPalette.white,
-        indicatorColor: TmcPalette.paleBlue,
+        indicatorColor: TmcPalette.tikTokCyan.withValues(alpha: .18),
         elevation: 0,
         height: 68,
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,

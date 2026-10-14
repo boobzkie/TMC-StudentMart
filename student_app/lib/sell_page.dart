@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -69,18 +70,46 @@ class _SellPageState extends State<SellPage> {
   }
 
   Future<void> _manageStock(Product product) async {
-    final controller = TextEditingController(text: '${product.stockQuantity}');
+    ProductVariant? selectedVariant;
+    if (product.variants.isNotEmpty) {
+      selectedVariant = await showDialog<ProductVariant>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Choose an option'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: product.variants
+                .map(
+                  (variant) => ListTile(
+                    title: Text(variant.label),
+                    subtitle: Text('${variant.stockQuantity} available'),
+                    onTap: () => Navigator.pop(dialogContext, variant),
+                  ),
+                )
+                .toList(),
+          ),
+        ),
+      );
+      if (selectedVariant == null || !mounted) return;
+    }
+    final controller = TextEditingController(
+      text: '${selectedVariant?.stockQuantity ?? product.stockQuantity}',
+    );
     final quantity = await showDialog<int>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Manage stock'),
+        title: Text(selectedVariant == null
+            ? 'Manage stock'
+            : 'Manage stock — ${selectedVariant.label}'),
         content: TextField(
           controller: controller,
           autofocus: true,
           keyboardType: TextInputType.number,
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             labelText: 'Available units',
-            helperText: 'Set to 0 to mark this listing sold out.',
+            helperText: selectedVariant == null
+                ? 'Set to 0 to mark this listing sold out.'
+                : 'Set to 0 to mark this option sold out.',
           ),
         ),
         actions: [
@@ -107,7 +136,11 @@ class _SellPageState extends State<SellPage> {
     controller.dispose();
     if (quantity == null || !mounted) return;
     try {
-      await context.read<MarketplaceState>().updateStock(product.id, quantity);
+      await context.read<MarketplaceState>().updateStock(
+        product.id,
+        quantity,
+        variantId: selectedVariant?.id,
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(quantity == 0 ? 'Listing marked sold out.' : 'Stock updated.')),
@@ -317,6 +350,40 @@ class _SellPageState extends State<SellPage> {
   }
 }
 
+class _VariantDraft {
+  _VariantDraft({
+    this.id,
+    String label = '',
+    String stockQuantity = '0',
+    Map<String, String> attributes = const {},
+  }) : label = TextEditingController(text: label),
+       stockQuantity = TextEditingController(text: stockQuantity),
+       attributes = {
+         for (final key in const ['size', 'color', 'type'])
+           key: TextEditingController(text: attributes[key] ?? ''),
+       };
+
+  final int? id;
+  final TextEditingController label;
+  final TextEditingController stockQuantity;
+  final Map<String, TextEditingController> attributes;
+
+  factory _VariantDraft.fromVariant(ProductVariant variant) => _VariantDraft(
+    id: variant.id,
+    label: variant.label,
+    stockQuantity: '${variant.stockQuantity}',
+    attributes: variant.attributes,
+  );
+
+  void dispose() {
+    label.dispose();
+    stockQuantity.dispose();
+    for (final controller in attributes.values) {
+      controller.dispose();
+    }
+  }
+}
+
 class ProductFormPage extends StatefulWidget {
   const ProductFormPage({super.key, this.product});
   final Product? product;
@@ -342,6 +409,23 @@ class _ProductFormPageState extends State<ProductFormPage> {
   late final TextEditingController _stock = TextEditingController(
     text: '${widget.product?.stockQuantity ?? 1}',
   );
+  late final Map<String, TextEditingController> _attributeControllers = {
+    for (final key in const [
+      'brand',
+      'material',
+      'model',
+      'dimensions',
+      'subject',
+      'edition',
+      'author',
+      'uniform_type',
+      'notes',
+    ])
+      key: TextEditingController(text: widget.product?.attributes[key] ?? ''),
+  };
+  String? _condition;
+  bool _variantsEnabled = false;
+  final List<_VariantDraft> _variantDrafts = [];
   int? _selectedCategoryId;
   final List<XFile> _newImages = [];
   final Set<int> _removedImageIds = {};
@@ -357,10 +441,53 @@ class _ProductFormPageState extends State<ProductFormPage> {
       if (image.id == null || !_removedImageIds.contains(image.id)) image,
   ];
 
+  Map<String, String> _productAttributes() {
+    final values = <String, String>{};
+    for (final entry in _attributeControllers.entries) {
+      final value = entry.value.text.trim();
+      if (value.isNotEmpty) values[entry.key] = value;
+    }
+    if (_condition != null && _condition!.isNotEmpty) {
+      values['condition'] = _condition!;
+    }
+    return values;
+  }
+
+  List<Map<String, dynamic>> _variantPayload() => _variantDrafts.map((draft) {
+    final attributes = <String, String>{};
+    for (final entry in draft.attributes.entries) {
+      final value = entry.value.text.trim();
+      if (value.isNotEmpty) attributes[entry.key] = value;
+    }
+    return <String, dynamic>{
+      if (draft.id != null) 'id': draft.id,
+      'label': draft.label.text.trim(),
+      'attributes': attributes,
+      'stock_quantity': int.tryParse(draft.stockQuantity.text.trim()) ?? -1,
+    };
+  }).toList();
+
+  void _setVariantsEnabled(bool enabled) {
+    if (widget.product?.variants.isNotEmpty == true && !enabled) return;
+    setState(() {
+      _variantsEnabled = enabled;
+      if (enabled && _variantDrafts.isEmpty) {
+        _variantDrafts.add(
+          _VariantDraft(label: 'Standard', stockQuantity: _stock.text.trim()),
+        );
+      }
+    });
+  }
+
   @override
   void initState() {
     super.initState();
     _selectedCategoryId = widget.product?.categoryId;
+    _condition = widget.product?.attributes['condition'];
+    _variantsEnabled = widget.product?.variants.isNotEmpty ?? false;
+    for (final variant in widget.product?.variants ?? const <ProductVariant>[]) {
+      _variantDrafts.add(_VariantDraft.fromVariant(variant));
+    }
     final images = widget.product?.images ?? const <ProductImage>[];
     ProductImage? cover;
     for (final image in images) {
@@ -382,6 +509,12 @@ class _ProductFormPageState extends State<ProductFormPage> {
     _description.dispose();
     _price.dispose();
     _stock.dispose();
+    for (final controller in _attributeControllers.values) {
+      controller.dispose();
+    }
+    for (final variant in _variantDrafts) {
+      variant.dispose();
+    }
     super.dispose();
   }
 
@@ -501,6 +634,30 @@ class _ProductFormPageState extends State<ProductFormPage> {
   Future<void> _save() async {
     FocusScope.of(context).unfocus();
     if (!_form.currentState!.validate()) return;
+    if (_variantsEnabled) {
+      final labels = _variantDrafts
+          .map((variant) => variant.label.text.trim().toLowerCase())
+          .toList();
+      final quantities = _variantDrafts
+          .map((variant) => int.tryParse(variant.stockQuantity.text.trim()))
+          .toList();
+      if (_variantDrafts.isEmpty || labels.any((label) => label.isEmpty)) {
+        setState(() => _error = 'Add a name for every product option.');
+        return;
+      }
+      if (labels.toSet().length != labels.length) {
+        setState(() => _error = 'Each product option needs a different name.');
+        return;
+      }
+      if (quantities.any((quantity) => quantity == null || quantity < 0)) {
+        setState(() => _error = 'Enter a whole stock quantity of 0 or more for each option.');
+        return;
+      }
+      if (quantities.fold<int>(0, (sum, quantity) => sum + (quantity ?? 0)) <= 0) {
+        setState(() => _error = 'At least one product option must have stock.');
+        return;
+      }
+    }
     setState(() {
       _saving = true;
       _error = null;
@@ -517,7 +674,11 @@ class _ProductFormPageState extends State<ProductFormPage> {
           'description': _description.text.trim(),
           'price': _price.text.trim(),
           'category_id': _categoryIdForSave.toString(),
-          'stock_quantity': _stock.text.trim(),
+          'stock_quantity': _variantsEnabled
+              ? '${_variantDrafts.fold<int>(0, (sum, variant) => sum + (int.tryParse(variant.stockQuantity.text.trim()) ?? 0))}'
+              : _stock.text.trim(),
+          'attributes': jsonEncode(_productAttributes()),
+          if (_variantsEnabled) 'variants': jsonEncode(_variantPayload()),
         },
       );
       if (mounted) {
@@ -782,22 +943,163 @@ class _ProductFormPageState extends State<ProductFormPage> {
             },
           ),
           const SizedBox(height: 12),
-          TextFormField(
-            controller: _stock,
-            keyboardType: TextInputType.number,
-            decoration: InputDecoration(
-              labelText: 'Available stock',
-              helperText: _editing
-                  ? 'Stock saved with listing edits returns the listing to review.'
-                  : 'Enter how many units you have available.',
+          if (!_variantsEnabled)
+            TextFormField(
+              controller: _stock,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                labelText: 'Available stock',
+                helperText: _editing
+                    ? 'Stock saved with listing edits returns the listing to review.'
+                    : 'Enter how many units you have available.',
+              ),
+              validator: (value) {
+                final quantity = int.tryParse(value?.trim() ?? '');
+                return quantity == null || quantity < 0
+                    ? 'Enter a whole number that is 0 or greater.'
+                    : null;
+              },
             ),
-            validator: (value) {
-              final quantity = int.tryParse(value?.trim() ?? '');
-              return quantity == null || quantity < 0
-                  ? 'Enter a whole number that is 0 or greater.'
-                  : null;
-            },
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SwitchListTile.adaptive(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('This listing has product options'),
+                    subtitle: const Text(
+                      'Use this for sizes, colors, or other options with separate stock.',
+                    ),
+                    value: _variantsEnabled,
+                    onChanged: _saving || widget.product?.variants.isNotEmpty == true
+                        ? null
+                        : _setVariantsEnabled,
+                  ),
+                  if (_variantsEnabled) ...[
+                    const Text(
+                      'Each option has its own stock. The listing stock is the total of the active options.',
+                      style: TextStyle(color: TmcPalette.darkGray, fontSize: 12),
+                    ),
+                    const SizedBox(height: 10),
+                    for (var index = 0; index < _variantDrafts.length; index++)
+                      Card(
+                        color: TmcPalette.pageBackground,
+                        child: Padding(
+                          padding: const EdgeInsets.all(10),
+                          child: Column(
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: TextFormField(
+                                      controller: _variantDrafts[index].label,
+                                      decoration: InputDecoration(
+                                        labelText: 'Option ${index + 1} name',
+                                        hintText: 'For example: Small / Blue',
+                                      ),
+                                      validator: (value) => _variantsEnabled &&
+                                              (value == null || value.trim().isEmpty)
+                                          ? 'Enter an option name.'
+                                          : null,
+                                    ),
+                                  ),
+                                  IconButton(
+                                    tooltip: 'Remove option',
+                                    onPressed: _saving || _variantDrafts.length <= 1
+                                        ? null
+                                        : () => setState(() {
+                                            _variantDrafts.removeAt(index).dispose();
+                                          }),
+                                    icon: const Icon(Icons.delete_outline),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              TextFormField(
+                                controller: _variantDrafts[index].stockQuantity,
+                                keyboardType: TextInputType.number,
+                                decoration: const InputDecoration(labelText: 'Available units for this option'),
+                                validator: (value) {
+                                  if (!_variantsEnabled) return null;
+                                  final quantity = int.tryParse(value?.trim() ?? '');
+                                  return quantity == null || quantity < 0
+                                      ? 'Enter a whole number of 0 or more.'
+                                      : null;
+                                },
+                              ),
+                              const SizedBox(height: 8),
+                              for (final field in const [
+                                ('size', 'Size'),
+                                ('color', 'Color'),
+                                ('type', 'Type / fit'),
+                              ])
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 8),
+                                  child: TextFormField(
+                                    controller: _variantDrafts[index].attributes[field.$1],
+                                    decoration: InputDecoration(
+                                      labelText: '${field.$2} (optional)',
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: OutlinedButton.icon(
+                        onPressed: _saving
+                            ? null
+                            : () => setState(() => _variantDrafts.add(_VariantDraft())),
+                        icon: const Icon(Icons.add),
+                        label: const Text('Add another option'),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
           ),
+          const SizedBox(height: 14),
+          const Text(
+            'Optional product details',
+            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Add only details that fit this item. These fields are optional.',
+            style: TextStyle(color: TmcPalette.darkGray, fontSize: 12),
+          ),
+          const SizedBox(height: 9),
+          DropdownButtonFormField<String>(
+            initialValue: _condition,
+            decoration: const InputDecoration(labelText: 'Condition (optional)'),
+            items: const [
+              DropdownMenuItem(value: 'new', child: Text('New')),
+              DropdownMenuItem(value: 'used', child: Text('Used')),
+            ],
+            onChanged: _saving ? null : (value) => setState(() => _condition = value),
+          ),
+          for (final field in const [
+            ('brand', 'Brand'),
+            ('material', 'Material'),
+            ('model', 'Model / version'),
+            ('dimensions', 'Dimensions'),
+            ('subject', 'Subject'),
+            ('edition', 'Edition'),
+            ('author', 'Author'),
+            ('uniform_type', 'Uniform type'),
+            ('notes', 'Other details'),
+          ]) ...[
+            const SizedBox(height: 9),
+            TextFormField(
+              controller: _attributeControllers[field.$1],
+              decoration: InputDecoration(labelText: '${field.$2} (optional)'),
+            ),
+          ],
           const SizedBox(height: 12),
           Builder(
             builder: (context) {

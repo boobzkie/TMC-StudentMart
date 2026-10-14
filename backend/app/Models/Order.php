@@ -16,6 +16,8 @@ class Order extends Model
         'buyer_name_snapshot',
         'seller_name_snapshot',
         'status',
+        'seller_response_deadline_at',
+        'needs_attention',
         'total_amount',
         'payment_method_id',
         'payment_method_name_snapshot',
@@ -35,6 +37,8 @@ class Order extends Model
     {
         return [
             'total_amount' => 'decimal:2',
+            'seller_response_deadline_at' => 'datetime',
+            'needs_attention' => 'boolean',
             'completed_at' => 'datetime',
         ];
     }

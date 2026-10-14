@@ -11,3 +11,7 @@ Artisan::command('inspire', function () {
 Schedule::command('products:archive-sold-out')
     ->everyMinute()
     ->withoutOverlapping();
+
+Schedule::command('orders:check-seller-response-deadlines')
+    ->everyMinute()
+    ->withoutOverlapping();

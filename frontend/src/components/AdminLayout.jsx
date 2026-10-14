@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   BarChart3,
-  Calculator,
   ChevronDown,
   CreditCard,
   ChevronLeft,
@@ -44,7 +43,6 @@ const marketplaceLinks = [
   { to: "/admin/sellers", label: "Sellers", icon: Store },
   { to: "/admin/transactions", label: "Transactions", icon: CreditCard },
   { to: "/admin/order-options", label: "Payment & pickup setup", icon: SlidersHorizontal },
-  { to: "/admin/commission", label: "Commission", icon: Calculator },
 ];
 
 const insightLinks = [

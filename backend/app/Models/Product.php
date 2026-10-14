@@ -21,6 +21,7 @@ class Product extends Model
         'category',
         'image',
         'status',
+        'attributes',
         'stock_quantity',
         'sold_out_at',
         'archived_at',
@@ -28,6 +29,7 @@ class Product extends Model
 
     protected $casts = [
         'price' => 'decimal:2',
+        'attributes' => 'array',
         'stock_quantity' => 'integer',
         'sold_out_at' => 'datetime',
         'archived_at' => 'datetime',
@@ -48,6 +50,11 @@ class Product extends Model
         return $this->hasMany(ProductImage::class)
             ->orderBy('sort_order')
             ->orderBy('id');
+    }
+
+    public function variants(): HasMany
+    {
+        return $this->hasMany(ProductVariant::class)->orderBy('id');
     }
 
     public function complaints(): HasMany

@@ -316,7 +316,7 @@ export default function AdminSellers() {
 
             <div>
               <span>
-                Total Sellers
+                Accounts
               </span>
 
               <strong>
@@ -344,41 +344,7 @@ export default function AdminSellers() {
 
           </div>
 
-          <div className="seller-stat-card">
 
-            <div className="seller-stat-icon green">
-              <CheckCircle2 size={20} />
-            </div>
-
-            <div>
-              <span>
-                Active Products
-              </span>
-
-              <strong>
-                {statistics.active}
-              </strong>
-            </div>
-
-          </div>
-
-          <div className="seller-stat-card">
-
-            <div className="seller-stat-icon orange">
-              <Clock3 size={20} />
-            </div>
-
-            <div>
-              <span>
-                Pending Products
-              </span>
-
-              <strong>
-                {statistics.pending}
-              </strong>
-            </div>
-
-          </div>
 
         </section>
 

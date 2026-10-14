@@ -184,7 +184,7 @@ class _CartPageState extends State<CartPage> {
     if (cart.entries.any(
       (entry) =>
           entry.product.status != 'active' ||
-          entry.quantity > entry.product.stockQuantity,
+          entry.quantity > entry.availableStock,
     )) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -205,22 +205,35 @@ class _CartPageState extends State<CartPage> {
         setState(() => _placingOrder = false);
         return;
       }
+      final items = cart.entries
+          .map(
+            (entry) => <String, Object?>{
+              'product_id': entry.product.id,
+              'variant_id': entry.variant?.id,
+              'quantity': entry.quantity,
+            },
+          )
+          .toList(growable: false);
+      final idempotencyKey = await cart.checkoutIdempotencyKey(
+        buyerId: student.id,
+        paymentMethodId: options['payment_method_id']!,
+        pickupLocationId: options['pickup_location_id']!,
+        items: items,
+      );
       final response = asMap(
         await api.post('/orders', {
+          'idempotency_key': idempotencyKey,
           ...options,
-          'items': cart.entries
-              .map(
-                (entry) => {
-                  'product_id': entry.product.id,
-                  'quantity': entry.quantity,
-                },
-              )
-              .toList(),
+          'items': items,
         }),
       );
       final created = response['orders'];
       final orderCount = created is List ? created.length : 1;
       await cart.clear();
+      await cart.completeCheckoutAttempt(
+        buyerId: student.id,
+        idempotencyKey: idempotencyKey,
+      );
       if (!mounted) return;
       setState(() => _placingOrder = false);
       await showDialog<void>(
@@ -318,6 +331,17 @@ class _CartPageState extends State<CartPage> {
                                 fontWeight: FontWeight.w800,
                               ),
                             ),
+                            if (entry.optionLabel.isNotEmpty) ...[
+                              const SizedBox(height: 3),
+                              Text(
+                                entry.optionLabel,
+                                style: const TextStyle(
+                                  color: TmcPalette.navyBlue,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
                             const SizedBox(height: 4),
                             Text(
                               peso(product.price),
@@ -328,9 +352,9 @@ class _CartPageState extends State<CartPage> {
                             ),
                             const SizedBox(height: 3),
                             Text(
-                              product.stockQuantity <= 0
+                              entry.availableStock <= 0
                                   ? 'Stock unavailable'
-                                  : '${product.stockQuantity} available when added',
+                                  : '${entry.availableStock} available for this option',
                               style: const TextStyle(
                                 color: TmcPalette.darkGray,
                                 fontSize: 11,
@@ -344,7 +368,7 @@ class _CartPageState extends State<CartPage> {
                                   onTap: _placingOrder
                                       ? null
                                       : () => cart.setQuantity(
-                                          product.id,
+                                          entry.key,
                                           entry.quantity - 1,
                                         ),
                                 ),
@@ -364,11 +388,10 @@ class _CartPageState extends State<CartPage> {
                                   onTap:
                                       _placingOrder ||
                                           product.status != 'active' ||
-                                          entry.quantity >=
-                                              product.stockQuantity
+                                          entry.quantity >= entry.availableStock
                                       ? null
                                       : () => cart.setQuantity(
-                                          product.id,
+                                          entry.key,
                                           entry.quantity + 1,
                                         ),
                                 ),
@@ -381,7 +404,7 @@ class _CartPageState extends State<CartPage> {
                         tooltip: 'Remove item',
                         onPressed: _placingOrder
                             ? null
-                            : () => cart.setQuantity(product.id, 0),
+                            : () => cart.setQuantity(entry.key, 0),
                         icon: const Icon(
                           Icons.delete_outline,
                           color: TmcPalette.error,
@@ -507,18 +530,17 @@ class ProfilePage extends StatelessWidget {
       padding: const EdgeInsets.all(18),
       children: [
         TmcPanel(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(22),
           child: Column(
             children: [
               _StudentAvatar(student: student),
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
               Text(
                 student.name,
                 textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   color: TmcPalette.deepNavyBlack,
                   fontWeight: FontWeight.w900,
-                  fontSize: 22,
                 ),
               ),
               const SizedBox(height: 4),
@@ -530,10 +552,51 @@ class ProfilePage extends StatelessWidget {
                   fontWeight: FontWeight.w600,
                 ),
               ),
+              const SizedBox(height: 4),
+              Text(
+                student.studentId,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: TmcPalette.mediumGray,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
               if (student.status.isNotEmpty) ...[
-                const SizedBox(height: 9),
+                const SizedBox(height: 10),
                 StatusBadge(student.status),
               ],
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const EditStudentProfilePage(),
+                        ),
+                      ),
+                      icon: const Icon(Icons.edit_outlined),
+                      label: const Text('Edit profile'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const OrdersPage(),
+                        ),
+                      ),
+                      icon: const Icon(Icons.receipt_long_outlined),
+                      label: const Text('My orders'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: TmcPalette.deepNavyBlack,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
@@ -566,7 +629,9 @@ class ProfilePage extends StatelessWidget {
               ListTile(
                 leading: const Icon(Icons.manage_accounts_outlined),
                 title: const Text('Edit profile and privacy'),
-                subtitle: const Text('Update contact details and sharing options'),
+                subtitle: const Text(
+                  'Update contact details and sharing options',
+                ),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(

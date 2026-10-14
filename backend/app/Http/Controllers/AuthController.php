@@ -43,12 +43,9 @@ class AuthController extends Controller
             'profile_picture' => $profilePicture,
         ]);
 
-        $token = $user->createToken('tmc-studentmart')->plainTextToken;
-
         return response()->json([
             'success' => true,
-            'message' => 'Registration successful.',
-            'token' => $token,
+            'message' => 'Registration successful. Please sign in with your email and password.',
             'user' => $this->userPayload($user),
         ], 201);
     }

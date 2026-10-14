@@ -44,6 +44,10 @@ class OrderEventNotification extends Notification
                 'Order cancelled',
                 'The buyer cancelled order '.$this->order->order_number.'.',
             ],
+            'seller_response_overdue' => [
+                'Seller response required',
+                'Order '.$this->order->order_number.' has not been reviewed by the seller within the response period.',
+            ],
             default => [
                 'Order updated',
                 'Order '.$this->order->order_number.' has been updated.',

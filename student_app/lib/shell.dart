@@ -5,11 +5,13 @@ import 'package:provider/provider.dart';
 
 import 'components.dart';
 import 'data.dart';
-import 'tmc_theme.dart';
+import 'edit_student_profile_page.dart';
 import 'marketplace_page.dart';
 import 'notifications_page.dart';
+import 'orders_page.dart';
 import 'profile_page.dart';
 import 'sell_page.dart';
+import 'tmc_theme.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -48,7 +50,17 @@ class _AppShellState extends State<AppShell> {
       const ProfilePage(),
     ];
     return Scaffold(
+      drawer: _StudentDrawer(
+        onNavigate: (index) => setState(() => _index = index),
+      ),
       appBar: AppBar(
+        leading: Builder(
+          builder: (context) => IconButton(
+            tooltip: 'Menu',
+            icon: const Icon(Icons.menu_rounded),
+            onPressed: () => Scaffold.of(context).openDrawer(),
+          ),
+        ),
         title: Row(
           children: [
             const BrandLogo(size: 38),
@@ -115,6 +127,200 @@ class _AppShellState extends State<AppShell> {
       ),
     );
   }
+}
+
+class _StudentDrawer extends StatelessWidget {
+  const _StudentDrawer({required this.onNavigate});
+
+  final ValueChanged<int> onNavigate;
+
+  void _push(BuildContext context, Widget page) {
+    Navigator.of(context).pop();
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(builder: (_) => page),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final student = context.watch<AuthState>().user;
+    return Drawer(
+      child: SafeArea(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
+              child: Row(
+                children: [
+                  _DrawerAvatar(student: student),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          student?.name ?? 'Student',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: TmcPalette.deepNavyBlack,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          student?.course ?? 'TMC Student',
+                          style: const TextStyle(color: TmcPalette.darkGray),
+                        ),
+                        if (student?.studentId.isNotEmpty ?? false)
+                          Text(
+                            student!.studentId,
+                            style: const TextStyle(
+                              color: TmcPalette.darkGray,
+                              fontSize: 12,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.home_outlined),
+              title: const Text('Home'),
+              onTap: () {
+                Navigator.of(context).pop();
+                onNavigate(0);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.storefront_outlined),
+              title: const Text('Browse marketplace'),
+              onTap: () {
+                Navigator.of(context).pop();
+                onNavigate(1);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.add_box_outlined),
+              title: const Text('Sell an item'),
+              onTap: () {
+                Navigator.of(context).pop();
+                onNavigate(2);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.shopping_cart_outlined),
+              title: const Text('Cart'),
+              onTap: () {
+                Navigator.of(context).pop();
+                onNavigate(3);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.person_outline),
+              title: const Text('Profile'),
+              onTap: () {
+                Navigator.of(context).pop();
+                onNavigate(4);
+              },
+            ),
+            const Divider(height: 1),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 14, 20, 6),
+              child: Text(
+                'Settings and account',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.manage_accounts_outlined),
+              title: const Text('Edit profile and privacy'),
+              onTap: () => _push(
+                context,
+                const EditStudentProfilePage(),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.receipt_long_outlined),
+              title: const Text('My orders'),
+              onTap: () => _push(context, const OrdersPage()),
+            ),
+            ListTile(
+              leading: const Icon(Icons.flag_outlined),
+              title: const Text('My reports'),
+              onTap: () => _push(context, const ReportsPage()),
+            ),
+            ListTile(
+              leading: const Icon(Icons.notifications_none),
+              title: const Text('Notifications'),
+              onTap: () => _push(context, const NotificationsPage()),
+            ),
+            ListTile(
+              leading: const Icon(Icons.logout, color: TmcPalette.error),
+              title: const Text(
+                'Sign out',
+                style: TextStyle(
+                  color: TmcPalette.error,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              onTap: () async {
+                Navigator.of(context).pop();
+                final cart = context.read<CartState>();
+                final auth = context.read<AuthState>();
+                await cart.clear();
+                await auth.logout();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DrawerAvatar extends StatelessWidget {
+  const _DrawerAvatar({required this.student});
+
+  final Student? student;
+
+  @override
+  Widget build(BuildContext context) {
+    final name = student?.name ?? 'Student';
+    final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty);
+    final initials = parts.take(2).map((p) => p[0].toUpperCase()).join();
+    final imagePath = student?.profilePicture;
+    if (imagePath != null && imagePath.isNotEmpty) {
+      final url = ApiService.imageUrlFor(imagePath);
+      if (url.isNotEmpty) {
+        return ClipOval(
+          child: Image.network(
+            url,
+            width: 52,
+            height: 52,
+            fit: BoxFit.cover,
+            errorBuilder: (_, _, _) => _fallback(initials),
+          ),
+        );
+      }
+    }
+    return _fallback(initials);
+  }
+
+  Widget _fallback(String initials) => CircleAvatar(
+    radius: 26,
+    backgroundColor: TmcPalette.paleBlue,
+    child: Text(
+      initials.isEmpty ? 'T' : initials,
+      style: const TextStyle(
+        color: TmcPalette.deepNavy,
+        fontWeight: FontWeight.w900,
+      ),
+    ),
+  );
 }
 
 class _CartNavigationIcon extends StatelessWidget {

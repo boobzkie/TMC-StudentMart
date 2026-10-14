@@ -4,9 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\Order;
 use App\Models\OrderIdempotencyKey;
+use App\Models\OrderItem;
 use App\Models\OrderPaymentMethod;
 use App\Models\PickupLocation;
 use App\Models\Product;
+use App\Models\ProductVariant;
 use App\Models\User;
 use App\Notifications\OrderEventNotification;
 use App\Services\CommissionRecordingService;
@@ -19,6 +21,8 @@ use Illuminate\Validation\ValidationException;
 
 class OrderController extends Controller
 {
+    private const MAX_STOCK = 4294967295;
+
     private const ORDER_STATUSES = [
         'pending',
         'confirmed',
@@ -39,12 +43,24 @@ class OrderController extends Controller
                 'regex:/\A[A-Za-z0-9._:-]+\z/',
             ],
             'items' => ['required', 'array', 'min:1', 'max:50'],
-            'items.*.product_id' => ['required', 'integer', 'distinct:strict', 'exists:products,id'],
+            'items.*.product_id' => ['required', 'integer', 'exists:products,id'],
+            'items.*.variant_id' => ['sometimes', 'nullable', 'integer', 'exists:product_variants,id'],
             'items.*.quantity' => ['required', 'integer', 'min:1', 'max:99'],
             'payment_method_id' => ['required', 'integer', 'exists:order_payment_methods,id'],
             'pickup_location_id' => ['required', 'integer', 'exists:pickup_locations,id'],
             'buyer_note' => ['nullable', 'string', 'max:1000'],
         ]);
+
+        $lineKeys = [];
+        foreach ($validated['items'] as $index => $line) {
+            $lineKey = (int) $line['product_id'].':'.(isset($line['variant_id']) ? (int) $line['variant_id'] : 'simple');
+            if (isset($lineKeys[$lineKey])) {
+                throw ValidationException::withMessages([
+                    'items.'.$index => ['Each product or product variant can appear only once in an order.'],
+                ]);
+            }
+            $lineKeys[$lineKey] = true;
+        }
 
         $idempotencyKey = trim((string) ($validated['idempotency_key'] ?? ''));
         $idempotencyKey = $idempotencyKey === '' ? null : $idempotencyKey;
@@ -54,9 +70,10 @@ class OrderController extends Controller
         $canonicalItems = collect($validated['items'])
             ->map(fn (array $line): array => [
                 'product_id' => (int) $line['product_id'],
+                'variant_id' => isset($line['variant_id']) ? (int) $line['variant_id'] : null,
                 'quantity' => (int) $line['quantity'],
             ])
-            ->sortBy('product_id')
+            ->sortBy(fn (array $line): string => sprintf('%010d:%010d', $line['product_id'], $line['variant_id'] ?? 0))
             ->values()
             ->all();
         $requestHash = hash('sha256', json_encode([
@@ -154,11 +171,26 @@ class OrderController extends Controller
                 ->get()
                 ->keyBy('id');
 
-            if ($products->count() !== count($lines)) {
+            if ($products->count() !== count($productIds)) {
                 throw ValidationException::withMessages([
                     'items' => ['One or more products are no longer available. Refresh your cart and try again.'],
                 ]);
             }
+
+            $variantsByProduct = ProductVariant::query()
+                ->whereIn('product_id', $productIds)
+                ->where('is_active', true)
+                ->orderBy('product_id')
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get()
+                ->groupBy('product_id');
+            $variantProductIds = ProductVariant::query()
+                ->whereIn('product_id', $productIds)
+                ->distinct()
+                ->pluck('product_id')
+                ->map(fn ($id): int => (int) $id)
+                ->all();
 
             $linesBySeller = [];
             foreach ($lines as $index => $line) {
@@ -172,10 +204,36 @@ class OrderController extends Controller
                 }
 
                 $quantity = (int) $line['quantity'];
-                if ((int) $product->stock_quantity < $quantity) {
-                    throw ValidationException::withMessages([
-                        'items.'.$index.'.quantity' => ['Only '.$product->stock_quantity.' unit(s) remain for this product.'],
-                    ]);
+                $variant = null;
+                if (in_array((int) $product->id, $variantProductIds, true)) {
+                    if (! isset($line['variant_id'])) {
+                        throw ValidationException::withMessages([
+                            'items.'.$index.'.variant_id' => ['Choose an available variant for this product.'],
+                        ]);
+                    }
+                    $variant = $variantsByProduct->get($product->id, collect())
+                        ->firstWhere('id', (int) $line['variant_id']);
+                    if (! $variant) {
+                        throw ValidationException::withMessages([
+                            'items.'.$index.'.variant_id' => ['This variant is no longer available for this product.'],
+                        ]);
+                    }
+                    if ((int) $variant->stock_quantity < $quantity) {
+                        throw ValidationException::withMessages([
+                            'items.'.$index.'.quantity' => ['Only '.(int) $variant->stock_quantity.' unit(s) remain for this variant.'],
+                        ]);
+                    }
+                } else {
+                    if (isset($line['variant_id'])) {
+                        throw ValidationException::withMessages([
+                            'items.'.$index.'.variant_id' => ['This product does not have variants. Refresh your cart and try again.'],
+                        ]);
+                    }
+                    if ((int) $product->stock_quantity < $quantity) {
+                        throw ValidationException::withMessages([
+                            'items.'.$index.'.quantity' => ['Only '.(int) $product->stock_quantity.' unit(s) remain for this product.'],
+                        ]);
+                    }
                 }
 
                 if ((int) $product->user_id === (int) $buyer->id) {
@@ -193,6 +251,7 @@ class OrderController extends Controller
 
                 $linesBySeller[$seller->id][] = [
                     'product' => $product,
+                    'variant' => $variant,
                     'quantity' => (int) $line['quantity'],
                 ];
             }
@@ -222,6 +281,7 @@ class OrderController extends Controller
                     'buyer_name_snapshot' => (string) $buyer->name,
                     'seller_name_snapshot' => (string) $seller->name,
                     'status' => 'pending',
+                    'seller_response_deadline_at' => now()->addHours(48),
                     'total_amount' => number_format($totalCents / 100, 2, '.', ''),
                     'payment_method_id' => $paymentMethod->id,
                     'payment_method_name_snapshot' => $paymentMethod->name,
@@ -242,36 +302,67 @@ class OrderController extends Controller
 
                     $order->items()->create([
                         'product_id' => $product->id,
+                        'product_variant_id' => $line['variant']?->id,
+                        'variant_label_snapshot' => $line['variant']?->label,
+                        'variant_attributes_snapshot' => $line['variant']?->attributes,
                         'product_name' => $product->name,
                         'unit_price' => number_format($unitCents / 100, 2, '.', ''),
                         'quantity' => $quantity,
                         'line_total' => number_format(($unitCents * $quantity) / 100, 2, '.', ''),
                     ]);
 
-                    $stockBefore = (int) $product->stock_quantity;
-                    $stockAfter = $stockBefore - $quantity;
-                    $product->stock_quantity = $stockAfter;
-                    if ($stockAfter === 0) {
-                        $product->status = 'sold_out';
-                        $product->sold_out_at = now();
+                    $productStockBefore = (int) $product->stock_quantity;
+                    if ($line['variant']) {
+                        $variant = $line['variant'];
+                        $variantStockBefore = (int) $variant->stock_quantity;
+                        $variantStockAfter = $variantStockBefore - $quantity;
+                        $variant->stock_quantity = $variantStockAfter;
+                        $variant->save();
+                        $productStockAfter = (int) $product->variants()
+                            ->where('is_active', true)
+                            ->sum('stock_quantity');
+                        $product->stock_quantity = $productStockAfter;
+                        if ($productStockAfter === 0) {
+                            $product->status = 'sold_out';
+                            $product->sold_out_at = now();
+                        }
+                        $product->save();
+                        $product->historyEvents()->create([
+                            'actor_id' => $buyer->id,
+                            'order_id' => $order->id,
+                            'product_variant_id' => $variant->id,
+                            'variant_label_snapshot' => $variant->label,
+                            'variant_attributes_snapshot' => $variant->attributes,
+                            'event' => 'variant_stock_reserved',
+                            'stock_before' => $variantStockBefore,
+                            'stock_after' => $variantStockAfter,
+                            'note' => 'Stock reserved for variant '.$variant->label.' in '.$order->order_number.'.',
+                        ]);
+                    } else {
+                        $productStockAfter = $productStockBefore - $quantity;
+                        $product->stock_quantity = $productStockAfter;
+                        if ($productStockAfter === 0) {
+                            $product->status = 'sold_out';
+                            $product->sold_out_at = now();
+                        }
+                        $product->save();
+                        $product->historyEvents()->create([
+                            'actor_id' => $buyer->id,
+                            'order_id' => $order->id,
+                            'event' => 'stock_reserved',
+                            'stock_before' => $productStockBefore,
+                            'stock_after' => $productStockAfter,
+                            'note' => 'Stock reserved for '.$order->order_number.'.',
+                        ]);
                     }
-                    $product->save();
-                    $product->historyEvents()->create([
-                        'actor_id' => $buyer->id,
-                        'order_id' => $order->id,
-                        'event' => 'stock_reserved',
-                        'stock_before' => $stockBefore,
-                        'stock_after' => $stockAfter,
-                        'note' => 'Stock reserved for '.$order->order_number.'.',
-                    ]);
-                    if ($stockAfter === 0) {
+                    if ($productStockAfter === 0 && $productStockBefore > 0) {
                         $product->historyEvents()->create([
                             'actor_id' => $buyer->id,
                             'order_id' => $order->id,
                             'event' => 'sold_out',
-                            'stock_before' => $stockBefore,
+                            'stock_before' => $productStockBefore,
                             'stock_after' => 0,
-                            'note' => 'The last available unit was reserved.',
+                            'note' => 'All available stock was reserved.',
                         ]);
                     }
                 }
@@ -587,27 +678,82 @@ class OrderController extends Controller
                 continue;
             }
 
-            $quantity = (int) $productItems->sum('quantity');
-            if ($quantity <= 0) {
-                continue;
+            $variantItems = $productItems
+                ->filter(fn (OrderItem $item): bool => $item->product_variant_id !== null)
+                ->groupBy('product_variant_id');
+
+            foreach ($variantItems as $variantId => $lines) {
+                $variant = ProductVariant::query()
+                    ->whereKey((int) $variantId)
+                    ->where('product_id', $product->id)
+                    ->lockForUpdate()
+                    ->first();
+                if (! $variant) {
+                    continue;
+                }
+
+                $quantity = (int) $lines->sum('quantity');
+                if ($quantity <= 0) {
+                    continue;
+                }
+                $before = (int) $variant->stock_quantity;
+                $after = $before + $quantity;
+                $variant->stock_quantity = $after;
+                $variant->save();
+                $aggregate = (int) $product->variants()->where('is_active', true)->sum('stock_quantity');
+                if ($aggregate > self::MAX_STOCK) {
+                    throw ValidationException::withMessages([
+                        'stock_quantity' => ['The restored order stock would exceed the supported product stock limit. Reduce available stock and retry the order update.'],
+                    ]);
+                }
+                $previousStatus = $product->status;
+                $product->stock_quantity = $aggregate;
+                if ($aggregate > 0 && $previousStatus === 'sold_out' && $product->archived_at === null) {
+                    $product->status = 'active';
+                    $product->sold_out_at = null;
+                }
+                $product->save();
+                $snapshot = $lines->first();
+                $product->historyEvents()->create([
+                    'actor_id' => $actorId,
+                    'order_id' => $order->id,
+                    'product_variant_id' => $variant->id,
+                    'variant_label_snapshot' => $snapshot->variant_label_snapshot ?? $variant->label,
+                    'variant_attributes_snapshot' => $snapshot->variant_attributes_snapshot ?? $variant->attributes,
+                    'event' => 'variant_stock_restored',
+                    'stock_before' => $before,
+                    'stock_after' => $after,
+                    'note' => $reason.' Variant: '.($snapshot->variant_label_snapshot ?? $variant->label).'.',
+                ]);
             }
 
-            $before = (int) $product->stock_quantity;
-            $after = $before + $quantity;
-            $product->stock_quantity = $after;
-            if ($product->status === 'sold_out' && $product->archived_at === null) {
-                $product->status = 'active';
-                $product->sold_out_at = null;
+            $legacyItems = $productItems->filter(fn (OrderItem $item): bool =>
+                $item->product_variant_id === null && $item->variant_label_snapshot === null
+            );
+            $quantity = (int) $legacyItems->sum('quantity');
+            if ($quantity > 0) {
+                $before = (int) $product->stock_quantity;
+                $after = $before + $quantity;
+                if ($after > self::MAX_STOCK) {
+                    throw ValidationException::withMessages([
+                        'stock_quantity' => ['The restored order stock would exceed the supported product stock limit. Reduce available stock and retry the order update.'],
+                    ]);
+                }
+                $product->stock_quantity = $after;
+                if ($product->status === 'sold_out' && $product->archived_at === null) {
+                    $product->status = 'active';
+                    $product->sold_out_at = null;
+                }
+                $product->save();
+                $product->historyEvents()->create([
+                    'actor_id' => $actorId,
+                    'order_id' => $order->id,
+                    'event' => 'stock_restored',
+                    'stock_before' => $before,
+                    'stock_after' => $after,
+                    'note' => $reason,
+                ]);
             }
-            $product->save();
-            $product->historyEvents()->create([
-                'actor_id' => $actorId,
-                'order_id' => $order->id,
-                'event' => 'stock_restored',
-                'stock_before' => $before,
-                'stock_after' => $after,
-                'note' => $reason,
-            ]);
         }
     }
 
@@ -617,6 +763,8 @@ class OrderController extends Controller
             'id' => $order->id,
             'order_number' => $order->order_number,
             'status' => $order->status,
+            'needs_attention' => (bool) $order->needs_attention,
+            'seller_response_deadline_at' => $order->seller_response_deadline_at,
             'total_amount' => $order->total_amount,
             'buyer_note' => $order->buyer_note,
             'seller_note' => $order->seller_note,
@@ -647,6 +795,8 @@ class OrderController extends Controller
                 'id' => $item->id,
                 'product_id' => $item->product_id,
                 'product_name' => $item->product_name,
+                'variant_label' => $item->variant_label_snapshot,
+                'variant_attributes' => $item->variant_attributes_snapshot ?? [],
                 'unit_price' => $item->unit_price,
                 'quantity' => $item->quantity,
                 'line_total' => $item->line_total,

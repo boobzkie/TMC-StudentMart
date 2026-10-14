@@ -1,4 +1,6 @@
+import 'dart:async' show TimeoutException;
 import 'dart:convert';
+import 'dart:math' show Random;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -54,12 +56,30 @@ class ApiService {
     : _client = client ?? http.Client(),
       storage = storage ?? const FlutterSecureStorage();
 
+  static const _configuredBaseUrls = String.fromEnvironment('API_BASE_URLS');
   static const _configuredBaseUrl = String.fromEnvironment('API_BASE_URL');
-  static String get baseUrl {
-    if (_configuredBaseUrl.isNotEmpty) return _configuredBaseUrl;
-    if (kIsWeb) return 'http://127.0.0.1:8000/api';
-    return 'http://10.0.2.2:8000/api';
+  static List<String> _buildCandidateBaseUrls() {
+    final configured = <String>[];
+    if (_configuredBaseUrls.trim().isNotEmpty) {
+      configured.addAll(
+        _configuredBaseUrls
+            .split(',')
+            .map((value) => value.trim())
+            .where((value) => value.isNotEmpty),
+      );
+    }
+    if (_configuredBaseUrl.trim().isNotEmpty) {
+      configured.add(_configuredBaseUrl.trim());
+    }
+    if (configured.isEmpty) {
+      configured.add(kIsWeb ? 'http://127.0.0.1:8000/api' : 'http://10.0.2.2:8000/api');
+    }
+    return configured.toSet().toList(growable: false);
   }
+
+  static final List<String> _candidateBaseUrls = _buildCandidateBaseUrls();
+  static String _activeBaseUrl = _candidateBaseUrls.first;
+  static String get baseUrl => _activeBaseUrl;
 
   static const tokenKey = 'tmc_student_sanctum_token';
   final http.Client _client;
@@ -74,7 +94,11 @@ class ApiService {
   }
 
   Future<Map<String, String>> _headers({bool authenticated = true}) async {
-    final headers = <String, String>{'Accept': 'application/json'};
+    final headers = <String, String>{
+      'Accept': 'application/json',
+      // Prevent ngrok free-plan interstitial pages from replacing API responses.
+      'ngrok-skip-browser-warning': 'true',
+    };
     if (authenticated) {
       final token = await storage.read(key: tokenKey);
       if (token != null && token.isNotEmpty) {
@@ -85,13 +109,51 @@ class ApiService {
   }
 
   Future<dynamic> _request(Future<http.Response> Function() send) async {
-    try {
-      return _decode(await send());
-    } on http.ClientException catch (_) {
-      throw ApiException(
-        'Cannot reach the Laravel API at $baseUrl. Check that the backend is running and restart the app with the correct API URL for this platform.',
-      );
+    ApiException? lastError;
+    final startedBase = _activeBaseUrl;
+    final attemptedBases = <String>[];
+
+    for (var index = 0; index < _candidateBaseUrls.length; index++) {
+      final candidate = _candidateBaseUrls[index];
+      _activeBaseUrl = candidate;
+      attemptedBases.add(candidate);
+
+      for (var retry = 0; retry < 2; retry++) {
+        try {
+          return _decode(await send().timeout(const Duration(seconds: 10)));
+        } on TimeoutException {
+          lastError = ApiException(
+            'Timed out while contacting the Laravel API at $candidate. The current network may not reach the local Wi-Fi server or the ngrok tunnel.',
+          );
+        } on http.ClientException {
+          lastError = ApiException(
+            'Cannot reach the Laravel API at $candidate. Check that the device has Internet access, the backend is running, and the server or ngrok tunnel is still active.',
+          );
+        } catch (error) {
+          if (error is ApiException) rethrow;
+          lastError = ApiException(
+            'Cannot reach the Laravel API at $candidate. Check that the device has Internet access, the backend is running, and the server or ngrok tunnel is still active.',
+          );
+        }
+
+        if (retry < 1) {
+          await Future<void>.delayed(Duration(milliseconds: 350 * (retry + 1)));
+        }
+      }
+
+      if (index < _candidateBaseUrls.length - 1) {
+        await Future<void>.delayed(const Duration(milliseconds: 250));
+      }
     }
+
+    _activeBaseUrl = attemptedBases.last == startedBase
+        ? startedBase
+        : attemptedBases.last;
+
+    throw lastError ??
+      ApiException(
+        'Cannot reach any configured Laravel API server. Tried: ${attemptedBases.join(', ')}.',
+      );
   }
 
   Future<dynamic> get(String path) async =>
@@ -302,7 +364,8 @@ class Student {
     facebookUrl: valueOf(json['facebook_url']),
     instagramUrl: valueOf(json['instagram_url']),
     tiktokUrl: valueOf(json['tiktok_url']),
-    shareContactInfo: json['share_contact_info'] == true ||
+    shareContactInfo:
+        json['share_contact_info'] == true ||
         valueOf(json['share_contact_info']).toLowerCase() == '1' ||
         valueOf(json['share_contact_info']).toLowerCase() == 'true',
   );
@@ -339,6 +402,45 @@ class ProductImage {
   };
 }
 
+class ProductVariant {
+  const ProductVariant({
+    required this.id,
+    required this.label,
+    this.attributes = const {},
+    this.stockQuantity = 0,
+    this.isActive = true,
+  });
+
+  final int id;
+  final String label;
+  final Map<String, String> attributes;
+  final int stockQuantity;
+  final bool isActive;
+
+  factory ProductVariant.fromJson(Map<String, dynamic> json) {
+    final rawAttributes = asMap(json['attributes']);
+    return ProductVariant(
+      id: int.tryParse(valueOf(json['id'])) ?? 0,
+      label: valueOf(json['label']),
+      attributes: rawAttributes.map(
+        (key, value) => MapEntry(key, valueOf(value)),
+      ),
+      stockQuantity: int.tryParse(valueOf(json['stock_quantity'])) ?? 0,
+      isActive:
+          json['is_active'] != false &&
+          valueOf(json['is_active']).toLowerCase() != '0',
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'label': label,
+    'attributes': attributes,
+    'stock_quantity': stockQuantity,
+    'is_active': isActive,
+  };
+}
+
 class Product {
   const Product({
     required this.id,
@@ -361,6 +463,8 @@ class Product {
     this.stockQuantity = 1,
     this.soldOutAt,
     this.archivedAt,
+    this.attributes = const {},
+    this.variants = const [],
   });
 
   final int id;
@@ -383,6 +487,8 @@ class Product {
   final int stockQuantity;
   final String? soldOutAt;
   final String? archivedAt;
+  final Map<String, String> attributes;
+  final List<ProductVariant> variants;
 
   factory Product.fromJson(Map<String, dynamic> json) {
     final seller = asMap(json['user'] ?? json['seller']);
@@ -406,6 +512,15 @@ class Product {
               .where((image) => image.path.isNotEmpty)
               .toList()
         : <ProductImage>[];
+    final parsedAttributes = asMap(
+      json['attributes'],
+    ).map((key, value) => MapEntry(key, valueOf(value)));
+    final parsedVariants = json['variants'] is List
+        ? (json['variants'] as List)
+              .map((item) => ProductVariant.fromJson(asMap(item)))
+              .where((variant) => variant.id > 0 && variant.isActive)
+              .toList()
+        : <ProductVariant>[];
     final legacyImage = (json['image'] ?? json['image_url'])?.toString();
     ProductImage? primaryImage;
     for (final item in parsedImages) {
@@ -445,6 +560,8 @@ class Product {
       stockQuantity: int.tryParse(valueOf(json['stock_quantity'])) ?? 1,
       soldOutAt: json['sold_out_at']?.toString(),
       archivedAt: json['archived_at']?.toString(),
+      attributes: parsedAttributes,
+      variants: parsedVariants,
     );
   }
 }
@@ -522,9 +639,24 @@ class AuthState extends ChangeNotifier {
   }
 
   Future<void> requestPasswordReset(String email) async {
+    await api.post('/forgot-password', {
+      'email': email.trim(),
+    }, authenticated: false);
+  }
+
+  Future<void> resetPassword({
+    required String email,
+    required String token,
+    required String password,
+  }) async {
     await api.post(
-      '/forgot-password',
-      {'email': email.trim()},
+      '/reset-password',
+      {
+        'token': token.trim(),
+        'email': email.trim(),
+        'password': password,
+        'password_confirmation': password,
+      },
       authenticated: false,
     );
   }
@@ -536,7 +668,9 @@ class AuthState extends ChangeNotifier {
       final payload = asMap(await api.put('/user/student-profile', values));
       final updated = Student.fromJson(asMap(payload['user']));
       if (updated.id == 0 || updated.role != 'student') {
-        throw const ApiException('The API did not return your updated student profile.');
+        throw const ApiException(
+          'The API did not return your updated student profile.',
+        );
       }
       user = updated;
     } finally {
@@ -549,22 +683,8 @@ class AuthState extends ChangeNotifier {
     busy = true;
     notifyListeners();
     try {
-      final payload = asMap(
-        await api.post('/register', values, authenticated: false),
-      );
-      final token = valueOf(payload['token']);
-      if (token.isEmpty) {
-        throw const ApiException('The API did not return a sign-in token.');
-      }
-      await api.saveToken(token);
-      final student = Student.fromJson(
-        asMap(payload['user'] ?? payload['data']),
-      );
-      if (student.role != 'student') {
-        await api.clearToken();
-        throw const ApiException('The API did not create a student account.');
-      }
-      user = student;
+      await api.post('/register', values, authenticated: false);
+      await api.clearToken();
     } finally {
       busy = false;
       notifyListeners();
@@ -623,8 +743,10 @@ class MarketplaceState extends ChangeNotifier {
       final payload = await api.get('/products');
       products = listFrom(payload, 'products')
           .map((item) => Product.fromJson(asMap(item)))
-          .where((product) =>
-              product.status == 'active' || product.status == 'sold_out')
+          .where(
+            (product) =>
+                product.status == 'active' || product.status == 'sold_out',
+          )
           .toList();
     } catch (exception) {
       error = exception.toString();
@@ -676,16 +798,23 @@ class MarketplaceState extends ChangeNotifier {
     await loadMine();
   }
 
-  Future<void> updateStock(int id, int quantity) async {
-    await api.put('/my-products/$id/stock', {'stock_quantity': quantity});
+  Future<void> updateStock(int id, int quantity, {int? variantId}) async {
+    await api.put('/my-products/$id/stock', {
+      'stock_quantity': quantity,
+      'variant_id': variantId,
+    });
     await Future.wait([loadMine(), loadProducts()]);
   }
 }
 
 class CartEntry {
-  const CartEntry(this.product, this.quantity);
+  const CartEntry(this.product, this.quantity, {this.variant});
   final Product product;
   final int quantity;
+  final ProductVariant? variant;
+  String get key => '${product.id}:${variant?.id ?? 0}';
+  int get availableStock => variant?.stockQuantity ?? product.stockQuantity;
+  String get optionLabel => variant?.label ?? '';
   double get subtotal => product.price * quantity;
 }
 
@@ -693,7 +822,9 @@ class CartState extends ChangeNotifier {
   CartState(this.storage);
   final FlutterSecureStorage storage;
   static const _key = 'tmc_student_cart_v1';
-  final Map<int, CartEntry> _entries = {};
+  static const _checkoutAttemptStoragePrefix =
+      'tmc_student_checkout_attempt_v1_';
+  final Map<String, CartEntry> _entries = {};
   int? _currentUserId;
   List<CartEntry> get entries => _entries.values.toList(growable: false);
   int get itemCount =>
@@ -724,13 +855,18 @@ class CartState extends ChangeNotifier {
           for (final item in decoded) {
             final row = asMap(item);
             final product = Product.fromJson(asMap(row['product']));
+            final rawVariant = row['variant'];
+            final variant = rawVariant is Map
+                ? ProductVariant.fromJson(asMap(rawVariant))
+                : null;
             final quantity = int.tryParse(valueOf(row['quantity'])) ?? 1;
             if (product.id > 0 && quantity > 0) {
               if (_currentUserId != null &&
                   isOwnProduct(product, _currentUserId!)) {
                 removedOwnProduct = true;
               } else {
-                _entries[product.id] = CartEntry(product, quantity);
+                final entry = CartEntry(product, quantity, variant: variant);
+                _entries[entry.key] = entry;
               }
             }
           }
@@ -766,7 +902,12 @@ class CartState extends ChangeNotifier {
               'stock_quantity': entry.product.stockQuantity,
               'sold_out_at': entry.product.soldOutAt,
               'archived_at': entry.product.archivedAt,
+              'attributes': entry.product.attributes,
+              'variants': entry.product.variants
+                  .map((variant) => variant.toJson())
+                  .toList(),
             },
+            'variant': entry.variant?.toJson(),
             'quantity': entry.quantity,
           },
         )
@@ -774,28 +915,45 @@ class CartState extends ChangeNotifier {
     await storage.write(key: _key, value: jsonEncode(rows));
   }
 
-  Future<bool> add(Product product, {required int currentUserId}) async {
+  Future<bool> add(
+    Product product, {
+    ProductVariant? variant,
+    required int currentUserId,
+  }) async {
     if (isOwnProduct(product, currentUserId) ||
         product.status != 'active' ||
-        product.stockQuantity <= 0) {
+        (product.variants.isNotEmpty && variant == null) ||
+        (product.variants.isEmpty && variant != null) ||
+        (variant?.stockQuantity ?? product.stockQuantity) <= 0 ||
+        (variant != null &&
+            !product.variants.any((item) => item.id == variant.id))) {
       return false;
     }
-    final old = _entries[product.id];
-    if ((old?.quantity ?? 0) >= product.stockQuantity) return false;
-    _entries[product.id] = CartEntry(product, (old?.quantity ?? 0) + 1);
+    final entry = CartEntry(product, 1, variant: variant);
+    final old = _entries[entry.key];
+    if ((old?.quantity ?? 0) >= entry.availableStock) return false;
+    _entries[entry.key] = CartEntry(
+      product,
+      (old?.quantity ?? 0) + 1,
+      variant: variant,
+    );
     await _save();
     notifyListeners();
     return true;
   }
 
-  Future<void> setQuantity(int id, int quantity) async {
-    final entry = _entries[id];
+  Future<void> setQuantity(String key, int quantity) async {
+    final entry = _entries[key];
     if (entry == null) return;
     if (quantity <= 0) {
-      _entries.remove(id);
-    } else if (quantity <= entry.product.stockQuantity &&
+      _entries.remove(key);
+    } else if (quantity <= entry.availableStock &&
         entry.product.status == 'active') {
-      _entries[id] = CartEntry(entry.product, quantity);
+      _entries[key] = CartEntry(
+        entry.product,
+        quantity,
+        variant: entry.variant,
+      );
     } else {
       return;
     }
@@ -807,6 +965,99 @@ class CartState extends ChangeNotifier {
     _entries.clear();
     await storage.delete(key: _key);
     notifyListeners();
+  }
+
+  Future<String> checkoutIdempotencyKey({
+    required int buyerId,
+    required int paymentMethodId,
+    required int pickupLocationId,
+    required List<Map<String, Object?>> items,
+  }) async {
+    if (buyerId <= 0 || paymentMethodId <= 0 || pickupLocationId <= 0) {
+      throw ArgumentError('Checkout requires valid buyer and option IDs.');
+    }
+
+    final normalizedItems =
+        items.map((item) {
+          final productId = item['product_id'];
+          final variantId = item['variant_id'];
+          final quantity = item['quantity'];
+          if (productId is! int ||
+              quantity is! int ||
+              (variantId != null && variantId is! int)) {
+            throw ArgumentError(
+              'Checkout items have invalid identifiers or quantity.',
+            );
+          }
+          return <String, Object?>{
+            'product_id': productId,
+            'variant_id': variantId,
+            'quantity': quantity,
+          };
+        }).toList()..sort((left, right) {
+          final productOrder = (left['product_id'] as int).compareTo(
+            right['product_id'] as int,
+          );
+          if (productOrder != 0) return productOrder;
+          return ((left['variant_id'] as int?) ?? 0).compareTo(
+            (right['variant_id'] as int?) ?? 0,
+          );
+        });
+
+    final fingerprint = jsonEncode({
+      'buyer_id': buyerId,
+      'payment_method_id': paymentMethodId,
+      'pickup_location_id': pickupLocationId,
+      'items': normalizedItems,
+    });
+    final storageKey = '$_checkoutAttemptStoragePrefix$buyerId';
+    final existingJson = await storage.read(key: storageKey);
+    if (existingJson != null) {
+      try {
+        final existing = jsonDecode(existingJson);
+        if (existing is Map &&
+            existing['fingerprint'] == fingerprint &&
+            existing['idempotency_key'] is String &&
+            (existing['idempotency_key'] as String).isNotEmpty) {
+          return existing['idempotency_key'] as String;
+        }
+      } on FormatException {
+        // Replace an unreadable attempt record with a fresh key.
+      }
+    }
+
+    final random = Random.secure();
+    final idempotencyKey = List<int>.generate(
+      32,
+      (_) => random.nextInt(256),
+    ).map((byte) => byte.toRadixString(16).padLeft(2, '0')).join();
+    await storage.write(
+      key: storageKey,
+      value: jsonEncode({
+        'fingerprint': fingerprint,
+        'idempotency_key': idempotencyKey,
+      }),
+    );
+    return idempotencyKey;
+  }
+
+  Future<void> completeCheckoutAttempt({
+    required int buyerId,
+    required String idempotencyKey,
+  }) async {
+    if (buyerId <= 0 || idempotencyKey.isEmpty) return;
+    final storageKey = '$_checkoutAttemptStoragePrefix$buyerId';
+    final existingJson = await storage.read(key: storageKey);
+    if (existingJson == null) return;
+
+    try {
+      final existing = jsonDecode(existingJson);
+      if (existing is Map && existing['idempotency_key'] == idempotencyKey) {
+        await storage.delete(key: storageKey);
+      }
+    } on FormatException {
+      await storage.delete(key: storageKey);
+    }
   }
 }
 

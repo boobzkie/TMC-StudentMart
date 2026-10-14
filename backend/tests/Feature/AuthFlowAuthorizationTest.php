@@ -19,7 +19,9 @@ test('student registration and login issue student-only access', function () {
     ])->assertCreated()
         ->assertJsonPath('user.role', 'student')
         ->assertJsonPath('user.status', 'active')
-        ->assertJsonStructure(['token']);
+        ->assertJsonMissingPath('token');
+
+    $this->assertDatabaseCount('personal_access_tokens', 0);
 
     $login = $this->postJson('/api/login', [
         'email' => 'student-auth@example.test',

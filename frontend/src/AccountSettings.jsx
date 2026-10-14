@@ -70,6 +70,7 @@ export default function AccountSettings() {
   const [archivedStaff, setArchivedStaff] = useState([]);
   const [archivesLoading, setArchivesLoading] = useState(false);
   const [archivesError, setArchivesError] = useState("");
+  const [restoringProductId, setRestoringProductId] = useState(null);
   const [showPasswords, setShowPasswords] = useState(false);
   const [passwords, setPasswords] = useState({
     current_password: "", password: "", password_confirmation: "",
@@ -126,6 +127,33 @@ export default function AccountSettings() {
       setArchivesLoading(false);
     }
   }, [signOut]);
+
+  const handleRestoreProduct = async (productId) => {
+    if (!window.confirm("Restore this archived product for moderation review? It will not return to the marketplace until approved.")) {
+      return;
+    }
+    setRestoringProductId(productId);
+    setArchivesError("");
+    try {
+      const response = await fetch(API_URL + "/admin/products/" + productId + "/restore", {
+        method: "PUT",
+        headers: getAuthHeaders(),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (response.status === 401) {
+        signOut();
+        return;
+      }
+      if (!response.ok) {
+        throw new Error(errorMessage(data, "Unable to restore product."));
+      }
+      setArchivedProducts((current) => current.filter((product) => product.id !== productId));
+    } catch (error) {
+      setArchivesError(error.message || "Unable to restore product.");
+    } finally {
+      setRestoringProductId(null);
+    }
+  };
 
   const selectSection = (nextSection) => {
     setSection(nextSection);
@@ -376,13 +404,13 @@ export default function AccountSettings() {
                 {archivesLoading && <div className="account-settings-notice" role="status">Loading archived records…</div>}
                 <section className="account-archive-group" aria-labelledby="archived-products-heading">
                   <div className="account-archive-group-heading"><h4 id="archived-products-heading"><Package size={17} aria-hidden="true" />Archived products</h4><span>{archivedProducts.length}</span></div>
-                  {archivedProducts.length ? <div className="account-archive-list">{archivedProducts.map((product) => <article className="account-archive-item" key={`product-${product.id}`}><div className="account-archive-item-icon"><Package size={17} aria-hidden="true" /></div><div className="account-archive-item-copy"><strong>{product.name || "Unnamed product"}</strong><span>{product.category || "Uncategorized"} · Seller: {product.user?.name || "Unknown"}</span><small>Archived {archiveDate(product.archived_at)}</small></div><span className="account-archive-status">Archived</span></article>)}</div> : !archivesLoading && <p className="account-archive-empty">No archived products found.</p>}
+                  {archivedProducts.length ? <div className="account-archive-list">{archivedProducts.map((product) => <article className="account-archive-item" key={`product-${product.id}`}><div className="account-archive-item-icon"><Package size={17} aria-hidden="true" /></div><div className="account-archive-item-copy"><strong>{product.name || "Unnamed product"}</strong><span>{product.category || "Uncategorized"} · Seller: {product.user?.name || "Unknown"}</span><small>Archived {archiveDate(product.archived_at)}</small></div><button type="button" className="account-archive-restore" disabled={restoringProductId === product.id} onClick={() => handleRestoreProduct(product.id)}>{restoringProductId === product.id ? "Restoring." : "Restore for review"}</button></article>)}</div> : !archivesLoading && <p className="account-archive-empty">No archived products found.</p>}
                 </section>
                 <section className="account-archive-group" aria-labelledby="archived-staff-heading">
                   <div className="account-archive-group-heading"><h4 id="archived-staff-heading"><UsersRound size={17} aria-hidden="true" />Archived Staff accounts</h4><span>{archivedStaff.length}</span></div>
                   {archivedStaff.length ? <div className="account-archive-list">{archivedStaff.map((member) => <article className="account-archive-item" key={`staff-${member.id}`}><div className="account-archive-item-icon"><UsersRound size={17} aria-hidden="true" /></div><div className="account-archive-item-copy"><strong>{member.name || "Staff account"}</strong><span>{member.profile?.department || "Department not assigned"} · {member.email || "Email unavailable"}</span><small>Archived {archiveDate(member.profile?.archived_at)}</small></div><span className="account-archive-status">Archived</span></article>)}</div> : !archivesLoading && <p className="account-archive-empty">No archived Staff accounts found.</p>}
                 </section>
-                <p className="account-archive-note"><ShieldCheck size={16} aria-hidden="true" />This view is read-only. Product restoration can reopen sold listings, and Staff restoration can restore portal access, so neither is offered here.</p>
+                <p className="account-archive-note"><ShieldCheck size={16} aria-hidden="true" />Archived products can be restored for moderation review only; they do not become marketplace-active automatically. Staff archive remains read-only.</p>
               </div>
             ) : null}
           </section>

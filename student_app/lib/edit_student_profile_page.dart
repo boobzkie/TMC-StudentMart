@@ -16,9 +16,6 @@ class _EditStudentProfilePageState extends State<EditStudentProfilePage> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _name;
   late final TextEditingController _contactNumber;
-  late final TextEditingController _facebook;
-  late final TextEditingController _instagram;
-  late final TextEditingController _tiktok;
   String? _course;
   late bool _shareContactInfo;
   String? _error;
@@ -29,9 +26,6 @@ class _EditStudentProfilePageState extends State<EditStudentProfilePage> {
     final student = context.read<AuthState>().user!;
     _name = TextEditingController(text: student.name);
     _contactNumber = TextEditingController(text: student.contactNumber);
-    _facebook = TextEditingController(text: student.facebookUrl);
-    _instagram = TextEditingController(text: student.instagramUrl);
-    _tiktok = TextEditingController(text: student.tiktokUrl);
     _course = courseOptions.any((option) => option.code == student.course)
         ? student.course
         : null;
@@ -42,9 +36,6 @@ class _EditStudentProfilePageState extends State<EditStudentProfilePage> {
   void dispose() {
     _name.dispose();
     _contactNumber.dispose();
-    _facebook.dispose();
-    _instagram.dispose();
-    _tiktok.dispose();
     super.dispose();
   }
 
@@ -67,9 +58,6 @@ class _EditStudentProfilePageState extends State<EditStudentProfilePage> {
         'name': _name.text.trim(),
         'contact_number': _optionalValue(_contactNumber),
         'course': _course,
-        'facebook_url': _optionalValue(_facebook),
-        'instagram_url': _optionalValue(_instagram),
-        'tiktok_url': _optionalValue(_tiktok),
         'share_contact_info': _shareContactInfo,
       });
 
@@ -172,24 +160,18 @@ class _EditStudentProfilePageState extends State<EditStudentProfilePage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Social links',
+                      'Contact sharing',
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                     const SizedBox(height: 5),
                     const Text(
-                      'Add only links you want associated with your seller profile.',
+                      'Choose whether your contact number is visible to students viewing your product listings.',
                       style: TextStyle(
                         color: TmcPalette.darkGray,
                         fontSize: 12,
                       ),
                     ),
                     const SizedBox(height: 12),
-                    _socialField(_facebook, 'Facebook URL'),
-                    const SizedBox(height: 10),
-                    _socialField(_instagram, 'Instagram URL'),
-                    const SizedBox(height: 10),
-                    _socialField(_tiktok, 'TikTok URL'),
-                    const SizedBox(height: 10),
                     SwitchListTile.adaptive(
                       contentPadding: EdgeInsets.zero,
                       value: _shareContactInfo,
@@ -200,9 +182,7 @@ class _EditStudentProfilePageState extends State<EditStudentProfilePage> {
                         'Share my contact details on my listings',
                       ),
                       subtitle: const Text(
-                        'When enabled, your contact number and saved social '
-                        'links are visible to students viewing your product '
-                        'listings.',
+                        'When enabled, your contact number is visible to students viewing your product listings.',
                       ),
                     ),
                   ],
@@ -243,15 +223,4 @@ class _EditStudentProfilePageState extends State<EditStudentProfilePage> {
     );
   }
 
-  Widget _socialField(TextEditingController controller, String label) {
-    return TextFormField(
-      controller: controller,
-      keyboardType: TextInputType.url,
-      autocorrect: false,
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: 'https://',
-      ),
-    );
-  }
 }

@@ -3,7 +3,95 @@ import 'package:provider/provider.dart';
 
 import 'components.dart';
 import 'data.dart';
+import 'sell_page.dart';
 import 'tmc_theme.dart';
+
+Future<void> _addProductToCart(
+  BuildContext context,
+  Product product,
+  int currentUserId,
+) async {
+  ProductVariant? selectedVariant;
+  if (product.variants.isNotEmpty) {
+    selectedVariant = await showModalBottomSheet<ProductVariant>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Choose an option',
+                style: Theme.of(sheetContext).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 6),
+              const Text('Each option has its own available stock.'),
+              const SizedBox(height: 12),
+              for (final variant in product.variants)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  enabled: variant.stockQuantity > 0,
+                  title: Text(variant.label),
+                  subtitle: Text(
+                    variant.attributes.entries
+                        .map((entry) => '${entry.key}: ${entry.value}')
+                        .join(' · '),
+                  ),
+                  trailing: Text(
+                    variant.stockQuantity > 0
+                        ? '${variant.stockQuantity} available'
+                        : 'Sold out',
+                    style: TextStyle(
+                      color: variant.stockQuantity > 0
+                          ? TmcPalette.darkGray
+                          : TmcPalette.error,
+                    ),
+                  ),
+                  onTap: variant.stockQuantity > 0
+                      ? () => Navigator.pop(sheetContext, variant)
+                      : null,
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (selectedVariant == null || !context.mounted) return;
+  }
+
+  try {
+    final added = await context.read<CartState>().add(
+      product,
+      variant: selectedVariant,
+      currentUserId: currentUserId,
+    );
+    if (!context.mounted) return;
+    final message = added
+        ? 'Added ${selectedVariant?.label ?? product.name} to your cart.'
+        : isOwnProduct(product, currentUserId)
+        ? 'You cannot purchase your own product.'
+        : selectedVariant != null && selectedVariant.stockQuantity <= 0
+        ? 'This option is sold out.'
+        : 'You have reached the available stock limit.';
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  } catch (error) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.toString())),
+      );
+    }
+  }
+}
+
+String _attributeLabel(String key) => key
+    .split('_')
+    .map((part) => part.isEmpty ? part : '${part[0].toUpperCase()}${part.substring(1)}')
+    .join(' ');
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key, required this.onOpenMarketplace});
@@ -19,7 +107,7 @@ class _HomePageState extends State<HomePage> {
     final student = context.watch<AuthState>().user;
     final state = context.watch<MarketplaceState>();
     final featured = state.products.take(6).toList();
-    final studentName = student?.name.split(' ').first ?? 'Student';
+
     final studentCourse = student?.course ?? '';
     final studentCode = student?.studentId ?? '';
     final homeCategories = state.categories;
@@ -29,68 +117,97 @@ class _HomePageState extends State<HomePage> {
         padding: const EdgeInsets.fromLTRB(18, 12, 18, 24),
         children: [
           TmcPanel(
-            color: TmcPalette.deepNavy,
+            color: TmcPalette.deepNavyBlack,
             dark: true,
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(22),
             radius: TmcRadius.xl,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    const BrandLogo(size: 44),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'TMC StudentMart',
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(
-                              color: TmcPalette.white,
-                              fontWeight: FontWeight.w800,
-                            ),
-                      ),
+                    _HomeAvatar(
+                      name: student?.name ?? 'Student',
+                      imagePath: student?.profilePicture,
                     ),
-                    const Icon(
-                      Icons.school_outlined,
-                      color: TmcPalette.lightBlue,
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            student?.name ?? 'Student',
+                            style: const TextStyle(
+                              color: TmcPalette.white,
+                              fontSize: 24,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            studentCourse.isNotEmpty
+                                ? '$studentCourse  -  $studentCode'
+                                : 'TMC student account',
+                            style: const TextStyle(
+                              color: TmcPalette.mutedTeal,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 20),
-                Text(
-                  'Hello, $studentName!',
-                  style: const TextStyle(
-                    color: TmcPalette.white,
-                    fontSize: 23,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 7),
-                Text(
-                  studentCourse.isNotEmpty
-                      ? '$studentCourse • $studentCode'
-                      : 'Your campus marketplace',
-                  style: const TextStyle(color: TmcPalette.paleBlue),
-                ),
-                const SizedBox(height: 13),
+                const SizedBox(height: 16),
                 const Text(
-                  'Find affordable books, uniforms, and student essentials from your campus community.',
+                  'Campus marketplace for books, uniforms, and student essentials from verified students.',
                   style: TextStyle(color: TmcPalette.white, height: 1.45),
                 ),
-                const SizedBox(height: 17),
-                FilledButton.icon(
-                  onPressed: widget.onOpenMarketplace,
-                  icon: const Icon(Icons.storefront_outlined),
-                  label: const Text('Explore marketplace'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: TmcPalette.paleBlue,
-                    foregroundColor: TmcPalette.deepNavyBlack,
-                  ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    _HomeStat(label: 'Listings', value: '${state.products.length}'),
+                    const SizedBox(width: 10),
+                    _HomeStat(label: 'Cart', value: '${context.watch<CartState>().itemCount}'),
+                    const SizedBox(width: 10),
+                    _HomeStat(label: 'Categories', value: '${state.categories.length}'),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: widget.onOpenMarketplace,
+                        icon: const Icon(Icons.storefront_outlined),
+                        label: const Text('Browse'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: TmcPalette.tikTokCyan,
+                          foregroundColor: TmcPalette.deepNavyBlack,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const SellPage(),
+                          ),
+                        ),
+                        icon: const Icon(Icons.add_box_outlined),
+                        label: const Text('Sell'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: TmcPalette.white,
+                          side: const BorderSide(color: TmcPalette.mutedTeal),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
-          ),
-          const SizedBox(height: 16),
+          ),          const SizedBox(height: 16),
           TextField(
             readOnly: true,
             onTap: widget.onOpenMarketplace,
@@ -379,28 +496,11 @@ class _MarketplacePageState extends State<MarketplacePage> {
                         ),
                       ),
                       onAdd: () async {
-                        final added = await context.read<CartState>().add(
+                        await _addProductToCart(
+                          context,
                           visible[index],
-                          currentUserId: currentUserId,
+                          currentUserId,
                         );
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                added
-                                    ? 'Added to your local cart.'
-                                    : isOwnProduct(
-                                        visible[index],
-                                        currentUserId,
-                                      )
-                                    ? 'You cannot purchase your own product.'
-                                    : visible[index].stockQuantity <= 0
-                                    ? 'This product is sold out.'
-                                    : 'You have reached the available stock limit.',
-                              ),
-                            ),
-                          );
-                        }
                       },
                     ),
                   ),
@@ -483,6 +583,52 @@ class ProductDetailsPage extends StatelessWidget {
               style: const TextStyle(height: 1.5),
             ),
           ),
+          if (product.attributes.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            const Text(
+              'Product details',
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+            ),
+            const SizedBox(height: 7),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: product.attributes.entries
+                      .where((entry) => entry.value.trim().isNotEmpty)
+                      .map(
+                        (entry) => Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 3),
+                          child: Text('${_attributeLabel(entry.key)}: ${entry.value}'),
+                        ),
+                      )
+                      .toList(),
+                ),
+              ),
+            ),
+          ],
+          if (product.variants.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            const Text(
+              'Options and stock',
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+            ),
+            const SizedBox(height: 7),
+            Card(
+              child: Column(
+                children: product.variants.map((variant) => ListTile(
+                  title: Text(variant.label),
+                  subtitle: Text(variant.attributes.entries
+                      .map((entry) => '${_attributeLabel(entry.key)}: ${entry.value}')
+                      .join(' · ')),
+                  trailing: Text(variant.stockQuantity > 0
+                      ? '${variant.stockQuantity} available'
+                      : 'Sold out'),
+                )).toList(),
+              ),
+            ),
+          ],
           const SizedBox(height: 18),
           Card(
             child: ListTile(
@@ -495,10 +641,7 @@ class ProductDetailsPage extends StatelessWidget {
               subtitle: const Text('TMC Student seller'),
             ),
           ),
-          if (product.sellerContactNumber.isNotEmpty ||
-              product.sellerFacebookUrl.isNotEmpty ||
-              product.sellerInstagramUrl.isNotEmpty ||
-              product.sellerTiktokUrl.isNotEmpty) ...[
+          if (product.sellerContactNumber.isNotEmpty) ...[
             const SizedBox(height: 8),
             Card(
               child: Padding(
@@ -511,14 +654,7 @@ class ProductDetailsPage extends StatelessWidget {
                       style: TextStyle(fontWeight: FontWeight.w800),
                     ),
                     const SizedBox(height: 8),
-                    if (product.sellerContactNumber.isNotEmpty)
-                      SelectableText('Contact number: ${product.sellerContactNumber}'),
-                    if (product.sellerFacebookUrl.isNotEmpty)
-                      SelectableText('Facebook: ${product.sellerFacebookUrl}'),
-                    if (product.sellerInstagramUrl.isNotEmpty)
-                      SelectableText('Instagram: ${product.sellerInstagramUrl}'),
-                    if (product.sellerTiktokUrl.isNotEmpty)
-                      SelectableText('TikTok: ${product.sellerTiktokUrl}'),
+                    SelectableText('Contact number: ${product.sellerContactNumber}'),
                   ],
                 ),
               ),
@@ -529,25 +665,7 @@ class ProductDetailsPage extends StatelessWidget {
             onPressed: isOwnListing || soldOut
                 ? null
                 : () async {
-                    final added = await context.read<CartState>().add(
-                      product,
-                      currentUserId: currentUserId,
-                    );
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            added
-                                ? 'Added to your local cart.'
-                                : isOwnListing
-                                ? 'You cannot purchase your own product.'
-                                : soldOut
-                                ? 'This product is sold out.'
-                                : 'You have reached the available stock limit.',
-                          ),
-                        ),
-                      );
-                    }
+                    await _addProductToCart(context, product, currentUserId);
                   },
             icon: Icon(
               isOwnListing
@@ -559,9 +677,11 @@ class ProductDetailsPage extends StatelessWidget {
             label: Text(
               isOwnListing
                   ? 'Your listing'
-                  : soldOut
+              : soldOut
                   ? 'Sold out'
-                  : 'Add to cart',
+                  : product.variants.isNotEmpty
+                      ? 'Choose option & add'
+                      : 'Add to cart',
             ),
           ),
           if (isOwnListing) ...[
@@ -719,4 +839,80 @@ class _ReportProductPageState extends State<ReportProductPage> {
       ),
     );
   }
+}
+
+class _HomeAvatar extends StatelessWidget {
+  const _HomeAvatar({required this.name, required this.imagePath});
+
+  final String name;
+  final String? imagePath;
+
+  @override
+  Widget build(BuildContext context) {
+    final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty);
+    final initials = parts.take(2).map((p) => p[0].toUpperCase()).join();
+    if (imagePath != null && imagePath!.isNotEmpty) {
+      final url = ApiService.imageUrlFor(imagePath!);
+      if (url.isNotEmpty) {
+        return ClipOval(
+          child: Image.network(
+            url,
+            width: 62,
+            height: 62,
+            fit: BoxFit.cover,
+            errorBuilder: (_, _, _) => _fallback(initials),
+          ),
+        );
+      }
+    }
+    return _fallback(initials);
+  }
+
+  Widget _fallback(String initials) => CircleAvatar(
+    radius: 31,
+    backgroundColor: TmcPalette.tikTokCyan,
+    child: Text(
+      initials.isEmpty ? 'S' : initials,
+      style: const TextStyle(
+        color: TmcPalette.deepNavyBlack,
+        fontWeight: FontWeight.w900,
+      ),
+    ),
+  );
+}
+
+class _HomeStat extends StatelessWidget {
+  const _HomeStat({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => Expanded(
+    child: Container(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      decoration: BoxDecoration(
+        color: TmcPalette.white.withValues(alpha: .10),
+        borderRadius: BorderRadius.circular(TmcRadius.md),
+        border: Border.all(color: TmcPalette.white.withValues(alpha: .16)),
+      ),
+      child: Column(
+        children: [
+          Text(
+            value,
+            style: const TextStyle(
+              color: TmcPalette.white,
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: const TextStyle(color: TmcPalette.mutedTeal, fontSize: 12),
+          ),
+        ],
+      ),
+    ),
+  );
 }

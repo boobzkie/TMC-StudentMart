@@ -566,6 +566,11 @@ Route::middleware('auth:sanctum')->group(function () {
                 'destroy',
             ]);
 
+            Route::put('/products/{product}/restore', [
+                AdminProductController::class,
+                'restore',
+            ]);
+
             /*
             |--------------------------------------------------------------------------
             | Category Management
