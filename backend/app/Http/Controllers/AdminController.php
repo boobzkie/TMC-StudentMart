@@ -29,6 +29,8 @@ class AdminController extends Controller
         $approvedProducts = Product::where('status', 'active')->count();
         $rejectedProducts = Product::where('status', 'rejected')->count();
         $inactiveProducts = Product::where('status', 'inactive')->count();
+        $soldOutProducts = Product::where('status', 'sold_out')->count();
+        $archivedProducts = Product::where('status', 'archived')->count();
 
         return response()->json([
             'success' => true,
@@ -44,6 +46,8 @@ class AdminController extends Controller
                 'active_products' => $approvedProducts,
                 'rejected_products' => $rejectedProducts,
                 'inactive_products' => $inactiveProducts,
+                'sold_out_products' => $soldOutProducts,
+                'archived_products' => $archivedProducts,
             ],
         ]);
     }

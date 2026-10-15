@@ -272,11 +272,74 @@ class AdminCategoryController extends Controller
             ->groupBy('category')
             ->pluck('aggregate', 'category');
 
+        // Inventory quantity is retained for the separate Product Management page.
+        $linkedAvailableQuantities = Product::query()
+            ->selectRaw('category_id, COALESCE(SUM(stock_quantity), 0) as aggregate')
+            ->whereIn('category_id', $categoryIds)
+            ->whereRaw('LOWER(status) = ?', ['active'])
+            ->groupBy('category_id')
+            ->pluck('aggregate', 'category_id');
+
+        $legacyAvailableQuantities = Product::query()
+            ->selectRaw('category, COALESCE(SUM(stock_quantity), 0) as aggregate')
+            ->whereNull('category_id')
+            ->whereIn('category', $categoryNames)
+            ->whereRaw('LOWER(status) = ?', ['active'])
+            ->groupBy('category')
+            ->pluck('aggregate', 'category');
+
+        $linkedStatusCounts = Product::query()
+            ->selectRaw('category_id, LOWER(status) as status, COUNT(*) as aggregate')
+            ->whereIn('category_id', $categoryIds)
+            ->groupBy('category_id', 'status')
+            ->get();
+
+        $legacyStatusCounts = Product::query()
+            ->selectRaw('category, LOWER(status) as status, COUNT(*) as aggregate')
+            ->whereNull('category_id')
+            ->whereIn('category', $categoryNames)
+            ->groupBy('category', 'status')
+            ->get();
+
         foreach ($categories as $category) {
             $category->setAttribute(
                 'products_count',
                 (int) ($linkedCounts[$category->id] ?? 0)
                     + (int) ($legacyCounts[$category->name] ?? 0)
+            );
+
+            $listings = 0;
+            $archived = 0;
+
+            foreach ($linkedStatusCounts as $row) {
+                if ((int) $row->category_id !== (int) $category->id) {
+                    continue;
+                }
+                if ($row->status === 'active') {
+                    $listings += (int) $row->aggregate;
+                } elseif ($row->status === 'archived') {
+                    $archived += (int) $row->aggregate;
+                }
+            }
+
+            foreach ($legacyStatusCounts as $row) {
+                if ($row->category !== $category->name) {
+                    continue;
+                }
+                if ($row->status === 'active') {
+                    $listings += (int) $row->aggregate;
+                } elseif ($row->status === 'archived') {
+                    $archived += (int) $row->aggregate;
+                }
+            }
+
+            $category->setAttribute('listings_count', $listings);
+            $category->setAttribute('archived_count', $archived);
+
+            $category->setAttribute(
+                'available_quantity',
+                (int) ($linkedAvailableQuantities[$category->id] ?? 0)
+                    + (int) ($legacyAvailableQuantities[$category->name] ?? 0)
             );
         }
     }

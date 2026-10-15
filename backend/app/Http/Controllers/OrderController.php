@@ -166,7 +166,7 @@ class OrderController extends Controller
 
             $products = Product::query()
                 ->whereIn('id', $productIds)
-                ->with('user:id,name,student_id,role,status')
+                ->with(['user:id,name,student_id,role,status', 'categoryRecord:id,status'])
                 ->lockForUpdate()
                 ->get()
                 ->keyBy('id');
@@ -199,7 +199,17 @@ class OrderController extends Controller
 
                 if (! $product || strtolower((string) $product->status) !== 'active') {
                     throw ValidationException::withMessages([
-                        'items.'.$index.'.product_id' => ['This product is not currently available for ordering.'],
+                        'items.'.$index.'.product_id' => ['This product is no longer available for ordering.'],
+                    ]);
+                }
+
+                if (
+                    $product->category_id !== null
+                    && $product->categoryRecord !== null
+                    && strtolower((string) $product->categoryRecord->status) !== 'active'
+                ) {
+                    throw ValidationException::withMessages([
+                        'items.'.$index.'.product_id' => ['This product is currently unavailable.'],
                     ]);
                 }
 

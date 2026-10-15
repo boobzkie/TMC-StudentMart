@@ -4,7 +4,7 @@ import {
   BarChart3,
   ChevronDown,
   CreditCard,
-  ChevronLeft,
+
   ChevronRight,
   FileBarChart,
   LayoutDashboard,
@@ -36,12 +36,13 @@ function readStoredUser() {
   }
 }
 
+
 const marketplaceLinks = [
-  { to: "/admin/products", label: "Products", icon: Package },
-  { to: "/admin/categories", label: "Categories", icon: Tags },
+  { to: "/admin/products", label: "Product Management", icon: Package },
+  { to: "/admin/categories", label: "Product Categories", icon: Tags },
   { to: "/admin/product-moderation", label: "Product Moderation", icon: ShieldAlert },
   { to: "/admin/sellers", label: "Sellers", icon: Store },
-  { to: "/admin/transactions", label: "Transactions", icon: CreditCard },
+  { to: "/admin/transactions", label: "Order Management", icon: CreditCard },
   { to: "/admin/order-options", label: "Payment & pickup setup", icon: SlidersHorizontal },
 ];
 
@@ -76,7 +77,7 @@ export default function AdminLayout({
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
   const [storedUser, setStoredUser] = useState(readStoredUser);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -176,6 +177,7 @@ export default function AdminLayout({
   const initials = userInitials(displayName);
 
   const closeMobile = () => setMobileOpen(false);
+
   const handleLogout = async () => {
     if (loggingOut) return;
     presenceStoppedRef.current = true;
@@ -237,24 +239,23 @@ export default function AdminLayout({
   const railLinks = isStaff
     ? [
         { to: dashboardPath, label: "Dashboard", icon: LayoutDashboard },
-        ...(staffCanManageStudents ? [{ to: "/staff/users", label: "Manage students", icon: Users }] : []),
-        ...(staffCanModerateProducts ? [{ to: "/staff/product-moderation", label: "Product moderation", icon: ShieldAlert }] : []),
+        ...(staffCanManageStudents ? [{ to: "/staff/users", label: "Manage Student Accounts", icon: Users }] : []),
+        ...(staffCanModerateProducts ? [{ to: "/staff/product-moderation", label: "Product Moderation", icon: ShieldAlert }] : []),
         ...(staffCanManageComplaints ? [{ to: "/staff/complaints", label: "Complaints", icon: MessageSquareWarning }] : []),
         ...(staffCanViewReports ? [{ to: "/staff/reports", label: "Reports", icon: FileBarChart }] : []),
         ...(staffCanViewAnalytics ? [{ to: "/staff/analytics", label: "Analytics", icon: BarChart3 }] : []),
       ]
     : [
         { to: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
-        { to: "/admin/products", label: "Products", icon: Package },
         { to: "/admin/analytics", label: "Analytics", icon: BarChart3 },
-        { to: "/admin/users", label: "Users", icon: Users },
+        { to: "/admin/users", label: "User Management", icon: Users },
       ];
 
   return (
     <div
       className="admin-layout"
       data-theme={theme}
-      data-sidebar-collapsed={sidebarCollapsed}
+
       data-role={isStaff ? "staff" : "admin"}
     >
       {mobileOpen && (
@@ -361,7 +362,7 @@ export default function AdminLayout({
               {staffCanManageStudents && (
                 <div className="admin-nav-section">
                   <span className="admin-nav-label">STUDENT ACCOUNTS</span>
-                  {renderLink({ to: "/staff/users", label: "Manage Students", icon: Users })}
+                  {renderLink({ to: "/staff/users", label: "Student Accounts", icon: Users })}
                 </div>
               )}
               {staffCanModerateProducts && (
@@ -378,14 +379,14 @@ export default function AdminLayout({
               )}
               {(staffCanViewReports || staffCanViewAnalytics) && (
                 <div className="admin-nav-section">
-                  <span className="admin-nav-label">INSIGHTS</span>
+                  <span className="admin-nav-label">REPORTS &amp; ANALYTICS</span>
                   {staffCanViewReports && renderLink({ to: "/staff/reports", label: "Reports", icon: FileBarChart })}
                   {staffCanViewAnalytics && renderLink({ to: "/staff/analytics", label: "Analytics", icon: BarChart3 })}
                 </div>
               )}
               <div className="admin-nav-section">
                 <span className="admin-nav-label">YOUR ACCOUNT</span>
-                {renderLink({ to: settingsPath, label: "Account Settings", icon: Settings })}
+                {renderLink({ to: settingsPath, label: "My Profile", icon: Settings })}
               </div>
             </>
           ) : (
@@ -395,13 +396,13 @@ export default function AdminLayout({
                 {marketplaceLinks.map(renderLink)}
               </div>
               <div className="admin-nav-section">
-                <span className="admin-nav-label">REPORTS &amp; SUPPORT</span>
+                <span className="admin-nav-label">REPORTS &amp; ANALYTICS</span>
                 {insightLinks.map(renderLink)}</div>
               <div className="admin-nav-section">
                 <span className="admin-nav-label">ACCOUNT MANAGEMENT</span>
-                {renderLink({ to: "/admin/users", label: "Users", icon: Users })}
-                {renderLink({ to: "/admin/staff", label: "Manage Staff", icon: UserRoundCog })}
-                {renderLink({ to: settingsPath, label: "Account Settings", icon: Settings })}
+                {renderLink({ to: "/admin/users", label: "User Management", icon: Users })}
+                {renderLink({ to: "/admin/staff", label: "Staff Management", icon: UserRoundCog })}
+                {renderLink({ to: settingsPath, label: "My Profile", icon: Settings })}
               </div>
             </>
           )}
@@ -411,11 +412,12 @@ export default function AdminLayout({
           <button
             type="button"
             className="admin-logout-button"
+            title="Sign out"
             onClick={handleLogout}
             disabled={loggingOut}
           >
             <LogOut size={18} aria-hidden="true" />
-            <span>{loggingOut ? "Signing out…" : "Logout"}</span>
+            <span>{loggingOut ? "Signing out…" : "Sign Out"}</span>
           </button>
         </div>
       </aside>
@@ -423,20 +425,7 @@ export default function AdminLayout({
       <div className="admin-main">
         <header className="admin-header">
           <div className="admin-header-left">
-            <button
-              type="button"
-              className="admin-sidebar-collapse"
-              onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
-              aria-label={sidebarCollapsed ? "Expand navigation panel" : "Collapse navigation panel"}
-              aria-expanded={!sidebarCollapsed}
-              title={sidebarCollapsed ? "Expand navigation panel" : "Collapse navigation panel"}
-            >
-              {sidebarCollapsed ? (
-                <ChevronRight size={19} aria-hidden="true" />
-              ) : (
-                <ChevronLeft size={19} aria-hidden="true" />
-              )}
-            </button>
+
             <button
               type="button"
               className="admin-mobile-menu"

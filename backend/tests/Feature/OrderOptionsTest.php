@@ -171,3 +171,75 @@ test('checkout rejects an inactive option and Admin can filter orders for a pick
         ->assertOk()
         ->assertJsonPath('pickup_locations.0.orders_count', 1);
 });
+
+test('unused payment and pickup options can be deleted by an Admin', function () {
+    $admin = makeOrderOptionsUser('admin', 'deleter');
+
+    Sanctum::actingAs($admin);
+    $methodResponse = $this->postJson('/api/admin/payment-methods', [
+        'name' => 'Temporary unused method',
+    ])->assertCreated();
+    $locationResponse = $this->postJson('/api/admin/pickup-locations', [
+        'name' => 'Temporary unused location',
+    ])->assertCreated();
+
+    $methodId = $methodResponse->json('payment_method.id');
+    $locationId = $locationResponse->json('pickup_location.id');
+
+    $this->deleteJson('/api/admin/payment-methods/'.$methodId)->assertOk();
+    $this->deleteJson('/api/admin/pickup-locations/'.$locationId)->assertOk();
+
+    $this->assertDatabaseMissing('order_payment_methods', ['id' => $methodId]);
+    $this->assertDatabaseMissing('pickup_locations', ['id' => $locationId]);
+});
+
+test('options referenced by saved orders cannot be deleted', function () {
+    $admin = makeOrderOptionsUser('admin', 'delete-blocker');
+    $buyer = makeOrderOptionsUser('student', 'delete-buyer');
+    $seller = makeOrderOptionsUser('student', 'delete-seller');
+    $product = makeOrderOptionsProduct($seller);
+    $method = makeOrderPaymentMethod(['name' => 'Protected method']);
+    $location = makePickupLocation(['name' => 'Protected location']);
+
+    Sanctum::actingAs($buyer);
+    $this->postJson('/api/orders', [
+        'payment_method_id' => $method->id,
+        'pickup_location_id' => $location->id,
+        'items' => [['product_id' => $product->id, 'quantity' => 1]],
+    ])->assertCreated();
+
+    Sanctum::actingAs($admin);
+    $this->deleteJson('/api/admin/payment-methods/'.$method->id)
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('payment_method');
+    $this->deleteJson('/api/admin/pickup-locations/'.$location->id)
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('pickup_location');
+
+    $this->assertDatabaseHas('order_payment_methods', ['id' => $method->id]);
+    $this->assertDatabaseHas('pickup_locations', ['id' => $location->id]);
+});
+
+test('staff cannot delete payment or pickup options', function () {
+    $staff = makeOrderOptionsUser('staff', 'option-staff');
+    $method = makeOrderPaymentMethod(['name' => 'Staff protected method']);
+    $location = makePickupLocation(['name' => 'Staff protected location']);
+
+    Sanctum::actingAs($staff);
+    $this->deleteJson('/api/admin/payment-methods/'.$method->id)->assertForbidden();
+    $this->deleteJson('/api/admin/pickup-locations/'.$location->id)->assertForbidden();
+});
+
+test('pickup location names must be unique', function () {
+    $admin = makeOrderOptionsUser('admin', 'unique-location');
+
+    Sanctum::actingAs($admin);
+    $this->postJson('/api/admin/pickup-locations', [
+        'name' => 'Duplicate location',
+    ])->assertCreated();
+
+    $this->postJson('/api/admin/pickup-locations', [
+        'name' => 'Duplicate location',
+    ])->assertUnprocessable()
+        ->assertJsonValidationErrors('name');
+});

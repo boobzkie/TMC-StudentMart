@@ -1,25 +1,24 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useState,
 } from "react";
 import { useNavigate } from "react-router-dom";
 
 import {
+  Activity,
+  ArrowRight,
+  BarChart3,
+  CheckCircle2,
+  Clock3,
+  Package,
+  RefreshCw,
+  ShieldCheck,
+  UserPlus,
   Users,
   UserRound,
-  ShieldCheck,
-  Package,
-  Clock3,
-  CheckCircle2,
   XCircle,
-  ArrowRight,
-  RefreshCw,
-  Activity,
-  ListChecks,
-  TrendingUp,
-  UserPlus,
-  Bell,
 } from "lucide-react";
 
 import AdminLayout from "./components/AdminLayout";
@@ -27,106 +26,216 @@ import { API_URL } from "./utils/api";
 
 import "./AdminDashboard.css";
 
-const COURSE_OPTIONS = [["BSIT", "Bachelor of Science in Information Technology"], ["BSOA", "Bachelor of Science in Office Administration"], ["BSCRIM", "Bachelor of Science in Criminology"], ["BSED", "Bachelor of Secondary Education"], ["CAS", "College of Arts and Sciences"]];
+const PROGRAMS = [
+  ["BSIT", "BSIT — Information Technology"],
+  ["BSOA", "BSOA — Office Administration"],
+  ["BSCRIM", "BSCRIM — Criminology"],
+  ["BSED", "BSED — Secondary Education"],
+  ["CAS", "CAS — Arts and Sciences"],
+];
 
-/* =========================================================
-   STAT CARD
-========================================================= */
+const STATUS_ROWS = [
+  {
+    key: "active_products",
+    label: "Active listings",
+    description: "Approved and visible in the marketplace",
+    icon: CheckCircle2,
+    tone: "success",
+  },
+  {
+    key: "pending_products",
+    label: "Pending approvals",
+    description: "Waiting for an administrator decision",
+    icon: Clock3,
+    tone: "warning",
+  },
+  {
+    key: "rejected_products",
+    label: "Rejected listings",
+    description: "Not approved by moderation",
+    icon: XCircle,
+    tone: "danger",
+  },
+  {
+    key: "inactive_products",
+    label: "Inactive listings",
+    description: "Temporarily unavailable",
+    icon: Activity,
+    tone: "neutral",
+  },
+  {
+    key: "sold_out_products",
+    label: "Sold out listings",
+    description: "Fully reserved by buyers",
+    icon: Package,
+    tone: "warning",
+  },
+  {
+    key: "archived_products",
+    label: "Archived listings",
+    description: "Retained for order and audit history",
+    icon: Package,
+    tone: "neutral",
+  },
+];
 
-function StatCard({
-  title,
-  value,
-  icon: Icon,
-  type,
-  description,
-}) {
-  return (
-    <div className={`dashboard-stat-card stat-${type}`}>
-      <div className="stat-card-header">
-        <div className={`stat-icon ${type}`}>
-          <Icon
-            size={21}
-            strokeWidth={2.2}
-          />
-        </div>
+const SUMMARY_CARDS = [
+  {
+    key: "total_users",
+    title: "Registered Accounts",
+    description: "All accounts in the system",
+    icon: Users,
+    tone: "blue",
+    to: "/admin/users",
+  },
+  {
+    key: "total_students",
+    title: "Student Accounts",
+    description: "Registered student users",
+    icon: UserRound,
+    tone: "purple",
+    to: "/admin/users",
+  },
+  {
+    key: "total_admins",
+    title: "Administrator Accounts",
+    description: "System administrator users",
+    icon: ShieldCheck,
+    tone: "blue",
+    to: "/admin/users",
+  },
+  {
+    key: "total_staff",
+    title: "Staff Accounts",
+    description: "Non-archived staff users",
+    icon: UserPlus,
+    tone: "teal",
+    to: "/admin/staff",
+  },
+  {
+    key: "total_products",
+    title: "Marketplace Listings",
+    description: "Products submitted by sellers",
+    icon: Package,
+    tone: "orange",
+    to: "/admin/products",
+  },
+  {
+    key: "pending_products",
+    title: "Pending Approvals",
+    description: "Listings awaiting moderation",
+    icon: Clock3,
+    tone: "yellow",
+    to: "/admin/products",
+  },
+  {
+    key: "active_products",
+    title: "Approved Listings",
+    description: "Active marketplace products",
+    icon: CheckCircle2,
+    tone: "green",
+    to: "/admin/products",
+  },
+];
 
-        <ArrowRight
-          className="stat-arrow"
-          size={17}
-        />
-      </div>
-
-      <div className="stat-card-value">
-        {value}
-      </div>
-
-      <div className="stat-card-title">
-        {title}
-      </div>
-
-      <div className="stat-card-description">
-        {description}
-      </div>
-    </div>
-  );
+function toNumber(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : 0;
 }
 
-/* =========================================================
-   SECONDARY STAT
-========================================================= */
+function percentOf(value, total) {
+  if (!total || total <= 0) {
+    return 0;
+  }
 
-function SecondaryStat({
-  icon: Icon,
-  title,
-  value,
-  description,
-  type,
-}) {
-  return (
-    <div className="secondary-stat">
-      <div className={`secondary-icon ${type}`}>
-        <Icon size={19} />
-      </div>
-
-      <div className="secondary-content">
-        <span>{title}</span>
-
-        <strong>{value}</strong>
-
-        <small>{description}</small>
-      </div>
-    </div>
-  );
+  return Math.round((value / total) * 100);
 }
 
-/* =========================================================
-   SKELETON
-========================================================= */
+function formatValue(value) {
+  return toNumber(value).toLocaleString();
+}
+
+function getLastUpdatedLabel(timestamp) {
+  if (!timestamp) {
+    return "Not updated yet";
+  }
+
+  const time = new Date(timestamp);
+  return `Updated at ${time.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  })}`;
+}
 
 function DashboardSkeleton() {
   return (
     <>
-      {[1, 2, 3, 4, 5, 6, 7].map((item) => (
+      {Array.from({ length: 7 }).map((_, index) => (
         <div
-          className="dashboard-stat-skeleton"
-          key={item}
-        >
-          <div className="skeleton-icon" />
-
-          <div className="skeleton-number" />
-
-          <div className="skeleton-line" />
-
-          <div className="skeleton-small" />
-        </div>
+          className="dashboard-skeleton-card"
+          key={index}
+        />
       ))}
     </>
   );
 }
 
-/* =========================================================
-   MAIN DASHBOARD
-========================================================= */
+function ChartSkeleton() {
+  return (
+    <div className="dashboard-chart-skeleton">
+      <span />
+      <span />
+      <span />
+    </div>
+  );
+}
+
+function ChartRow({ label, value, max, tone, hint }) {
+  const safeValue = toNumber(value);
+  const safeMax = Math.max(1, toNumber(max));
+  const width = Math.min(Math.round((safeValue / safeMax) * 100), 100);
+
+  return (
+    <div className="dashboard-chart-row">
+      <div className="dashboard-chart-row-top">
+        <span className="dashboard-chart-label">
+          {label}
+        </span>
+
+        <strong>
+          {safeValue.toLocaleString()}
+        </strong>
+      </div>
+
+      <div
+        className="dashboard-chart-track"
+        aria-label={`${label}: ${safeValue.toLocaleString()}`}
+      >
+        <div
+          className={`dashboard-chart-fill ${tone}`}
+          style={{ width: `${width}%` }}
+          title={`${label}: ${safeValue.toLocaleString()}`}
+        />
+      </div>
+
+      {hint ? (
+        <small>
+          {hint}
+        </small>
+      ) : null}
+    </div>
+  );
+}
+
+function EmptyChartState({ title, text }) {
+  return (
+    <div className="dashboard-empty-state">
+      <BarChart3 size={22} aria-hidden="true" />
+      <strong>{title}</strong>
+      <span>{text}</span>
+    </div>
+  );
+}
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -142,126 +251,123 @@ export default function AdminDashboard() {
     active_products: 0,
     rejected_products: 0,
     inactive_products: 0,
+    sold_out_products: 0,
+    archived_products: 0,
     course_stats: {},
   });
 
+  const [categories, setCategories] = useState([]);
+  const [categoryError, setCategoryError] = useState("");
+
   const [loading, setLoading] = useState(true);
-
   const [refreshing, setRefreshing] = useState(false);
-
   const [error, setError] = useState("");
+  const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
 
-  /* =========================================================
-     LOAD DASHBOARD DATA
-  ========================================================= */
-
-  const loadStats = useCallback(
+  const loadDashboard = useCallback(
     async (showRefresh = false) => {
+      const token = localStorage.getItem("token");
+
+      if (!token) {
+        navigate("/login", { replace: true });
+        return;
+      }
+
+      if (showRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+
+      setError("");
+      setCategoryError("");
+
       try {
-        if (showRefresh) {
-          setRefreshing(true);
-        } else {
-          setLoading(true);
-        }
+        const headers = {
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        };
 
-        setError("");
-
-        const token = localStorage.getItem("token");
-
-        if (!token) {
-          navigate("/login", {
-            replace: true,
-          });
-
-          return;
-        }
-
-        const response = await fetch(
-          `${API_URL}/admin/stats`,
-          {
-            method: "GET",
-
-            headers: {
-              Accept: "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
-        /* -------------------------------------------------------
-           AUTH ERROR
-        ------------------------------------------------------- */
+        const [statsResponse, categoriesResponse] = await Promise.all([
+          fetch(`${API_URL}/admin/stats`, { headers }),
+          fetch(`${API_URL}/admin/categories`, { headers }),
+        ]);
 
         if (
-          response.status === 401 ||
-          response.status === 403
+          statsResponse.status === 401 ||
+          statsResponse.status === 403 ||
+          categoriesResponse.status === 401 ||
+          categoriesResponse.status === 403
         ) {
           localStorage.removeItem("token");
           localStorage.removeItem("role");
           localStorage.removeItem("user");
 
-          navigate("/login", {
-            replace: true,
-          });
-
+          navigate("/login", { replace: true });
           return;
         }
 
-        const data = await response.json();
+        let statsErrorMessage = "";
 
-        if (!response.ok) {
-          throw new Error(
-            data.message ||
-              "Unable to load dashboard."
+        if (!statsResponse.ok) {
+          try {
+            const data = await statsResponse.json();
+            statsErrorMessage =
+              data.message || "Unable to load marketplace overview.";
+          } catch {
+            statsErrorMessage = "Unable to load marketplace overview.";
+          }
+        }
+
+        const categoriesJson = await categoriesResponse
+          .json()
+          .catch(() => ({}));
+
+        if (!categoriesResponse.ok) {
+          setCategoryError(
+            categoriesJson.message ||
+              "Category chart data could not be loaded."
+          );
+        } else {
+          setCategories(
+            Array.isArray(categoriesJson.categories)
+              ? categoriesJson.categories
+              : []
           );
         }
 
-        const incoming =
-          data.stats || data;
+        if (statsErrorMessage) {
+          setError(statsErrorMessage);
+          return;
+        }
+
+        const statsJson = await statsResponse.json();
+        const incoming = statsJson.stats || statsJson;
 
         setStats({
-          total_users:
-            incoming.total_users || 0,
-
-          total_students:
-            incoming.total_students || 0,
-
-          total_admins:
-            incoming.total_admins || 0,
-          total_staff: incoming.total_staff || 0,
-
-          total_products:
-            incoming.total_products || 0,
-
-          pending_products:
-            incoming.pending_products || 0,
-
-          approved_products:
-            incoming.approved_products ??
-            incoming.active_products ??
-            0,
-
-          active_products:
-            incoming.active_products ??
-            incoming.approved_products ??
-            0,
-
-          rejected_products:
-            incoming.rejected_products || 0,
-
-          inactive_products:
-            incoming.inactive_products || 0,
+          total_users: toNumber(incoming.total_users),
+          total_students: toNumber(incoming.total_students),
+          total_admins: toNumber(incoming.total_admins),
+          total_staff: toNumber(incoming.total_staff),
+          total_products: toNumber(incoming.total_products),
+          pending_products: toNumber(incoming.pending_products),
+          approved_products: toNumber(
+            incoming.approved_products ?? incoming.active_products
+          ),
+          active_products: toNumber(
+            incoming.active_products ?? incoming.approved_products
+          ),
+          rejected_products: toNumber(incoming.rejected_products),
+          inactive_products: toNumber(incoming.inactive_products),
+          sold_out_products: toNumber(incoming.sold_out_products),
+          archived_products: toNumber(incoming.archived_products),
           course_stats: incoming.course_stats || {},
         });
-      } catch (err) {
-        console.error(
-          "Dashboard error:",
-          err
-        );
 
-        setError(
-          "We couldn't load the dashboard. Please try again."
-        );
+        setLastUpdatedAt(Date.now());
+      } catch (err) {
+        console.error("Marketplace overview error:", err);
+        setError("We couldn't load the dashboard. Please try again.");
       } finally {
         setLoading(false);
         setRefreshing(false);
@@ -270,690 +376,509 @@ export default function AdminDashboard() {
     [navigate]
   );
 
-  /* =========================================================
-     INITIAL LOAD
-  ========================================================= */
-
   useEffect(() => {
     const timer = setTimeout(() => {
-      loadStats();
+      loadDashboard();
     }, 0);
 
     return () => {
       clearTimeout(timer);
     };
-  }, [loadStats]);
+  }, [loadDashboard]);
 
-  /* =========================================================
-     CALCULATED VALUES
-  ========================================================= */
+  const statusData = useMemo(
+    () =>
+      STATUS_ROWS.map((row) => ({
+        ...row,
+        value: toNumber(stats[row.key]),
+      })),
+    [stats]
+  );
 
-  const reviewedProducts =
-    stats.active_products +
-    stats.rejected_products;
-
+  const activeCount = statusData.find(
+    (item) => item.key === "active_products"
+  ).value;
+  const pendingCount = statusData.find(
+    (item) => item.key === "pending_products"
+  ).value;
+  const rejectedCount = statusData.find(
+    (item) => item.key === "rejected_products"
+  ).value;
+  const reviewedProducts = activeCount + rejectedCount;
   const approvalRate =
     reviewedProducts > 0
-      ? Math.round(
-          (stats.active_products /
-            reviewedProducts) *
-            100
-        )
+      ? Math.round((activeCount / reviewedProducts) * 100)
       : 0;
+  const productStatusTotal = statusData.reduce(
+    (sum, item) => sum + item.value,
+    0
+  );
 
-  const courseMetrics = COURSE_OPTIONS.map(([code, title]) => ({
-    code,
-    title,
-    count: Number(stats.course_stats?.[code] || 0),
-  }));
-  const courseMaximum = Math.max(1, ...courseMetrics.map((item) => item.count));
+  const programMetrics = useMemo(
+    () =>
+      PROGRAMS.map(([code, title]) => ({
+        code,
+        title,
+        count: toNumber(stats.course_stats?.[code]),
+      })),
+    [stats.course_stats]
+  );
+  const programMaximum = Math.max(
+    1,
+    ...programMetrics.map((item) => item.count)
+  );
 
-  /* =========================================================
-     RENDER
-  ========================================================= */
+  const categoryMetrics = useMemo(() => {
+    const rows = categories.map((category) => ({
+      code: category.id,
+      label: category.name,
+      value: toNumber(category.products_count),
+    }));
+
+    return rows
+      .filter((row) => row.value > 0)
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 6);
+  }, [categories]);
+  const categoryTotal = useMemo(
+    () =>
+      categories.reduce(
+        (sum, category) => sum + toNumber(category.products_count),
+        0
+      ),
+    [categories]
+  );
+  const categoryMaximum = Math.max(
+    1,
+    ...categoryMetrics.map((item) => item.value)
+  );
+
+  const hasProgramData = programMetrics.some(
+    (item) => item.count > 0
+  );
+  const hasStatusData = productStatusTotal > 0;
+  const hasCategoryData = categoryMetrics.length > 0;
+
+  const dataStatusText = loading
+    ? "Loading marketplace data"
+    : refreshing
+      ? "Updating marketplace data"
+      : error
+        ? "Update failed"
+        : getLastUpdatedLabel(lastUpdatedAt);
 
   return (
     <AdminLayout
-      title="Dashboard"
-      subtitle="Overview of your TMC StudentMart marketplace."
+      title="Marketplace Overview"
+      subtitle="Monitor accounts, listings, approvals, and moderation status."
     >
       <div className="dashboard-page">
-
-        {/* ===================================================
-            HERO
-        =================================================== */}
-
         <section className="dashboard-hero">
-
-          <div className="hero-pattern hero-pattern-one" />
-
-          <div className="hero-pattern hero-pattern-two" />
-
-          <div className="hero-content">
-
-            <div className="hero-icon">
-              <Activity
-                size={25}
-                strokeWidth={2}
-              />
+          <div className="dashboard-hero-content">
+            <div className="dashboard-hero-icon">
+              <Activity size={25} strokeWidth={2} aria-hidden="true" />
             </div>
 
-            <div className="hero-text">
-
-              <span>
-                ADMINISTRATOR OVERVIEW
+            <div>
+              <span className="dashboard-eyebrow">
+                MARKETPLACE OVERVIEW
               </span>
 
-              <h2>
-                Welcome back, Administrator
-              </h2>
+              <h2>Welcome back, Administrator</h2>
 
               <p>
-                Monitor users, marketplace
-                products, and pending
-                approvals from one place.
+                Review account activity, marketplace listings, and moderation
+                status from one professional workspace.
               </p>
-
             </div>
-
           </div>
 
-          {/* =================================================
-              DASHBOARD REFRESH BUTTON
-
-              IMPORTANT:
-              This uses a unique class name so the global
-              .hero-refresh CSS cannot override it.
-          ================================================= */}
+          <div className="dashboard-hero-status">
+            <span className="dashboard-status-dot" />
+            <span>{dataStatusText}</span>
+          </div>
 
           <button
             type="button"
-            className="dashboard-hero-refresh"
+            className="dashboard-refresh-button"
             onClick={() => {
               if (!refreshing) {
-                loadStats(true);
+                loadDashboard(true);
               }
             }}
-            disabled={refreshing}
+            disabled={refreshing || loading}
           >
             <RefreshCw
               size={16}
-              className={
-                refreshing
-                  ? "dashboard-refresh-spin"
-                  : ""
-              }
+              className={refreshing ? "dashboard-refresh-spin" : ""}
+              aria-hidden="true"
             />
-
-            {refreshing
-              ? "Refreshing..."
-              : "Refresh Data"}
+            {refreshing ? "Updating..." : "Refresh Data"}
           </button>
-
         </section>
 
-        {/* ===================================================
-            ERROR
-        =================================================== */}
-
-        {error && (
-          <div className="dashboard-error">
-
-            <div className="error-content">
-
-              <XCircle size={20} />
+        {error ? (
+          <div
+            className="dashboard-error"
+            role="alert"
+          >
+            <div className="dashboard-error-content">
+              <XCircle size={20} aria-hidden="true" />
 
               <div>
-
                 <strong>
-                  Something went wrong
+                  Unable to load marketplace overview
                 </strong>
 
-                <span>
-                  {error}
-                </span>
-
+                <span>{error}</span>
               </div>
-
             </div>
 
             <button
               type="button"
-              onClick={() =>
-                loadStats(true)
-              }
+              onClick={() => loadDashboard(true)}
             >
               Try Again
             </button>
-
           </div>
-        )}
+        ) : null}
 
-        {/* ===================================================
-            SECTION TITLE
-        =================================================== */}
-
-        <div className="dashboard-section-heading">
-
-          <div>
-
-            <span>
-              OVERVIEW
-            </span>
-
-            <h2>
-              Marketplace Statistics
-            </h2>
-
-            <p>
-              A quick summary of your
-              StudentMart system.
-            </p>
-
+        <section className="dashboard-section">
+          <div className="dashboard-section-heading">
+            <div>
+              <span>ACCOUNT AND LISTING SUMMARY</span>
+              <h2>Marketplace Statistics</h2>
+              <p>
+                Real totals returned by the Laravel administrator API.
+              </p>
+            </div>
           </div>
 
-          <div className="dashboard-live">
+          <div className="dashboard-card-grid">
+            {loading ? (
+              <DashboardSkeleton />
+            ) : (
+              SUMMARY_CARDS.map((card) => {
+                const Icon = card.icon;
+                const ButtonTag = card.to ? "button" : "div";
 
-            <span />
+                return (
+                  <ButtonTag
+                    className={`dashboard-stat-card tone-${card.tone}`}
+                    key={card.key}
+                    type={card.to ? "button" : undefined}
+                    onClick={
+                      card.to
+                        ? () => navigate(card.to)
+                        : undefined
+                    }
+                    aria-label={
+                      card.to
+                        ? `${card.title}: ${formatValue(stats[card.key])}`
+                        : undefined
+                    }
+                  >
+                    <div className="dashboard-stat-card-top">
+                      <div className="dashboard-stat-icon">
+                        <Icon size={21} strokeWidth={2.2} aria-hidden="true" />
+                      </div>
 
-            Live Data
+                      {card.to ? (
+                        <ArrowRight
+                          className="dashboard-stat-arrow"
+                          size={17}
+                          aria-hidden="true"
+                        />
+                      ) : null}
+                    </div>
 
+                    <strong className="dashboard-stat-value">
+                      {formatValue(stats[card.key])}
+                    </strong>
+
+                    <span className="dashboard-stat-title">
+                      {card.title}
+                    </span>
+
+                    <span className="dashboard-stat-description">
+                      {card.description}
+                    </span>
+                  </ButtonTag>
+                );
+              })
+            )}
           </div>
-
-        </div>
-
-        {/* ===================================================
-            MAIN STAT CARDS
-        =================================================== */}
-
-        <section className="dashboard-stats">
-
-          {loading ? (
-            <DashboardSkeleton />
-          ) : (
-            <>
-
-              <StatCard
-                title="Total Users"
-                value={stats.total_users}
-                icon={Users}
-                type="blue"
-                description="All registered accounts"
-              />
-
-              <StatCard
-                title="Students"
-                value={stats.total_students}
-                icon={UserRound}
-                type="purple"
-                description="Registered student accounts"
-              />
-
-              <StatCard
-                title="Administrators"
-                value={stats.total_admins}
-                icon={ShieldCheck}
-                type="slate"
-                description="System administrator accounts"
-              />
-              <StatCard
-                title="Staff"
-                value={stats.total_staff}
-                icon={UserPlus}
-                type="purple"
-                description="Non-archived staff accounts"
-              />
-
-              <StatCard
-                title="Total Products"
-                value={stats.total_products}
-                icon={Package}
-                type="orange"
-                description="All marketplace listings"
-              />
-
-              <StatCard
-                title="Pending Products"
-                value={stats.pending_products}
-                icon={Clock3}
-                type="yellow"
-                description="Products awaiting approval"
-              />
-
-              <StatCard
-                title="Active Products"
-                value={stats.active_products}
-                icon={CheckCircle2}
-                type="green"
-                description="Approved marketplace listings"
-              />
-
-            </>
-          )}
-
         </section>
 
-        {/* ===================================================
-            SECONDARY STATISTICS
-        =================================================== */}
-
-        {!loading && (
-          <section className="secondary-stats">
-
-            <SecondaryStat
-              icon={ListChecks}
-              title="Total Listings"
-              value={stats.total_products}
-              description="Marketplace products"
-              type="blue"
-            />
-
-            <SecondaryStat
-              icon={Clock3}
-              title="Needs Review"
-              value={stats.pending_products}
-              description="Awaiting administrator action"
-              type="yellow"
-            />
-
-            <SecondaryStat
-              icon={TrendingUp}
-              title="Approval Rate"
-              value={`${approvalRate}%`}
-              description="Based on reviewed products"
-              type="green"
-            />
-
-            <SecondaryStat
-              icon={UserPlus}
-              title="Student Accounts"
-              value={stats.total_students}
-              description="Active marketplace users"
-              type="purple"
-            />
-
-          </section>
-        )}
-
-        {/* ===================================================
-            LOWER DASHBOARD
-        =================================================== */}
-
-        {!loading && (
-          <section className="course-stat-section">
-            <div className="course-stat-heading"><div><span>STUDENT ENROLLMENT</span><h2>Students by course / program</h2><p>Counts come from student accounts in the database.</p></div></div>
-            <div className="course-stat-grid">
-              {courseMetrics.map((item) => (
-                <article className="course-stat-card" key={item.code}>
-                  <div><strong>{item.code}</strong><span>{item.title}</span><b>{item.count}</b></div>
-                  <div className="course-stat-track" aria-label={item.count + " students"}><span style={{ width: ((item.count / courseMaximum) * 100) + "%" }} /></div>
-                </article>
-              ))}
+        <section className="dashboard-section">
+          <div className="dashboard-section-heading">
+            <div>
+              <span>MARKETPLACE ANALYTICS</span>
+              <h2>Marketplace Analytics</h2>
+              <p>
+                Charts use actual marketplace records. No estimated trends are
+                included.
+              </p>
             </div>
-          </section>
-        )}
-        <section className="dashboard-bottom-grid">
+          </div>
 
-          {/* =================================================
-              PRODUCT OVERVIEW
-          ================================================= */}
-
-          <div className="dashboard-panel product-panel">
-
-            <div className="panel-header">
-
-              <div>
-
-                <span className="panel-label">
-                  MARKETPLACE
+          <div className="dashboard-analytics-grid">
+            <article className="dashboard-chart-card">
+              <div className="dashboard-chart-header">
+                <div>
+                  <h3>Product Approval Status</h3>
+                  <p>Current listing counts grouped by moderation status.</p>
+                </div>
+                <span className="dashboard-chart-total">
+                  {formatValue(productStatusTotal)} total
                 </span>
-
-                <h2>
-                  Product Overview
-                </h2>
-
-                <p>
-                  Monitor the current status
-                  of marketplace listings.
-                </p>
-
               </div>
 
-              <div className="panel-header-icon">
+              {loading ? (
+                <ChartSkeleton />
+              ) : hasStatusData ? (
+                <>
+                  <div
+                    className="dashboard-chart-block"
+                    role="img"
+                    aria-label="Bar chart of product approval status"
+                  >
+                    {statusData.map((item) => (
+                      <ChartRow
+                        key={item.key}
+                        label={item.label}
+                        value={item.value}
+                        max={productStatusTotal}
+                        tone={item.tone}
+                        hint={`${percentOf(item.value, productStatusTotal)}% of listings`}
+                      />
+                    ))}
+                  </div>
 
-                <Package size={20} />
+                  <div className="dashboard-mini-stat-row">
+                    <div>
+                      <span>Reviewed listings</span>
+                      <strong>{formatValue(reviewedProducts)}</strong>
+                    </div>
 
+                    <div>
+                      <span>Approval rate</span>
+                      <strong>{approvalRate}%</strong>
+                    </div>
+
+                    <div>
+                      <span>Pending share</span>
+                      <strong>{percentOf(pendingCount, productStatusTotal)}%</strong>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <EmptyChartState
+                  title="No product status data"
+                  text="Approved, pending, rejected, and inactive listings will appear here."
+                />
+              )}
+            </article>
+
+            <article className="dashboard-chart-card">
+              <div className="dashboard-chart-header">
+                <div>
+                  <h3>Student Accounts by Program</h3>
+                  <p>Registered student accounts grouped by academic program.</p>
+                </div>
+                <span className="dashboard-chart-total">
+                  {formatValue(stats.total_students)} students
+                </span>
               </div>
 
+              {loading ? (
+                <ChartSkeleton />
+              ) : hasProgramData ? (
+                <div
+                  className="dashboard-chart-block"
+                  role="img"
+                  aria-label="Bar chart of student accounts by program"
+                >
+                  {programMetrics.map((item) => (
+                    <ChartRow
+                      key={item.code}
+                      label={item.code}
+                      value={item.count}
+                      max={programMaximum}
+                      tone="blue"
+                      hint={item.title}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <EmptyChartState
+                  title="No program data"
+                  text="Student account records by program will appear here."
+                />
+              )}
+            </article>
+
+            <article className="dashboard-chart-card">
+              <div className="dashboard-chart-header">
+                <div>
+                  <h3>Marketplace Listings by Category</h3>
+                  <p>Current product counts for each category.</p>
+                </div>
+                <span className="dashboard-chart-total">
+                  {formatValue(categoryTotal)} listed
+                </span>
+              </div>
+
+              {loading ? (
+                <ChartSkeleton />
+              ) : categoryError ? (
+                <EmptyChartState
+                  title="Category chart unavailable"
+                  text={categoryError}
+                />
+              ) : hasCategoryData ? (
+                <div
+                  className="dashboard-chart-block"
+                  role="img"
+                  aria-label="Bar chart of marketplace listings by category"
+                >
+                  {categoryMetrics.map((item) => (
+                    <ChartRow
+                      key={item.code}
+                      label={item.label}
+                      value={item.value}
+                      max={categoryMaximum}
+                      tone="teal"
+                      hint={`${percentOf(item.value, categoryTotal)}% of category listings`}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <EmptyChartState
+                  title="No category listings"
+                  text="Categories with products will appear here."
+                />
+              )}
+            </article>
+          </div>
+
+          <div className="dashboard-note">
+            <Activity size={18} aria-hidden="true" />
+            <p>
+              Trend charts require timestamped historical backend data, which is
+              not currently available to this admin endpoint. Only actual
+              available counts are shown above; the existing staff insights API is
+              documented separately if historical trends are approved later.
+            </p>
+          </div>
+        </section>
+
+        <section className="dashboard-bottom-grid">
+          <article className="dashboard-panel">
+            <div className="dashboard-panel-header">
+              <div>
+                <span>MARKETPLACE</span>
+                <h2>Pending Approvals</h2>
+                <p>Products that require administrator action.</p>
+              </div>
+
+              <div className="dashboard-panel-icon">
+                <Clock3 size={20} aria-hidden="true" />
+              </div>
             </div>
 
-            <div className="overview-list">
-
-              {/* PENDING */}
-
-              <div className="overview-item">
-
-                <div className="overview-left">
-
-                  <div className="overview-icon pending">
-
-                    <Clock3 size={18} />
-
-                  </div>
-
-                  <div>
-
-                    <strong>
-                      {stats.pending_products}
-                    </strong>
-
-                    <span>
-                      Pending review
-                    </span>
-
-                  </div>
-
-                </div>
-
-                <button
-                  type="button"
-                  className="overview-action pending-action"
-                  onClick={() =>
-                    navigate(
-                      "/admin/products"
-                    )
-                  }
-                >
-                  Review
-
-                  <ArrowRight size={15} />
-
-                </button>
-
-              </div>
-
-              {/* ACTIVE */}
-
-              <div className="overview-item">
-
-                <div className="overview-left">
-
-                  <div className="overview-icon active">
-
-                    <CheckCircle2
-                      size={18}
-                    />
-
-                  </div>
-
-                  <div>
-
-                    <strong>
-                      {stats.active_products}
-                    </strong>
-
-                    <span>
-                      Active products
-                    </span>
-
-                  </div>
-
-                </div>
-
-                <button
-                  type="button"
-                  className="overview-action active-action"
-                  onClick={() =>
-                    navigate(
-                      "/admin/products"
-                    )
-                  }
-                >
-                  View
-
-                  <ArrowRight size={15} />
-
-                </button>
-
-              </div>
-
-              {/* REJECTED */}
-
-              <div className="overview-item">
-
-                <div className="overview-left">
-
-                  <div className="overview-icon rejected">
-
-                    <XCircle size={18} />
-
-                  </div>
-
-                  <div>
-
-                    <strong>
-                      {stats.rejected_products}
-                    </strong>
-
-                    <span>
-                      Rejected products
-                    </span>
-
-                  </div>
-
-                </div>
-
-                <button
-                  type="button"
-                  className="overview-action rejected-action"
-                  onClick={() =>
-                    navigate(
-                      "/admin/products"
-                    )
-                  }
-                >
-                  View
-
-                  <ArrowRight size={15} />
-
-                </button>
-
-              </div>
-
+            <div className="dashboard-approval-summary">
+              <strong>{formatValue(stats.pending_products)}</strong>
+              <span>Listings awaiting review</span>
+              <p>
+                Use Product Management to review, approve, or reject submitted
+                listings.
+              </p>
             </div>
 
             <button
               type="button"
-              className="open-management"
-              onClick={() =>
-                navigate(
-                  "/admin/products"
-                )
-              }
+              className="dashboard-primary-action"
+              onClick={() => navigate("/admin/products")}
             >
-              <Package size={17} />
-
+              <Package size={17} aria-hidden="true" />
               Open Product Management
-
-              <ArrowRight size={16} />
-
+              <ArrowRight size={16} aria-hidden="true" />
             </button>
+          </article>
 
-          </div>
-
-          {/* =================================================
-              ADMINISTRATION
-          ================================================= */}
-
-          <div className="dashboard-panel administration-panel">
-
-            <div className="panel-header">
-
+          <article className="dashboard-panel">
+            <div className="dashboard-panel-header">
               <div>
-
-                <span className="panel-label">
-                  SYSTEM
-                </span>
-
-                <h2>
-                  Administration
-                </h2>
-
-                <p>
-                  Manage users and marketplace
-                  operations.
-                </p>
-
+                <span>SYSTEM</span>
+                <h2>Administration</h2>
+                <p>Core marketplace administration status.</p>
               </div>
 
-              <div className="panel-header-icon">
-
-                <ShieldCheck size={20} />
-
+              <div className="dashboard-panel-icon">
+                <ShieldCheck size={20} aria-hidden="true" />
               </div>
-
             </div>
 
-            {/* ONLINE STATUS */}
-
-            <div className="system-status">
-
-              <div className="online-indicator">
-
+            <div className="dashboard-system-status">
+              <div className="dashboard-online-indicator">
                 <span />
-
-                System Online
-
+                API connected
               </div>
 
               <p>
-                TMC StudentMart administration
-                services are connected to the
-                Laravel API.
+                TMC StudentMart is connected to the Laravel backend and is
+                showing authorized administrative data.
               </p>
-
             </div>
 
-            {/* MINI STATS */}
-
-            <div className="system-mini-stats">
-
+            <div className="dashboard-mini-stats">
               <div>
-
-                <span>
-                  Users
-                </span>
-
-                <strong>
-                  {stats.total_users}
-                </strong>
-
+                <span>Accounts</span>
+                <strong>{formatValue(stats.total_users)}</strong>
               </div>
 
               <div>
-
-                <span>
-                  Students
-                </span>
-
-                <strong>
-                  {stats.total_students}
-                </strong>
-
+                <span>Students</span>
+                <strong>{formatValue(stats.total_students)}</strong>
               </div>
 
               <div>
-
-                <span>
-                  Products
-                </span>
-
-                <strong>
-                  {stats.total_products}
-                </strong>
-
+                <span>Listings</span>
+                <strong>{formatValue(stats.total_products)}</strong>
               </div>
-
             </div>
 
-            {/* QUICK ACTIONS */}
-
-            <div className="quick-actions">
-
+            <div className="dashboard-quick-actions">
               <button
                 type="button"
-                onClick={() =>
-                  navigate(
-                    "/admin/users"
-                  )
-                }
+                onClick={() => navigate("/admin/users")}
               >
-
-                <div>
-
-                  <Users size={17} />
-
-                  <span>
-                    Manage Users
-                  </span>
-
-                </div>
-
-                <ArrowRight size={16} />
-
+                <Users size={17} aria-hidden="true" />
+                <span>Manage Users</span>
+                <ArrowRight size={16} aria-hidden="true" />
               </button>
 
               <button
                 type="button"
-                onClick={() =>
-                  navigate(
-                    "/admin/products"
-                  )
-                }
+                onClick={() => navigate("/admin/staff")}
               >
-
-                <div>
-
-                  <Package size={17} />
-
-                  <span>
-                    Manage Products
-                  </span>
-
-                </div>
-
-                <ArrowRight size={16} />
-
+                <UserPlus size={17} aria-hidden="true" />
+                <span>Manage Staff</span>
+                <ArrowRight size={16} aria-hidden="true" />
               </button>
-
             </div>
-
-          </div>
-
+          </article>
         </section>
 
-        {/* ===================================================
-            FOOTER INFO
-        =================================================== */}
-
         <div className="dashboard-footer">
-
           <div>
-
-            <Bell size={15} />
-
-            <span>
-              TMC StudentMart Administration
-            </span>
-
+            <Activity size={15} aria-hidden="true" />
+            <span>TMC StudentMart Administration</span>
           </div>
 
-          <span>
-            Connected to Laravel API
-          </span>
-
+          <span>{dataStatusText}</span>
         </div>
-
       </div>
     </AdminLayout>
   );

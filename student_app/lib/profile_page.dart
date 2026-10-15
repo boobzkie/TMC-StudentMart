@@ -186,10 +186,15 @@ class _CartPageState extends State<CartPage> {
           entry.product.status != 'active' ||
           entry.quantity > entry.availableStock,
     )) {
+      final unavailable = cart.entries.any(
+        (entry) => entry.product.status != 'active',
+      );
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
-            'One or more items are no longer available in that quantity. Refresh the marketplace and update your cart.',
+            unavailable
+                ? 'Product is no longer available.'
+                : 'One or more items are no longer available in that quantity. Refresh the marketplace and update your cart.',
           ),
         ),
       );
@@ -360,6 +365,15 @@ class _CartPageState extends State<CartPage> {
                                 fontSize: 11,
                               ),
                             ),
+                            if (product.status != 'active')
+                              const Text(
+                                'Product is no longer available.',
+                                style: TextStyle(
+                                  color: TmcPalette.error,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
                             const SizedBox(height: 6),
                             Row(
                               children: [

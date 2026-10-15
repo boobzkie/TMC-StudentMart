@@ -571,8 +571,22 @@
   color: #ce4654;
 }
 
-.status-inactive {
-  background: var(--tmc-products-neutral-bg);
+.status-sold-out {
+  color: #b45309;
+  background: rgba(217, 119, 6, 0.12);
+}
+
+.status-archived {
+  color: #475569;
+  background: rgba(71, 85, 105, 0.14);
+}
+
+.status-suspended {
+  color: #7c3aed;
+  background: rgba(124, 58, 237, 0.12);
+}
+
+.status-inactive {  background: var(--tmc-products-neutral-bg);
   color: #60718b;
 }
 

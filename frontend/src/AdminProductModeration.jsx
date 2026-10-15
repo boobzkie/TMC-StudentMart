@@ -607,7 +607,8 @@ export default function AdminProductModeration() {
               <span>Status</span>
               <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
                 <option value="pending">Pending</option>
-                <option value="active">Active / approved</option>
+                <option value="active">Available / approved</option>
+                <option value="archived">Archived</option>
                 <option value="suspended">Suspended</option>
                 <option value="rejected">Rejected</option>
                 <option value="inactive">Inactive</option>

@@ -36,6 +36,12 @@ class ProductController extends Controller
                             ->where('sold_out_at', '>', $visibleSoldOutCutoff);
                     });
             })
+            ->where(function ($query): void {
+                $query->whereNull('category_id')
+                    ->orWhereHas('categoryRecord', function ($category): void {
+                        $category->where('status', 'active');
+                    });
+            })
             ->orderByDesc('created_at')
             ->get()
             ->map(fn (Product $product) => $this->productData($product));
@@ -144,6 +150,14 @@ class ProductController extends Controller
             && $product->sold_out_at !== null
             && $product->sold_out_at->greaterThan(now()->subHour());
         $isOwner = (int) $product->user_id === (int) $request->user()->id;
+        $isArchived = strtolower((string) $product->status) === 'archived';
+
+        if ($isArchived && ! $isOwner) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Product is no longer available.',
+            ], 404);
+        }
 
         if (! $isActive && ! $isRecentlySoldOut && ! $isOwner) {
             return response()->json([

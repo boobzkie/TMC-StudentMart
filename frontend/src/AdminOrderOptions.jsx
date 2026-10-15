@@ -24,6 +24,18 @@ function clearAuthAndRedirect() {
   window.location.href = "/login";
 }
 
+function validatePosition(value) {
+  const raw = String(value ?? "").trim();
+  if (!/^\d+$/.test(raw)) {
+    return "Display order must be a whole number from 0 to 65535.";
+  }
+  const number = Number(raw);
+  if (number > 65535) {
+    return "Display order must be a whole number from 0 to 65535.";
+  }
+  return null;
+}
+
 export default function AdminOrderOptions() {
   const [paymentMethods, setPaymentMethods] = useState([]);
   const [pickupLocations, setPickupLocations] = useState([]);
@@ -109,6 +121,13 @@ export default function AdminOrderOptions() {
       return;
     }
 
+    const positionError = validatePosition(form.sort_order);
+    if (positionError) {
+      setError(positionError);
+      return;
+    }
+    const position = Number(String(form.sort_order).trim());
+
     setSaving(true);
     try {
       const payment = modalType === "payment";
@@ -118,7 +137,7 @@ export default function AdminOrderOptions() {
             name: form.name.trim(),
             instructions: form.instructions.trim() || null,
             is_active: Boolean(form.is_active),
-            sort_order: Number(form.sort_order) || 0,
+            sort_order: position,
           }
         : {
             name: form.name.trim(),
@@ -127,7 +146,7 @@ export default function AdminOrderOptions() {
             instructions: form.instructions.trim() || null,
             operating_hours: form.operating_hours.trim() || null,
             is_active: Boolean(form.is_active),
-            sort_order: Number(form.sort_order) || 0,
+            sort_order: position,
           };
       const response = await fetch(`${API_URL}${base}${editing ? `/${editing.id}` : ""}`, {
         method: editing ? "PUT" : "POST",

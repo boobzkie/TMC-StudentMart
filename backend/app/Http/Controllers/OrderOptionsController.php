@@ -6,7 +6,9 @@ use App\Models\OrderPaymentMethod;
 use App\Models\PickupLocation;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class OrderOptionsController extends Controller
 {
@@ -49,6 +51,10 @@ class OrderOptionsController extends Controller
             'instructions' => ['nullable', 'string', 'max:2000'],
             'is_active' => ['sometimes', 'boolean'],
             'sort_order' => ['sometimes', 'integer', 'min:0', 'max:65535'],
+        ], [
+            'sort_order.integer' => 'Display order must be a whole number.',
+            'sort_order.min' => 'Display order must be at least 0.',
+            'sort_order.max' => 'Display order must be 65535 or less.',
         ]);
 
         $method = OrderPaymentMethod::query()->create($validated + [
@@ -66,6 +72,10 @@ class OrderOptionsController extends Controller
             'instructions' => ['nullable', 'string', 'max:2000'],
             'is_active' => ['required', 'boolean'],
             'sort_order' => ['required', 'integer', 'min:0', 'max:65535'],
+        ], [
+            'sort_order.integer' => 'Display order must be a whole number.',
+            'sort_order.min' => 'Display order must be at least 0.',
+            'sort_order.max' => 'Display order must be 65535 or less.',
         ]);
 
         $paymentMethod->update($validated);
@@ -76,13 +86,17 @@ class OrderOptionsController extends Controller
     public function storePickupLocation(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:120'],
+            'name' => ['required', 'string', 'max:120', Rule::unique('pickup_locations', 'name')],
             'building_room' => ['nullable', 'string', 'max:120'],
             'campus_area' => ['nullable', 'string', 'max:120'],
             'instructions' => ['nullable', 'string', 'max:2000'],
             'operating_hours' => ['nullable', 'string', 'max:120'],
             'is_active' => ['sometimes', 'boolean'],
             'sort_order' => ['sometimes', 'integer', 'min:0', 'max:65535'],
+        ], [
+            'sort_order.integer' => 'Display order must be a whole number.',
+            'sort_order.min' => 'Display order must be at least 0.',
+            'sort_order.max' => 'Display order must be 65535 or less.',
         ]);
 
         $location = PickupLocation::query()->create($validated + [
@@ -96,17 +110,71 @@ class OrderOptionsController extends Controller
     public function updatePickupLocation(Request $request, PickupLocation $pickupLocation): JsonResponse
     {
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:120'],
+            'name' => ['required', 'string', 'max:120', Rule::unique('pickup_locations', 'name')->ignore($pickupLocation->id)],
             'building_room' => ['nullable', 'string', 'max:120'],
             'campus_area' => ['nullable', 'string', 'max:120'],
             'instructions' => ['nullable', 'string', 'max:2000'],
             'operating_hours' => ['nullable', 'string', 'max:120'],
             'is_active' => ['required', 'boolean'],
             'sort_order' => ['required', 'integer', 'min:0', 'max:65535'],
+        ], [
+            'sort_order.integer' => 'Display order must be a whole number.',
+            'sort_order.min' => 'Display order must be at least 0.',
+            'sort_order.max' => 'Display order must be 65535 or less.',
         ]);
 
         $pickupLocation->update($validated);
 
         return response()->json(['message' => 'Pickup location updated.', 'pickup_location' => $pickupLocation->fresh()]);
+    }
+
+    public function destroyPaymentMethod(OrderPaymentMethod $paymentMethod): JsonResponse
+    {
+        $result = DB::transaction(function () use ($paymentMethod): JsonResponse {
+            $lockedMethod = OrderPaymentMethod::query()
+                ->whereKey($paymentMethod->getKey())
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $orderCount = $lockedMethod->orders()->count();
+            if ($orderCount > 0) {
+                throw ValidationException::withMessages([
+                    'payment_method' => [
+                        'This payment method cannot be deleted because '.$orderCount.' saved order(s) reference it. Deactivate it instead.',
+                    ],
+                ]);
+            }
+
+            $lockedMethod->delete();
+
+            return response()->json(['message' => 'Payment method deleted.']);
+        });
+
+        return $result;
+    }
+
+    public function destroyPickupLocation(PickupLocation $pickupLocation): JsonResponse
+    {
+        $result = DB::transaction(function () use ($pickupLocation): JsonResponse {
+            $lockedLocation = PickupLocation::query()
+                ->whereKey($pickupLocation->getKey())
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $orderCount = $lockedLocation->orders()->count();
+            if ($orderCount > 0) {
+                throw ValidationException::withMessages([
+                    'pickup_location' => [
+                        'This pickup location cannot be deleted because '.$orderCount.' saved order(s) reference it. Deactivate it instead.',
+                    ],
+                ]);
+            }
+
+            $lockedLocation->delete();
+
+            return response()->json(['message' => 'Pickup location deleted.']);
+        });
+
+        return $result;
     }
 }

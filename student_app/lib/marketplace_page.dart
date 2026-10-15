@@ -75,6 +75,8 @@ Future<void> _addProductToCart(
         ? 'Added ${selectedVariant?.label ?? product.name} to your cart.'
         : isOwnProduct(product, currentUserId)
         ? 'You cannot purchase your own product.'
+        : product.status != 'active'
+        ? 'Product is no longer available.'
         : selectedVariant != null && selectedVariant.stockQuantity <= 0
         ? 'This option is sold out.'
         : 'You have reached the available stock limit.';
@@ -519,7 +521,9 @@ class ProductDetailsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final currentUserId = context.watch<AuthState>().user?.id ?? 0;
     final isOwnListing = isOwnProduct(product, currentUserId);
+    final isArchived = product.status == 'archived';
     final soldOut = product.status == 'sold_out' || product.stockQuantity <= 0;
+    final unavailable = isArchived || soldOut;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Product details')),
@@ -545,9 +549,9 @@ class ProductDetailsPage extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            soldOut ? 'Sold out' : '${product.stockQuantity} available',
+            unavailable ? (isArchived ? 'Product is no longer available.' : 'Sold out') : '${product.stockQuantity} available',
             style: TextStyle(
-              color: soldOut ? TmcPalette.error : TmcPalette.darkGray,
+              color: unavailable ? TmcPalette.error : TmcPalette.darkGray,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -662,7 +666,7 @@ class ProductDetailsPage extends StatelessWidget {
           ],
           const SizedBox(height: 12),
           FilledButton.icon(
-            onPressed: isOwnListing || soldOut
+            onPressed: isOwnListing || unavailable
                 ? null
                 : () async {
                     await _addProductToCart(context, product, currentUserId);
@@ -670,15 +674,15 @@ class ProductDetailsPage extends StatelessWidget {
             icon: Icon(
               isOwnListing
                   ? Icons.storefront_outlined
-                  : soldOut
-                  ? Icons.remove_shopping_cart_outlined
+                   : unavailable
+                   ? Icons.remove_shopping_cart_outlined
                   : Icons.add_shopping_cart,
             ),
             label: Text(
               isOwnListing
                   ? 'Your listing'
-              : soldOut
-                  ? 'Sold out'
+               : unavailable
+                  ? (isArchived ? 'Product is no longer available.' : 'Sold out')
                   : product.variants.isNotEmpty
                       ? 'Choose option & add'
                       : 'Add to cart',
@@ -695,7 +699,7 @@ class ProductDetailsPage extends StatelessWidget {
               ),
             ),
           ],
-          if (soldOut && !isOwnListing) ...[
+          if (unavailable && !isOwnListing) ...[
             const SizedBox(height: 8),
             const Text(
               'This listing is out of stock and cannot be ordered.',

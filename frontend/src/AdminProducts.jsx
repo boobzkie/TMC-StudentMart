@@ -332,12 +332,7 @@ export default function AdminProducts() {
         );
       }
 
-      setProducts((current) =>
-        current.filter(
-          (product) =>
-            product.id !== productId
-        )
-      );
+      await loadProducts(true);
     } catch (err) {
       console.error(err);
 
@@ -368,6 +363,18 @@ export default function AdminProducts() {
 
     if (normalized === "rejected") {
       return "status-rejected";
+    }
+
+    if (normalized === "sold_out") {
+      return "status-sold-out";
+    }
+
+    if (normalized === "archived") {
+      return "status-archived";
+    }
+
+    if (normalized === "suspended") {
+      return "status-suspended";
     }
 
     return "status-inactive";
@@ -482,7 +489,7 @@ export default function AdminProducts() {
           </option>
 
           <option value="active">
-            Active
+            Available
           </option>
 
           <option value="rejected">
@@ -615,6 +622,7 @@ export default function AdminProducts() {
                   <th>SELLER</th>
                   <th>CATEGORY</th>
                   <th>PRICE</th>
+                  <th>QUANTITY</th>
                   <th>STATUS</th>
                   <th>DATE</th>
                   <th>ACTIONS</th>
@@ -731,6 +739,15 @@ export default function AdminProducts() {
                           </strong>
                         </td>
 
+                        {/* QUANTITY */}
+                        <td>
+                          <span className="product-quantity">
+                            {Number(
+                              product?.stock_quantity ?? 0
+                            )}
+                          </span>
+                        </td>
+
                         {/* STATUS */}
                         <td>
 
@@ -743,8 +760,29 @@ export default function AdminProducts() {
                               productStatus
                             )}
 
-                            {productStatus ||
-                              "unknown"}
+                            {productStatus ===
+                            "active"
+                              ? "AVAILABLE"
+                              : productStatus ===
+                                "archived"
+                              ? "ARCHIVED"
+                              : productStatus ===
+                                "sold_out"
+                              ? "SOLD OUT"
+                              : productStatus ===
+                                "pending"
+                              ? "PENDING"
+                              : productStatus ===
+                                "rejected"
+                              ? "REJECTED"
+                              : productStatus ===
+                                "inactive"
+                              ? "INACTIVE"
+                              : productStatus ===
+                                "suspended"
+                              ? "SUSPENDED"
+                              : (productStatus ||
+                                "unknown").toUpperCase()}
                           </span>
 
                         </td>

@@ -428,6 +428,11 @@ Route::middleware('auth:sanctum')->group(function () {
                 'updatePaymentMethod',
             ]);
 
+            Route::delete('/payment-methods/{paymentMethod}', [
+                OrderOptionsController::class,
+                'destroyPaymentMethod',
+            ]);
+
             Route::post('/pickup-locations', [
                 OrderOptionsController::class,
                 'storePickupLocation',
@@ -436,6 +441,11 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::put('/pickup-locations/{pickupLocation}', [
                 OrderOptionsController::class,
                 'updatePickupLocation',
+            ]);
+
+            Route::delete('/pickup-locations/{pickupLocation}', [
+                OrderOptionsController::class,
+                'destroyPickupLocation',
             ]);
 
             /*

@@ -481,11 +481,11 @@ export default function AdminCategories() {
       category.status === "inactive"
   ).length;
 
-  const totalProducts = categories.reduce(
+  const totalListings = categories.reduce(
     (total, category) =>
       total +
       (Number(
-        category.products_count
+        category.listings_count
       ) || 0),
     0
   );
@@ -634,11 +634,11 @@ export default function AdminCategories() {
 
             <div>
               <span>
-                Products Assigned
+                Active Listings
               </span>
 
               <strong>
-                {totalProducts}
+                {totalListings}
               </strong>
             </div>
           </div>
@@ -787,7 +787,11 @@ export default function AdminCategories() {
                     </th>
 
                     <th>
-                      Products
+                      Listings
+                    </th>
+
+                    <th>
+                      Archived
                     </th>
 
                     <th>
@@ -849,7 +853,16 @@ export default function AdminCategories() {
                         <td>
                           <span className="product-count-badge">
                             {
-                              category.products_count ??
+                              category.listings_count ??
+                              0
+                            }
+                          </span>
+                        </td>
+
+                        <td>
+                          <span className="product-count-badge product-count-badge-archived">
+                            {
+                              category.archived_count ??
                               0
                             }
                           </span>
