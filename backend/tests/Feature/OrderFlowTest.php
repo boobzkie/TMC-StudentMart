@@ -131,6 +131,46 @@ test('checkout trusts database prices and creates one pending order per seller',
     ]);
 });
 
+test('admin can mark COD orders paid without changing order status and repeated requests stay idempotent', function () {
+    $buyer = makeOrderFlowUser('student', 'cod-buyer');
+    $seller = makeOrderFlowUser('student', 'cod-seller');
+    $product = makeOrderFlowProduct($seller);
+
+    Sanctum::actingAs($buyer);
+    $created = postOrderWithDefaultOptions($this, [
+        'items' => [['product_id' => $product->id, 'quantity' => 1]],
+    ])->assertCreated();
+    $orderId = $created->json('orders.0.id');
+    $order = Order::findOrFail($orderId);
+
+    expect($order->payment_status)->toBe('unpaid')
+        ->and($order->status)->toBe('pending');
+
+    $this->putJson('/api/admin/orders/'.$orderId.'/mark-paid')->assertForbidden();
+
+    $admin = makeOrderFlowUser('admin', 'cod-admin');
+    Sanctum::actingAs($admin);
+
+    $this->putJson('/api/admin/orders/'.$orderId.'/mark-paid')
+        ->assertOk()
+        ->assertJsonPath('success', true)
+        ->assertJsonPath('order.payment_status', 'paid')
+        ->assertJsonPath('order.status', 'pending');
+
+    $this->assertDatabaseHas('orders', [
+        'id' => $orderId,
+        'status' => 'pending',
+        'payment_status' => 'paid',
+    ]);
+
+    $this->putJson('/api/admin/orders/'.$orderId.'/mark-paid')
+        ->assertOk()
+        ->assertJsonPath('order.payment_status', 'paid')
+        ->assertJsonPath('order.status', 'pending');
+
+    $this->assertDatabaseCount('orders', 1);
+});
+
 test('checkout rejects inactive listings and inactive sellers', function () {
     $buyer = makeOrderFlowUser('student', 'buyer-inactive');
     $inactiveListing = makeOrderFlowProduct(

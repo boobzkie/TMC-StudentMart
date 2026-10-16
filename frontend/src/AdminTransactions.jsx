@@ -11,7 +11,8 @@ import {
 } from "lucide-react";
 
 import AdminLayout from "./components/AdminLayout";
-import { API_URL } from "./utils/api";
+import ConfirmModal from "./ConfirmModal";
+import { API_URL, getAuthHeaders } from "./utils/api";
 
 import "./AdminTransactions.css";
 
@@ -61,6 +62,11 @@ function statusLabel(status) {
   return labels[status] || "Unknown";
 }
 
+function paymentStatusLabel(status) {
+  const value = String(status || "").toLowerCase();
+  return value === "paid" ? "Paid" : "Unpaid";
+}
+
 function AdminTransactions() {
   const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
@@ -86,6 +92,9 @@ function AdminTransactions() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [paymentBusyIds, setPaymentBusyIds] = useState({});
+  const [pendingPaymentOrder, setPendingPaymentOrder] = useState(null);
 
   const loadOrders = useCallback(async (showRefresh = false) => {
     if (showRefresh) setRefreshing(true);
@@ -170,16 +179,94 @@ function AdminTransactions() {
 
   const hasFilters = Boolean(search || status || fromDate || toDate || pickupLocationId);
 
+  const markOrderPaid = async (order) => {
+    const orderId = Number(order?.id);
+    if (!orderId || paymentBusyIds[orderId]) {
+      return;
+    }
+
+    const token = localStorage.getItem("token");
+    if (!token) {
+      navigate("/login", { replace: true });
+      return;
+    }
+
+    setPaymentBusyIds((current) => ({ ...current, [orderId]: true }));
+    setError("");
+    setSuccess("");
+
+    try {
+      const response = await fetch(`${API_URL}/admin/orders/${orderId}/mark-paid`, {
+        method: "PUT",
+        headers: {
+          ...getAuthHeaders(),
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (response.status === 401 || response.status === 403) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("role");
+        localStorage.removeItem("user");
+        navigate("/login", { replace: true });
+        return;
+      }
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.message || "Unable to update payment status.");
+      }
+
+      setOrders((currentOrders) =>
+        currentOrders.map((currentOrder) =>
+          Number(currentOrder.id) === orderId
+            ? { ...currentOrder, payment_status: "paid" }
+            : currentOrder,
+        ),
+      );
+      setSuccess(`${order.order_number || `Order #${orderId}`} payment marked as paid.`);
+    } catch (markError) {
+      const message = markError.message || "Unable to update payment status.";
+      setError(message);
+    } finally {
+      setPaymentBusyIds((current) => ({ ...current, [orderId]: false }));
+    }
+  };
+
+  const handleMarkPaidClick = (order) => {
+    if (!order || paymentBusyIds[Number(order.id)]) {
+      return;
+    }
+
+    setPendingPaymentOrder(order);
+  };
+
+  const confirmMarkPaid = async () => {
+    if (!pendingPaymentOrder) {
+      return;
+    }
+
+    const order = pendingPaymentOrder;
+    setPendingPaymentOrder(null);
+    await markOrderPaid(order);
+  };
+
+  const pendingPaymentId = pendingPaymentOrder ? Number(pendingPaymentOrder.id) : null;
+  const pendingPaymentBusy = pendingPaymentId ? Boolean(paymentBusyIds[pendingPaymentId]) : false;
+
   return (
-    <AdminLayout title="Order Requests">
+    <AdminLayout
+      title="Order Management"
+      subtitle="Review orders, payment status, and pickup arrangements."
+    >
       <div className="transactions-page">
         <section className="transactions-hero">
           <div className="transactions-hero-content">
             <div className="transactions-hero-icon"><ShoppingBag size={27} /></div>
             <div>
               <span className="transactions-eyebrow">MARKETPLACE</span>
-              <h2>Order Requests</h2>
-              <p>Review order status and the payment and pickup arrangements selected at checkout. Payment is not collected here.</p>
+              <h2>Order Management</h2>
+              <p>Review order activity, payment status, and pickup arrangements selected at checkout. Payment is not collected here.</p>
             </div>
           </div>
           <button
@@ -291,6 +378,13 @@ function AdminTransactions() {
             </div>
           )}
 
+          {success && (
+            <div className="transactions-success" role="status">
+              <CheckCircle2 size={17} />
+              <span>{success}</span>
+            </div>
+          )}
+
           {loading ? (
             <div className="transactions-loading" role="status">
               <span className="transactions-spinner" />
@@ -311,7 +405,7 @@ function AdminTransactions() {
             <div className="transactions-table-wrap">
               <table className="transactions-table">
                 <thead>
-                  <tr><th>Order</th><th>Buyer</th><th>Seller</th><th>Items</th><th>Total</th><th>Payment method</th><th>Pickup location</th><th>Status</th><th>Placed</th></tr>
+                  <tr><th>Order</th><th>Buyer</th><th>Seller</th><th>Items</th><th>Total</th><th>Payment method</th><th>Pickup location</th><th>Payment status</th><th>Order status</th><th>Placed</th></tr>
                 </thead>
                 <tbody>
                   {orders.map((order) => {
@@ -319,6 +413,10 @@ function AdminTransactions() {
                     const seller = order.seller || {};
                     const items = Array.isArray(order.items) ? order.items : [];
                     const orderStatus = String(order.status || "").toLowerCase();
+                    const paymentStatus = String(order.payment_status || "unpaid").toLowerCase();
+                    const isPaymentPaid = paymentStatus === "paid";
+                    const isPaymentBusy = Boolean(paymentBusyIds[Number(order.id)]);
+
                     return (
                       <tr key={order.id}>
                         <td><strong>{order.order_number || "—"}</strong></td>
@@ -338,6 +436,23 @@ function AdminTransactions() {
                           {[order.pickup_location?.details, order.pickup_location?.area].filter(Boolean).length > 0 && <small>{[order.pickup_location?.details, order.pickup_location?.area].filter(Boolean).join(" · ")}</small>}
                         </td>
                         <td>
+                          <div className="transactions-payment-cell">
+                            <span className={"transactions-payment-status status-" + paymentStatus}>
+                              {paymentStatusLabel(paymentStatus)}
+                            </span>
+                            {!isPaymentPaid && (
+                              <button
+                                type="button"
+                                className="transactions-mark-paid-button"
+                                onClick={() => handleMarkPaidClick(order)}
+                                disabled={isPaymentBusy}
+                              >
+                                {isPaymentBusy ? "Processing…" : "Mark Paid"}
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                        <td>
                           <span className={"transactions-order-status status-" + orderStatus}>
                             {statusLabel(orderStatus)}
                           </span>
@@ -351,6 +466,24 @@ function AdminTransactions() {
             </div>
           )}
         </section>
+
+        <ConfirmModal
+          open={Boolean(pendingPaymentOrder)}
+          title="Mark this order as paid?"
+          message={
+            pendingPaymentOrder
+              ? `Mark ${pendingPaymentOrder.order_number || `Order #${pendingPaymentOrder.id}`} as paid?`
+              : "Mark this order as paid?"
+          }
+          confirmText="Mark Paid"
+          cancelText="Cancel"
+          type="success"
+          loading={pendingPaymentBusy}
+          onConfirm={() => {
+            void confirmMarkPaid();
+          }}
+          onCancel={() => setPendingPaymentOrder(null)}
+        />
       </div>
     </AdminLayout>
   );

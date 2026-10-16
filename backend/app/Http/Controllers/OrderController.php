@@ -296,6 +296,7 @@ class OrderController extends Controller
                     'payment_method_id' => $paymentMethod->id,
                     'payment_method_name_snapshot' => $paymentMethod->name,
                     'payment_method_instructions_snapshot' => $paymentMethod->instructions,
+                    'payment_status' => 'unpaid',
                     'pickup_location_id' => $pickupLocation->id,
                     'pickup_location_name_snapshot' => $pickupLocation->name,
                     'pickup_location_area_snapshot' => $pickupLocation->campus_area,
@@ -767,6 +768,31 @@ class OrderController extends Controller
         }
     }
 
+    public function markPaid(Request $request, Order $order): JsonResponse
+    {
+        $order = DB::transaction(function () use ($order): Order {
+            $locked = Order::query()
+                ->whereKey($order->getKey())
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($locked->payment_status !== 'paid') {
+                $locked->payment_status = 'paid';
+                $locked->save();
+            }
+
+            return $locked;
+        });
+
+        $order->load(['buyer:id,name,student_id', 'seller:id,name,student_id', 'items.product.images']);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Payment status updated.',
+            'order' => $this->orderData($order),
+        ]);
+    }
+
     private function orderData(Order $order): array
     {
         return [
@@ -783,6 +809,7 @@ class OrderController extends Controller
                 'name' => $order->payment_method_name_snapshot,
                 'instructions' => $order->payment_method_instructions_snapshot,
             ],
+            'payment_status' => $order->payment_status,
             'pickup_location' => [
                 'id' => $order->pickup_location_id,
                 'name' => $order->pickup_location_name_snapshot,

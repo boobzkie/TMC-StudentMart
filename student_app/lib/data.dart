@@ -58,29 +58,50 @@ class ApiService {
 
   static const _configuredBaseUrls = String.fromEnvironment('API_BASE_URLS');
   static const _configuredBaseUrl = String.fromEnvironment('API_BASE_URL');
+
+  static String normalizeBaseUrl(String value) {
+    final cleaned = value.trim().replaceAll(RegExp(r'\s+'), '');
+    if (cleaned.isEmpty) {
+      return '';
+    }
+    final parsed = Uri.tryParse(cleaned);
+    return parsed != null &&
+            (parsed.scheme == 'http' || parsed.scheme == 'https')
+        ? parsed.toString()
+        : cleaned;
+  }
+
   static List<String> _buildCandidateBaseUrls() {
     final configured = <String>[];
     if (_configuredBaseUrls.trim().isNotEmpty) {
       configured.addAll(
         _configuredBaseUrls
             .split(',')
-            .map((value) => value.trim())
+            .map(normalizeBaseUrl)
             .where((value) => value.isNotEmpty),
       );
     }
-    if (_configuredBaseUrl.trim().isNotEmpty) {
-      configured.add(_configuredBaseUrl.trim());
+    if (configured.isEmpty && _configuredBaseUrl.trim().isNotEmpty) {
+      final singleUrl = normalizeBaseUrl(_configuredBaseUrl);
+      if (singleUrl.isNotEmpty) {
+        configured.add(singleUrl);
+      }
     }
     if (configured.isEmpty) {
-  configured.add(
-    'https://freestyle-fondly-auction.ngrok-free.dev/api',
-  );
-}
+      configured.addAll([
+        'https://freestyle-fondly-auction.ngrok-free.dev/api',
+        if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android)
+          'http://10.0.2.2:8000/api',
+        'http://127.0.0.1:8000/api',
+        'http://localhost:8000/api',
+      ]);
+    }
     return configured.toSet().toList(growable: false);
   }
-
   static final List<String> _candidateBaseUrls = _buildCandidateBaseUrls();
-  static String _activeBaseUrl = _candidateBaseUrls.first;
+  static String _activeBaseUrl = _candidateBaseUrls.isEmpty
+      ? ''
+      : _candidateBaseUrls.first;
   static String get baseUrl => _activeBaseUrl;
 
   static const tokenKey = 'tmc_student_sanctum_token';
@@ -98,7 +119,7 @@ class ApiService {
   Future<Map<String, String>> _headers({bool authenticated = true}) async {
     final headers = <String, String>{
       'Accept': 'application/json',
-      // Prevent ngrok free-plan interstitial pages from replacing API responses.
+      // Avoid host-level interstitial pages from replacing API responses when a tunnel is used.
       'ngrok-skip-browser-warning': 'true',
     };
     if (authenticated) {
@@ -111,6 +132,11 @@ class ApiService {
   }
 
   Future<dynamic> _request(Future<http.Response> Function() send) async {
+    if (_candidateBaseUrls.isEmpty) {
+      throw const ApiException(
+        'No Laravel API base URL is configured. For an Android emulator use --dart-define=API_BASE_URL=http://10.0.2.2:8000/api; for a physical phone use your computer IP or a tunnel URL.',
+      );
+    }
     ApiException? lastError;
     final startedBase = _activeBaseUrl;
     final attemptedBases = <String>[];
@@ -153,9 +179,9 @@ class ApiService {
         : attemptedBases.last;
 
     throw lastError ??
-      ApiException(
-        'Cannot reach any configured Laravel API server. Tried: ${attemptedBases.join(', ')}.',
-      );
+        ApiException(
+          'Cannot reach any configured Laravel API server. Tried: ${attemptedBases.join(', ')}.',
+        );
   }
 
   Future<dynamic> get(String path) async =>
@@ -651,16 +677,12 @@ class AuthState extends ChangeNotifier {
     required String token,
     required String password,
   }) async {
-    await api.post(
-      '/reset-password',
-      {
-        'token': token.trim(),
-        'email': email.trim(),
-        'password': password,
-        'password_confirmation': password,
-      },
-      authenticated: false,
-    );
+    await api.post('/reset-password', {
+      'token': token.trim(),
+      'email': email.trim(),
+      'password': password,
+      'password_confirmation': password,
+    }, authenticated: false);
   }
 
   Future<void> updateProfile(Map<String, dynamic> values) async {
@@ -677,6 +699,25 @@ class AuthState extends ChangeNotifier {
       user = updated;
     } finally {
       savingProfile = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+    required String confirmPassword,
+  }) async {
+    busy = true;
+    notifyListeners();
+    try {
+      await api.put('/user/student-password', {
+        'current_password': currentPassword.trim(),
+        'password': newPassword,
+        'password_confirmation': confirmPassword,
+      });
+    } finally {
+      busy = false;
       notifyListeners();
     }
   }

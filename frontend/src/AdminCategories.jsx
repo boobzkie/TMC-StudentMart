@@ -512,13 +512,13 @@ export default function AdminCategories() {
               </span>
 
               <h2>
-                Product Categories
+                Marketplace Categories
               </h2>
 
               <p>
-                Organize products into clear
-                and manageable marketplace
-                categories.
+                Organize and maintain the
+                product groups students browse
+                throughout the marketplace.
               </p>
             </div>
 

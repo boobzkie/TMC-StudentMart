@@ -1,16 +1,27 @@
 import { Navigate } from "react-router-dom";
+import { clearAuth, getStoredRole, getStoredUser, getToken, isPortalRole } from "./utils/auth";
 
 function AdminRoute({ children }) {
-  const token = localStorage.getItem("token");
-  const role = String(localStorage.getItem("role") || "").toLowerCase();
+  const token = getToken();
+  const role = getStoredRole();
+  const user = getStoredUser();
 
-  if (!token) return <Navigate to="/login" replace />;
-  if (role === "staff") return <Navigate to="/staff" replace />;
+  if (!token || !user) {
+    clearAuth();
+    return <Navigate to="/login" replace />;
+  }
+
+  if (!isPortalRole(role)) {
+    clearAuth();
+    return <Navigate to="/login" replace />;
+  }
+
+  if (role === "staff") {
+    return <Navigate to="/staff" replace />;
+  }
 
   if (role !== "admin") {
-    localStorage.removeItem("token");
-    localStorage.removeItem("role");
-    localStorage.removeItem("user");
+    clearAuth();
     return <Navigate to="/login" replace />;
   }
 

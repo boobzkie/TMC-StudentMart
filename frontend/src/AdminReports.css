@@ -5,11 +5,26 @@
 ============================================================ */
 
 .reports-page {
+  --report-page-bg: #f3f7fb;
+  --report-surface: rgba(255, 255, 255, 0.96);
+  --report-surface-soft: #f8fbff;
+  --report-elevated: #edf4fb;
+  --report-border: rgba(148, 163, 184, 0.22);
+  --report-text: #102a56;
+  --report-text-muted: #64748b;
+  --report-primary: #2563eb;
+  --report-primary-strong: #1d4ed8;
+  --report-success: #16a34a;
+  --report-warning: #b45309;
+  --report-danger: #dc2626;
+  --report-shadow-soft: 0 12px 26px rgba(15, 23, 42, 0.06);
+  --report-shadow-card: 0 8px 18px rgba(15, 23, 42, 0.05);
+
   width: 100%;
   max-width: 1500px;
   margin: 0 auto;
   padding-bottom: 35px;
-  color: #102a56;
+  color: var(--report-text);
   animation: reportsPageEnter 240ms ease both;
 }
 
@@ -17,7 +32,6 @@
 .reports-page * {
   box-sizing: border-box;
 }
-
 
 /* ============================================================
    HERO
@@ -39,20 +53,12 @@
 
   margin-bottom: 26px;
 
-  border-radius: 26px;
+  border: 1px solid var(--report-border);
+  border-radius: 24px;
 
-  background:
-    linear-gradient(
-      135deg,
-      #f7fbff 0%,
-      #edf4fb 100%
-    );
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.05), rgba(255, 255, 255, 0.96));
 
-  border: 1px solid rgba(255, 255, 255, 0.78);
-
-  box-shadow:
-    12px 12px 27px rgba(136, 158, 181, 0.2),
-    -10px -10px 25px rgba(255, 255, 255, 0.95);
+  box-shadow: var(--report-shadow-soft);
 }
 
 .reports-hero-content {
@@ -93,7 +99,7 @@
 
   margin-bottom: 6px;
 
-  color: #2563eb;
+  color: var(--report-primary);
 
   font-size: 10px;
   font-weight: 850;
@@ -104,9 +110,9 @@
 .reports-hero h2 {
   margin: 0;
 
-  color: #102a56;
+  color: var(--report-text);
 
-  font-size: 30px;
+  font-size: clamp(1.7rem, 2.6vw, 2.1rem);
   line-height: 1.15;
 
   font-weight: 850;
@@ -119,7 +125,7 @@
 
   margin: 8px 0 0;
 
-  color: #7185a3;
+  color: var(--report-text-muted);
 
   font-size: 13px;
   line-height: 1.6;
@@ -177,12 +183,12 @@
 
   padding: 0 17px;
 
-  border: 0;
-  border-radius: 13px;
+  border: 1px solid transparent;
+  border-radius: 12px;
 
   color: #ffffff;
 
-  background: #2563eb;
+  background: linear-gradient(135deg, var(--report-primary), var(--report-primary-strong));
 
   font-family: inherit;
   font-size: 13px;
@@ -190,32 +196,23 @@
 
   cursor: pointer;
 
-  box-shadow:
-    7px 7px 15px rgba(119, 144, 174, 0.25),
-    -5px -5px 12px rgba(255, 255, 255, 0.9);
+  box-shadow: 0 10px 20px rgba(37, 99, 235, 0.18);
 
   transition:
     transform 180ms ease,
-    background 180ms ease,
-    box-shadow 180ms ease;
+    box-shadow 180ms ease,
+    filter 180ms ease;
 }
 
 .reports-refresh-button:hover:not(:disabled) {
-  background: #1d4ed8;
-
-  transform: translateY(-2px);
-
-  box-shadow:
-    9px 9px 18px rgba(119, 144, 174, 0.28),
-    -6px -6px 13px rgba(255, 255, 255, 0.95);
+  filter: brightness(0.98);
+  transform: translateY(-1px);
+  box-shadow: 0 14px 24px rgba(37, 99, 235, 0.2);
 }
 
 .reports-refresh-button:active:not(:disabled) {
   transform: translateY(0);
-
-  box-shadow:
-    inset 4px 4px 8px rgba(25, 70, 150, 0.2),
-    inset -4px -4px 8px rgba(255, 255, 255, 0.18);
+  box-shadow: inset 0 2px 8px rgba(13, 51, 118, 0.2);
 }
 
 .reports-refresh-button:disabled {
@@ -399,15 +396,12 @@
 
   padding: 21px;
 
-  border-radius: 21px;
+  border: 1px solid var(--report-border);
+  border-radius: 18px;
 
-  background: #f3f8fd;
+  background: var(--report-surface);
 
-  border: 1px solid rgba(255, 255, 255, 0.72);
-
-  box-shadow:
-    9px 9px 20px rgba(139, 161, 184, 0.18),
-    -8px -8px 18px rgba(255, 255, 255, 0.95);
+  box-shadow: var(--report-shadow-card);
 
   transition:
     transform 180ms ease,
@@ -415,11 +409,9 @@
 }
 
 .reports-stat-card:hover {
-  transform: translateY(-3px);
+  transform: translateY(-2px);
 
-  box-shadow:
-    11px 11px 24px rgba(139, 161, 184, 0.22),
-    -9px -9px 20px rgba(255, 255, 255, 0.98);
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
 }
 
 .reports-stat-icon {
@@ -529,15 +521,12 @@
 
   padding: 25px;
 
-  border-radius: 23px;
+  border: 1px solid var(--report-border);
+  border-radius: 20px;
 
-  background: #f3f8fd;
+  background: var(--report-surface);
 
-  border: 1px solid rgba(255, 255, 255, 0.75);
-
-  box-shadow:
-    10px 10px 22px rgba(139, 161, 184, 0.18),
-    -9px -9px 19px rgba(255, 255, 255, 0.95);
+  box-shadow: var(--report-shadow-card);
 }
 
 .reports-panel-header {
@@ -684,11 +673,9 @@
 
   border-radius: 20px;
 
-  background: #dfe9f3;
+  background: #edf3fb;
 
-  box-shadow:
-    inset 3px 3px 6px rgba(127, 150, 174, 0.16),
-    inset -3px -3px 6px rgba(255, 255, 255, 0.7);
+  box-shadow: inset 0 1px 2px rgba(148, 163, 184, 0.18);
 }
 
 .reports-progress-fill {

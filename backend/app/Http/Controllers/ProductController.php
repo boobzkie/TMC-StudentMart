@@ -28,7 +28,7 @@ class ProductController extends Controller
     public function index(Request $request): JsonResponse
     {
         $visibleSoldOutCutoff = now()->subHour();
-        $products = Product::with(['user:id,name,student_id,contact_number,share_contact_info,facebook_url,instagram_url,tiktok_url', 'images', 'categoryRecord:id,name', 'variants' => fn ($query) => $query->where('is_active', true)])
+        $query = Product::with(['user:id,name,student_id,contact_number,share_contact_info,facebook_url,instagram_url,tiktok_url', 'images', 'categoryRecord:id,name', 'variants' => fn ($query) => $query->where('is_active', true)])
             ->where(function ($query) use ($visibleSoldOutCutoff): void {
                 $query->whereRaw('LOWER(status) = ?', ['active'])
                     ->orWhere(function ($soldOut) use ($visibleSoldOutCutoff): void {
@@ -41,8 +41,29 @@ class ProductController extends Controller
                     ->orWhereHas('categoryRecord', function ($category): void {
                         $category->where('status', 'active');
                     });
-            })
-            ->orderByDesc('created_at')
+            });
+
+        if ($request->filled('search')) {
+            $search = trim((string) $request->input('search'));
+            if ($search !== '') {
+                $query->where(function ($q) use ($search): void {
+                    $q->where('name', 'like', "%{$search}%")
+                        ->orWhere('description', 'like', "%{$search}%");
+                });
+            }
+        }
+
+        if ($request->filled('category')) {
+            $category = trim((string) $request->input('category'));
+            if ($category !== '') {
+                $query->where(function ($q) use ($category): void {
+                    $q->where('category', 'like', "%{$category}%")
+                        ->orWhereHas('categoryRecord', fn ($c) => $c->where('name', 'like', "%{$category}%"));
+                });
+            }
+        }
+
+        $products = $query->orderByDesc('created_at')
             ->get()
             ->map(fn (Product $product) => $this->productData($product));
 

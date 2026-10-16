@@ -1,72 +1,45 @@
-# student_app
+# TMC StudentMart — Flutter student app
 
-A new Flutter project.
+The student app is in `student_app` and connects to the Laravel API in `backend`.
 
-## Getting Started
+## Start the API
 
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
-
-## TMC StudentMart local setup
-
-### 1. Apply the product photo gallery migration
-
-Open PowerShell in `C:\xampp\htdocs\myproject\backend` and run this once:
+Open PowerShell in the backend folder:
 
 ```powershell
-php artisan migrate
+cd "C:\xampp\htdocs\TMC StudentMart\backend"
+php artisan serve --host=0.0.0.0 --port=8000
 ```
 
-This adds the `product_images` table and copies each existing product's current `image` path into the gallery. It does not reset or delete product records. Do not use `php artisan migrate:fresh` on a database that contains project data.
+## Run the app
 
-### 2. Start the Laravel API
-
-In a backend PowerShell terminal:
+Open a second PowerShell terminal in the student app folder:
 
 ```powershell
-cd C:\xampp\htdocs\myproject\backend
-php artisan serve --host=127.0.0.1 --port=8000
+cd "C:\xampp\htdocs\TMC StudentMart\student_app"
+flutter pub get
+flutter run
 ```
 
-### 3. Run the Flutter app in Chrome
-
-In another PowerShell terminal:
+The app selects a local API address for Chrome and Android emulators when no address is supplied. To set one explicitly:
 
 ```powershell
-cd C:\xampp\htdocs\myproject\student_app
-flutter run -d chrome --web-port 65156 --dart-define=API_BASE_URL=http://127.0.0.1:8000/api
-```
+# Chrome or Windows desktop
+flutter run -d chrome --dart-define=API_BASE_URL=http://127.0.0.1:8000/api
 
-Chrome must use `127.0.0.1` (or `localhost`) for the API. `10.0.2.2` is for an Android emulator, not Chrome.
-
-### Android emulator or physical phone
-
-For an Android emulator, use:
-
-```powershell
-cd C:\xampp\htdocs\myproject\student_app
+# Android emulator
 flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000/api
 ```
 
-For a physical phone, replace the API host with the computer's LAN IP address and keep both devices on the same network.
+For a physical phone, replace the host with the computer's LAN IP address and keep both devices on the same network. You can also use the current HTTPS tunnel URL with `--dart-define=API_BASE_URL`.
 
-### Verify changes
+## Verify the app
 
 From `student_app`:
 
 ```powershell
 flutter analyze
 flutter test
-flutter build web --dart-define=API_BASE_URL=http://127.0.0.1:8000/api
 ```
 
 From `backend`:
@@ -75,4 +48,4 @@ From `backend`:
 php artisan test
 ```
 
-Student listings support up to four product photos. Each new gallery photo is limited to 1.5 MB; one photo can be selected as the cover image.
+The Laravel migrations add schema fields and tables without resetting existing marketplace data. Do not run `php artisan migrate:fresh` against a database that contains project data.

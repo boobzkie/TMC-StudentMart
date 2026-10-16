@@ -38,7 +38,9 @@ class _SellPageState extends State<SellPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Archive listing?'),
-        content: Text('“$productName” will leave the marketplace. Its order and product history will be kept.'),
+        content: Text(
+          '“$productName” will leave the marketplace. Its order and product history will be kept.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -56,9 +58,11 @@ class _SellPageState extends State<SellPage> {
     try {
       await context.read<MarketplaceState>().deleteProduct(product.id);
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Listing archived. History was preserved.')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Listing archived. History was preserved.'),
+          ),
+        );
       }
     } catch (error) {
       if (mounted) {
@@ -98,9 +102,11 @@ class _SellPageState extends State<SellPage> {
     final quantity = await showDialog<int>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text(selectedVariant == null
-            ? 'Manage stock'
-            : 'Manage stock — ${selectedVariant.label}'),
+        title: Text(
+          selectedVariant == null
+              ? 'Manage stock'
+              : 'Manage stock — ${selectedVariant.label}',
+        ),
         content: TextField(
           controller: controller,
           autofocus: true,
@@ -122,7 +128,9 @@ class _SellPageState extends State<SellPage> {
               final value = int.tryParse(controller.text.trim());
               if (value == null || value < 0) {
                 ScaffoldMessenger.of(dialogContext).showSnackBar(
-                  const SnackBar(content: Text('Enter a whole number that is 0 or greater.')),
+                  const SnackBar(
+                    content: Text('Enter a whole number that is 0 or greater.'),
+                  ),
                 );
                 return;
               }
@@ -143,12 +151,18 @@ class _SellPageState extends State<SellPage> {
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(quantity == 0 ? 'Listing marked sold out.' : 'Stock updated.')),
+          SnackBar(
+            content: Text(
+              quantity == 0 ? 'Listing marked sold out.' : 'Stock updated.',
+            ),
+          ),
         );
       }
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.toString())));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.toString())));
       }
     }
   }
@@ -192,9 +206,26 @@ class _SellPageState extends State<SellPage> {
                       ],
                     ),
                   ),
-                  IconButton(
-                    onPressed: state.loading ? null : state.loadMine,
-                    icon: const Icon(Icons.refresh),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        onPressed: state.loading ? null : state.loadMine,
+                        icon: const Icon(Icons.refresh),
+                      ),
+                      const SizedBox(width: 4),
+                      FilledButton.icon(
+                        onPressed: () => _form(),
+                        icon: const Icon(Icons.add),
+                        label: const Text('Add Listing'),
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 10,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -217,14 +248,6 @@ class _SellPageState extends State<SellPage> {
                         title: 'No listings yet',
                         message:
                             'Create a listing to offer an item to other TMC students.',
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 45),
-                        child: FilledButton.icon(
-                          onPressed: () => _form(),
-                          icon: const Icon(Icons.add),
-                          label: const Text('Create listing'),
-                        ),
                       ),
                     ],
                   )
@@ -309,7 +332,9 @@ class _SellPageState extends State<SellPage> {
                                   if (action == 'history') {
                                     Navigator.of(context).push<void>(
                                       MaterialPageRoute<void>(
-                                        builder: (_) => ProductHistoryPage(product: product),
+                                        builder: (_) => ProductHistoryPage(
+                                          product: product,
+                                        ),
                                       ),
                                     );
                                   }
@@ -321,7 +346,8 @@ class _SellPageState extends State<SellPage> {
                                       value: 'edit',
                                       child: Text('Edit listing'),
                                     ),
-                                  if (product.status == 'active' || product.status == 'sold_out')
+                                  if (product.status == 'active' ||
+                                      product.status == 'sold_out')
                                     const PopupMenuItem(
                                       value: 'stock',
                                       child: Text('Manage stock'),
@@ -485,7 +511,8 @@ class _ProductFormPageState extends State<ProductFormPage> {
     _selectedCategoryId = widget.product?.categoryId;
     _condition = widget.product?.attributes['condition'];
     _variantsEnabled = widget.product?.variants.isNotEmpty ?? false;
-    for (final variant in widget.product?.variants ?? const <ProductVariant>[]) {
+    for (final variant
+        in widget.product?.variants ?? const <ProductVariant>[]) {
       _variantDrafts.add(_VariantDraft.fromVariant(variant));
     }
     final images = widget.product?.images ?? const <ProductImage>[];
@@ -650,10 +677,14 @@ class _ProductFormPageState extends State<ProductFormPage> {
         return;
       }
       if (quantities.any((quantity) => quantity == null || quantity < 0)) {
-        setState(() => _error = 'Enter a whole stock quantity of 0 or more for each option.');
+        setState(
+          () => _error =
+              'Enter a whole stock quantity of 0 or more for each option.',
+        );
         return;
       }
-      if (quantities.fold<int>(0, (sum, quantity) => sum + (quantity ?? 0)) <= 0) {
+      if (quantities.fold<int>(0, (sum, quantity) => sum + (quantity ?? 0)) <=
+          0) {
         setState(() => _error = 'At least one product option must have stock.');
         return;
       }
@@ -973,14 +1004,18 @@ class _ProductFormPageState extends State<ProductFormPage> {
                       'Use this for sizes, colors, or other options with separate stock.',
                     ),
                     value: _variantsEnabled,
-                    onChanged: _saving || widget.product?.variants.isNotEmpty == true
+                    onChanged:
+                        _saving || widget.product?.variants.isNotEmpty == true
                         ? null
                         : _setVariantsEnabled,
                   ),
                   if (_variantsEnabled) ...[
                     const Text(
                       'Each option has its own stock. The listing stock is the total of the active options.',
-                      style: TextStyle(color: TmcPalette.darkGray, fontSize: 12),
+                      style: TextStyle(
+                        color: TmcPalette.darkGray,
+                        fontSize: 12,
+                      ),
                     ),
                     const SizedBox(height: 10),
                     for (var index = 0; index < _variantDrafts.length; index++)
@@ -999,18 +1034,23 @@ class _ProductFormPageState extends State<ProductFormPage> {
                                         labelText: 'Option ${index + 1} name',
                                         hintText: 'For example: Small / Blue',
                                       ),
-                                      validator: (value) => _variantsEnabled &&
-                                              (value == null || value.trim().isEmpty)
+                                      validator: (value) =>
+                                          _variantsEnabled &&
+                                              (value == null ||
+                                                  value.trim().isEmpty)
                                           ? 'Enter an option name.'
                                           : null,
                                     ),
                                   ),
                                   IconButton(
                                     tooltip: 'Remove option',
-                                    onPressed: _saving || _variantDrafts.length <= 1
+                                    onPressed:
+                                        _saving || _variantDrafts.length <= 1
                                         ? null
                                         : () => setState(() {
-                                            _variantDrafts.removeAt(index).dispose();
+                                            _variantDrafts
+                                                .removeAt(index)
+                                                .dispose();
                                           }),
                                     icon: const Icon(Icons.delete_outline),
                                   ),
@@ -1020,10 +1060,14 @@ class _ProductFormPageState extends State<ProductFormPage> {
                               TextFormField(
                                 controller: _variantDrafts[index].stockQuantity,
                                 keyboardType: TextInputType.number,
-                                decoration: const InputDecoration(labelText: 'Available units for this option'),
+                                decoration: const InputDecoration(
+                                  labelText: 'Available units for this option',
+                                ),
                                 validator: (value) {
                                   if (!_variantsEnabled) return null;
-                                  final quantity = int.tryParse(value?.trim() ?? '');
+                                  final quantity = int.tryParse(
+                                    value?.trim() ?? '',
+                                  );
                                   return quantity == null || quantity < 0
                                       ? 'Enter a whole number of 0 or more.'
                                       : null;
@@ -1038,7 +1082,8 @@ class _ProductFormPageState extends State<ProductFormPage> {
                                 Padding(
                                   padding: const EdgeInsets.only(bottom: 8),
                                   child: TextFormField(
-                                    controller: _variantDrafts[index].attributes[field.$1],
+                                    controller: _variantDrafts[index]
+                                        .attributes[field.$1],
                                     decoration: InputDecoration(
                                       labelText: '${field.$2} (optional)',
                                     ),
@@ -1053,7 +1098,9 @@ class _ProductFormPageState extends State<ProductFormPage> {
                       child: OutlinedButton.icon(
                         onPressed: _saving
                             ? null
-                            : () => setState(() => _variantDrafts.add(_VariantDraft())),
+                            : () => setState(
+                                () => _variantDrafts.add(_VariantDraft()),
+                              ),
                         icon: const Icon(Icons.add),
                         label: const Text('Add another option'),
                       ),
@@ -1076,12 +1123,16 @@ class _ProductFormPageState extends State<ProductFormPage> {
           const SizedBox(height: 9),
           DropdownButtonFormField<String>(
             initialValue: _condition,
-            decoration: const InputDecoration(labelText: 'Condition (optional)'),
+            decoration: const InputDecoration(
+              labelText: 'Condition (optional)',
+            ),
             items: const [
               DropdownMenuItem(value: 'new', child: Text('New')),
               DropdownMenuItem(value: 'used', child: Text('Used')),
             ],
-            onChanged: _saving ? null : (value) => setState(() => _condition = value),
+            onChanged: _saving
+                ? null
+                : (value) => setState(() => _condition = value),
           ),
           for (final field in const [
             ('brand', 'Brand'),

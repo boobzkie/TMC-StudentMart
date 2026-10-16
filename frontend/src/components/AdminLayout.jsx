@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
+
   BarChart3,
   ChevronDown,
-  CreditCard,
+  ChevronsLeft,
+  ChevronsRight,
 
-  ChevronRight,
+  CreditCard,
   FileBarChart,
+  FileText,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -14,14 +17,19 @@ import {
   Moon,
   Package,
   ShieldAlert,
-  Store,
+  ShieldCheck,
   Settings,
+  SlidersHorizontal,
+  Store,
   Sun,
   Tags,
-  SlidersHorizontal,
+
+  UserRound,
   UserRoundCog,
   Users,
   X,
+  Bell,
+  Lock,
 } from "lucide-react";
 import { API_URL, SERVER_URL, getAuthHeaders } from "../utils/api";
 import { clearAuth } from "../utils/auth";
@@ -36,26 +44,14 @@ function readStoredUser() {
   }
 }
 
-
-const marketplaceLinks = [
-  { to: "/admin/products", label: "Product Management", icon: Package },
-  { to: "/admin/categories", label: "Product Categories", icon: Tags },
-  { to: "/admin/product-moderation", label: "Product Moderation", icon: ShieldAlert },
-  { to: "/admin/sellers", label: "Sellers", icon: Store },
-  { to: "/admin/transactions", label: "Order Management", icon: CreditCard },
-  { to: "/admin/order-options", label: "Payment & pickup setup", icon: SlidersHorizontal },
-];
-
-const insightLinks = [
-  { to: "/admin/reports", label: "Reports", icon: FileBarChart },
-  { to: "/admin/analytics", label: "Analytics", icon: BarChart3 },
-  { to: "/admin/complaints", label: "Complaints", icon: MessageSquareWarning },
-];
-
 function profilePhotoUrl(path) {
   if (!path) return "";
   if (/^https?:\/\//i.test(path)) return path;
-  return `${SERVER_URL.replace(/\/+$/, "")}/storage/${String(path).replace(/^\/+/, "")}`;
+  return (
+    SERVER_URL.replace(/\/+$/, "") +
+    "/storage/" +
+    String(path).replace(/^\/+/, "")
+  );
 }
 
 function userInitials(name) {
@@ -69,6 +65,80 @@ function userInitials(name) {
     .toUpperCase();
 }
 
+const adminSections = [
+  { label: "OVERVIEW", items: [{ to: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard }] },
+  {
+    label: "MARKETPLACE",
+    items: [
+      { to: "/admin/products", label: "Products & Listings", icon: Package },
+      { to: "/admin/categories", label: "Categories", icon: Tags },
+      { to: "/admin/product-moderation", label: "Product Moderation", icon: ShieldAlert },
+      { to: "/admin/sellers", label: "Sellers", icon: Store },
+    ],
+  },
+  {
+    label: "ORDERS",
+    items: [
+      { to: "/admin/transactions", label: "Orders", icon: CreditCard },
+      { to: "/admin/order-options", label: "Payments & Pickup", icon: SlidersHorizontal },
+    ],
+  },
+  {
+    label: "USERS & ACCESS",
+    items: [
+      { to: "/admin/users", label: "Students", icon: UserRound },
+      { to: "/admin/staff", label: "Staff", icon: UserRoundCog },
+      { to: "/admin/users?role=admin", label: "Administrators", icon: ShieldCheck },
+      { to: "/admin/staff", label: "Roles & Permissions", icon: SlidersHorizontal },
+    ],
+  },
+  {
+    label: "SUPPORT",
+    items: [
+      { to: "/admin/complaints", label: "Complaints", icon: MessageSquareWarning },
+      { to: "/admin/notifications", label: "Notifications", icon: Bell },
+    ],
+  },
+  {
+    label: "REPORTS",
+    items: [
+      { to: "/admin/reports", label: "Reports", icon: FileBarChart },
+      { to: "/admin/analytics", label: "Analytics", icon: BarChart3 },
+    ],
+  },
+  {
+    label: "SYSTEM",
+    items: [
+      { to: "/admin/activity-logs", label: "Activity Logs", icon: FileText },
+      { to: "/admin/settings", label: "Settings", icon: Settings },
+      { to: "/admin/settings", label: "Account & Security", icon: Lock },
+    ],
+  },
+];
+
+function staffSections(permissions) {
+  const sections = [
+    { label: "OVERVIEW", items: [{ to: "/staff/dashboard", label: "Dashboard", icon: LayoutDashboard }] },
+  ];
+  if (permissions.includes("manage_students")) {
+    sections.push({ label: "STUDENT ACCOUNTS", items: [{ to: "/staff/users", label: "Student Accounts", icon: Users }] });
+  }
+  if (permissions.includes("moderate_products")) {
+    sections.push({ label: "MARKETPLACE", items: [{ to: "/staff/product-moderation", label: "Product Moderation", icon: ShieldAlert }] });
+  }
+  if (permissions.includes("manage_complaints")) {
+    sections.push({ label: "STUDENT SUPPORT", items: [{ to: "/staff/complaints", label: "Complaints", icon: MessageSquareWarning }] });
+  }
+  if (permissions.includes("view_reports") || permissions.includes("view_analytics")) {
+    const reportItems = [];
+    if (permissions.includes("view_reports")) reportItems.push({ to: "/staff/reports", label: "Reports", icon: FileBarChart });
+    if (permissions.includes("view_analytics")) reportItems.push({ to: "/staff/analytics", label: "Analytics", icon: BarChart3 });
+    sections.push({ label: "REPORTS & ANALYTICS", items: reportItems });
+  }
+  sections.push({ label: "YOUR ACCOUNT", items: [{ to: "/staff/settings", label: "My Profile", icon: Settings }] });
+  return sections;
+}
+
 export default function AdminLayout({
   children,
   title = "Dashboard",
@@ -77,6 +147,13 @@ export default function AdminLayout({
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem("portal-sidebar-collapsed-v2") === "true";
+    } catch {
+      return false;
+    }
+  });
 
   const [storedUser, setStoredUser] = useState(readStoredUser);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
@@ -86,6 +163,21 @@ export default function AdminLayout({
   const { theme, toggleTheme } = usePortalTheme();
   const role = String(storedUser.role || localStorage.getItem("role") || "").toLowerCase();
   const isStaff = role === "staff";
+  const permissions = Array.isArray(storedUser.staff_permissions) ? storedUser.staff_permissions : [];
+  const staffCanManageStudents = permissions.includes("manage_students");
+  const staffCanModerateProducts = permissions.includes("moderate_products");
+  const staffCanManageComplaints = permissions.includes("manage_complaints");
+  const staffCanViewReports = permissions.includes("view_reports");
+  const staffCanViewAnalytics = permissions.includes("view_analytics");
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("portal-sidebar-collapsed-v2", String(sidebarCollapsed));
+    } catch {
+      // Ignore storage quota or browser privacy restrictions.
+    }
+  }, [sidebarCollapsed]);
+
   useEffect(() => {
     const syncStoredUser = () => setStoredUser(readStoredUser());
     window.addEventListener("tmc-user-updated", syncStoredUser);
@@ -160,36 +252,20 @@ export default function AdminLayout({
       activityEvents.forEach((eventName) => window.removeEventListener(eventName, onUserActivity));
     };
   }, [isStaff, navigate]);
-  const staffCanManageStudents =
-    Array.isArray(storedUser.staff_permissions) &&
-    storedUser.staff_permissions.includes("manage_students");
-  const staffCanModerateProducts =
-    Array.isArray(storedUser.staff_permissions) &&
-    storedUser.staff_permissions.includes("moderate_products");
-  const staffCanManageComplaints = Array.isArray(storedUser.staff_permissions) && storedUser.staff_permissions.includes("manage_complaints");
-  const staffCanViewReports = Array.isArray(storedUser.staff_permissions) && storedUser.staff_permissions.includes("view_reports");
-  const staffCanViewAnalytics = Array.isArray(storedUser.staff_permissions) && storedUser.staff_permissions.includes("view_analytics");
+
   const settingsPath = isStaff ? "/staff/settings" : "/admin/settings";
   const dashboardPath = isStaff ? "/staff/dashboard" : "/admin/dashboard";
   const displayName = storedUser.name || (isStaff ? "Staff Member" : "Administrator");
   const displayRole = isStaff ? "Staff account" : "Administrator";
+
   const avatarUrl = profilePhotoUrl(storedUser.profile_picture);
   const initials = userInitials(displayName);
 
-  const closeMobile = () => setMobileOpen(false);
-
-  const handleLogout = async () => {
-    if (loggingOut) return;
-    presenceStoppedRef.current = true;
+  async function handleLogout() {
     setLoggingOut(true);
-    closeMobile();
-    setProfileMenuOpen(false);
     try {
       if (localStorage.getItem("token")) {
-        await fetch(`${API_URL}/logout`, {
-          method: "POST",
-          headers: getAuthHeaders(),
-        });
+        await fetch(`${API_URL}/logout`, { method: "POST", headers: getAuthHeaders() });
       }
     } catch (error) {
       console.error("Portal logout request failed:", error);
@@ -198,7 +274,11 @@ export default function AdminLayout({
       navigate("/login", { replace: true });
       setLoggingOut(false);
     }
-  };
+  }
+
+  function closeMobile() {
+    setMobileOpen(false);
+  }
 
   useEffect(() => {
     if (!profileMenuOpen) return undefined;
@@ -216,17 +296,20 @@ export default function AdminLayout({
     };
   }, [profileMenuOpen]);
 
+  const sections = isStaff ? staffSections(permissions) : adminSections;
+
   const renderLink = (item) => {
     const Icon = item.icon;
     return (
       <NavLink
         key={item.to}
         to={item.to}
-        onClick={closeMobile}
         title={item.label}
+        aria-label={item.label}
+        onClick={closeMobile}
         className={({ isActive }) => {
-          const isCurrentDashboard = item.to === dashboardPath &&
-            location.pathname === (isStaff ? "/staff" : "/admin");
+          const isCurrentDashboard =
+            item.to === dashboardPath && location.pathname === (isStaff ? "/staff" : "/admin");
           return "admin-nav-link" + (isActive || isCurrentDashboard ? " active" : "");
         }}
       >
@@ -239,7 +322,7 @@ export default function AdminLayout({
   const railLinks = isStaff
     ? [
         { to: dashboardPath, label: "Dashboard", icon: LayoutDashboard },
-        ...(staffCanManageStudents ? [{ to: "/staff/users", label: "Manage Student Accounts", icon: Users }] : []),
+        ...(staffCanManageStudents ? [{ to: "/staff/users", label: "Student Accounts", icon: Users }] : []),
         ...(staffCanModerateProducts ? [{ to: "/staff/product-moderation", label: "Product Moderation", icon: ShieldAlert }] : []),
         ...(staffCanManageComplaints ? [{ to: "/staff/complaints", label: "Complaints", icon: MessageSquareWarning }] : []),
         ...(staffCanViewReports ? [{ to: "/staff/reports", label: "Reports", icon: FileBarChart }] : []),
@@ -251,12 +334,14 @@ export default function AdminLayout({
         { to: "/admin/users", label: "User Management", icon: Users },
       ];
 
+
+
   return (
     <div
       className="admin-layout"
       data-theme={theme}
-
       data-role={isStaff ? "staff" : "admin"}
+      data-sidebar-collapsed={sidebarCollapsed ? "true" : "false"}
     >
       {mobileOpen && (
         <button
@@ -266,59 +351,10 @@ export default function AdminLayout({
           onClick={closeMobile}
         />
       )}
-
-      <aside className="admin-icon-rail" aria-label="Quick navigation">
-        <Link
-          to={dashboardPath}
-          className="admin-rail-brand"
-          onClick={closeMobile}
-          title="TMC StudentMart dashboard"
-          aria-label="TMC StudentMart dashboard"
-        >
-          <img src="/assets/tmc-logo.png" alt="" />
-        </Link>
-        <nav className="admin-icon-navigation" aria-label="Quick links">
-          {railLinks.map((item) => {
-            const Icon = item.icon;
-            return (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                title={item.label}
-                aria-label={item.label}
-                onClick={closeMobile}
-                className={({ isActive }) => {
-                  const isCurrentDashboard = item.to === dashboardPath &&
-                    location.pathname === (isStaff ? "/staff" : "/admin");
-                  return "admin-rail-link" + (isActive || isCurrentDashboard ? " active" : "");
-                }}
-              >
-                <Icon size={20} aria-hidden="true" />
-              </NavLink>
-            );
-          })}
-        </nav>
-        <div className="admin-rail-footer">
-          <Link
-            to={settingsPath}
-            className="admin-rail-link"
-            title="Account settings"
-            aria-label="Account settings"
-            onClick={closeMobile}
-          >
-            <Settings size={19} aria-hidden="true" />
-          </Link>
-        </div>
-      </aside>
-
-      <aside className={"admin-sidebar" + (mobileOpen ? " mobile-open" : "")}>
+      <aside className="admin-sidebar" aria-label="Main navigation">
         <div className="admin-sidebar-header">
           <Link to={dashboardPath} className="admin-brand" onClick={closeMobile}>
-            <img
-              className="admin-brand-logo"
-              src="/assets/tmc-logo.png"
-              alt="Trinidad Municipal College seal"
-            />
+            <img className="admin-brand-logo" src="/assets/tmc-logo.png" alt="TMC seal" />
             <span className="admin-brand-text">
               <strong>TMC StudentMart</strong>
               <span>{isStaff ? "STAFF WORKSPACE" : "ADMIN PORTAL"}</span>
@@ -326,23 +362,23 @@ export default function AdminLayout({
           </Link>
           <button
             type="button"
-            className="admin-mobile-close"
-            onClick={closeMobile}
-            aria-label="Close navigation"
+            className="admin-sidebar-collapse-toggle"
+            onClick={() => setSidebarCollapsed((open) => !open)}
+            aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
+            {sidebarCollapsed ? <ChevronsRight size={16} aria-hidden="true" /> : <ChevronsLeft size={16} aria-hidden="true" />}
+          </button>
+          <button type="button" className="admin-mobile-close" onClick={closeMobile} aria-label="Close navigation">
             <X size={20} aria-hidden="true" />
           </button>
         </div>
 
         <div className="admin-sidebar-profile">
           <div className="admin-sidebar-avatar">
-            <span>{initials}</span>
+            {initials}
             {avatarUrl && (
-              <img
-                src={avatarUrl}
-                alt=""
-                onError={(event) => { event.currentTarget.style.display = "none"; }}
-              />
+              <img src={avatarUrl} alt="" onError={(event) => { event.currentTarget.style.display = "none"; }} />
             )}
           </div>
           <div className="admin-sidebar-profile-info">
@@ -352,60 +388,12 @@ export default function AdminLayout({
         </div>
 
         <nav className="admin-navigation" id="admin-navigation" aria-label="Main navigation">
-          <div className="admin-nav-section">
-            <span className="admin-nav-label">OVERVIEW</span>
-            {renderLink({ to: dashboardPath, label: "Dashboard", icon: LayoutDashboard })}
-          </div>
-
-          {isStaff ? (
-            <>
-              {staffCanManageStudents && (
-                <div className="admin-nav-section">
-                  <span className="admin-nav-label">STUDENT ACCOUNTS</span>
-                  {renderLink({ to: "/staff/users", label: "Student Accounts", icon: Users })}
-                </div>
-              )}
-              {staffCanModerateProducts && (
-                <div className="admin-nav-section">
-                  <span className="admin-nav-label">MARKETPLACE</span>
-                  {renderLink({ to: "/staff/product-moderation", label: "Product Moderation", icon: ShieldAlert })}
-                </div>
-              )}
-              {staffCanManageComplaints && (
-                <div className="admin-nav-section">
-                  <span className="admin-nav-label">STUDENT SUPPORT</span>
-                  {renderLink({ to: "/staff/complaints", label: "Complaints", icon: MessageSquareWarning })}
-                </div>
-              )}
-              {(staffCanViewReports || staffCanViewAnalytics) && (
-                <div className="admin-nav-section">
-                  <span className="admin-nav-label">REPORTS &amp; ANALYTICS</span>
-                  {staffCanViewReports && renderLink({ to: "/staff/reports", label: "Reports", icon: FileBarChart })}
-                  {staffCanViewAnalytics && renderLink({ to: "/staff/analytics", label: "Analytics", icon: BarChart3 })}
-                </div>
-              )}
-              <div className="admin-nav-section">
-                <span className="admin-nav-label">YOUR ACCOUNT</span>
-                {renderLink({ to: settingsPath, label: "My Profile", icon: Settings })}
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="admin-nav-section">
-                <span className="admin-nav-label">MARKETPLACE</span>
-                {marketplaceLinks.map(renderLink)}
-              </div>
-              <div className="admin-nav-section">
-                <span className="admin-nav-label">REPORTS &amp; ANALYTICS</span>
-                {insightLinks.map(renderLink)}</div>
-              <div className="admin-nav-section">
-                <span className="admin-nav-label">ACCOUNT MANAGEMENT</span>
-                {renderLink({ to: "/admin/users", label: "User Management", icon: Users })}
-                {renderLink({ to: "/admin/staff", label: "Staff Management", icon: UserRoundCog })}
-                {renderLink({ to: settingsPath, label: "My Profile", icon: Settings })}
-              </div>
-            </>
-          )}
+          {sections.map((section) => (
+            <div key={section.label} className="admin-nav-section">
+              <span className="admin-nav-label">{section.label}</span>
+              {section.items.map(renderLink)}
+            </div>
+          ))}
         </nav>
 
         <div className="admin-sidebar-footer">
@@ -417,15 +405,15 @@ export default function AdminLayout({
             disabled={loggingOut}
           >
             <LogOut size={18} aria-hidden="true" />
-            <span>{loggingOut ? "Signing out…" : "Sign Out"}</span>
+            <span>{loggingOut ? "Signing out\u2026" : "Sign Out"}</span>
           </button>
         </div>
       </aside>
 
+
       <div className="admin-main">
         <header className="admin-header">
           <div className="admin-header-left">
-
             <button
               type="button"
               className="admin-mobile-menu"
@@ -438,16 +426,13 @@ export default function AdminLayout({
             </button>
             <img className="admin-header-logo" src="/assets/tmc-logo.png" alt="" aria-hidden="true" />
             <div className="admin-page-heading">
-              <nav className="admin-breadcrumbs" aria-label="Breadcrumb">
-                <Link to={dashboardPath}>{isStaff ? "Staff workspace" : "TMC StudentMart"}</Link>
-                <ChevronRight size={13} aria-hidden="true" />
-                <span aria-current="page">{title}</span>
-              </nav>
+              <span className="admin-page-eyebrow">
+                {isStaff ? "TMC StudentMart \u00b7 Staff workspace" : "TMC StudentMart \u00b7 Admin portal"}
+              </span>
               <h1>{title}</h1>
               <p>{subtitle}</p>
             </div>
           </div>
-
           <div className="admin-header-actions">
             <button
               type="button"
@@ -460,7 +445,6 @@ export default function AdminLayout({
               {theme === "light" ? <Moon size={18} aria-hidden="true" /> : <Sun size={18} aria-hidden="true" />}
               <span>{theme === "light" ? "Dark" : "Light"}</span>
             </button>
-
             <div className="admin-profile-control" ref={profileMenuRef}>
               <button
                 type="button"
@@ -471,7 +455,7 @@ export default function AdminLayout({
                 onClick={() => setProfileMenuOpen((open) => !open)}
               >
                 <span className="admin-account-avatar">
-                  <span>{initials}</span>
+                  {initials}
                   {avatarUrl && (
                     <img
                       src={avatarUrl}
@@ -492,29 +476,18 @@ export default function AdminLayout({
                     <strong>{displayName}</strong>
                     <span>{storedUser.email || displayRole}</span>
                   </div>
-                  <Link
-                    role="menuitem"
-                    to={settingsPath}
-                    onClick={() => setProfileMenuOpen(false)}
-                  >
-                    <Settings size={16} aria-hidden="true" />
-                    Account settings
+                  <Link role="menuitem" to={settingsPath} onClick={() => setProfileMenuOpen(false)}>
+                    <Settings size={16} aria-hidden="true" /> Account settings
                   </Link>
-                  <button
-                    role="menuitem"
-                    type="button"
-                    onClick={handleLogout}
-                    disabled={loggingOut}
-                  >
+                  <button role="menuitem" type="button" onClick={handleLogout} disabled={loggingOut}>
                     <LogOut size={16} aria-hidden="true" />
-                    {loggingOut ? "Signing out…" : "Sign out"}
+                    {loggingOut ? "Signing out\u2026" : "Sign out"}
                   </button>
                 </div>
               )}
             </div>
           </div>
         </header>
-
         <main className="admin-content">{children}</main>
       </div>
     </div>

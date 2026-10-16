@@ -22,6 +22,7 @@ class Order extends Model
         'payment_method_id',
         'payment_method_name_snapshot',
         'payment_method_instructions_snapshot',
+        'payment_status',
         'pickup_location_id',
         'pickup_location_name_snapshot',
         'pickup_location_area_snapshot',
@@ -40,6 +41,7 @@ class Order extends Model
             'seller_response_deadline_at' => 'datetime',
             'needs_attention' => 'boolean',
             'completed_at' => 'datetime',
+            'payment_status' => 'string',
         ];
     }
 

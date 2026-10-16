@@ -449,8 +449,8 @@ export default function AdminProducts() {
 
   return (
     <AdminLayout
-      title="Product Management"
-      subtitle="Review and manage products submitted by students."
+      title="Listing Management"
+      subtitle="Review marketplace listings, seller submissions, and approval status."
     >
 
       {/* TOOLBAR */}
@@ -468,7 +468,7 @@ export default function AdminProducts() {
             onChange={(event) =>
               setSearch(event.target.value)
             }
-            placeholder="Search product..."
+            placeholder="Search listings..."
           />
 
         </form>

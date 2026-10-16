@@ -10,6 +10,10 @@ import 'marketplace_page.dart';
 import 'notifications_page.dart';
 import 'orders_page.dart';
 import 'profile_page.dart';
+import 'search_page.dart';
+import 'categories_page.dart';
+import 'account_security_page.dart';
+import 'sales_page.dart';
 import 'sell_page.dart';
 import 'tmc_theme.dart';
 
@@ -68,7 +72,7 @@ class _AppShellState extends State<AppShell> {
             Text(
               _titles[_index],
               style: const TextStyle(
-                color: TmcPalette.deepNavyBlack,
+                color: TmcPalette.text,
                 fontWeight: FontWeight.w800,
               ),
             ),
@@ -83,6 +87,15 @@ class _AppShellState extends State<AppShell> {
               ),
             ),
             icon: const Icon(Icons.notifications_none),
+          ),
+          IconButton(
+            tooltip: 'Search',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const SearchPage(),
+              ),
+            ),
+            icon: const Icon(Icons.search),
           ),
           if (_index != 4)
             IconButton(
@@ -254,6 +267,21 @@ class _StudentDrawer extends StatelessWidget {
               onTap: () => _push(context, const ReportsPage()),
             ),
             ListTile(
+              leading: const Icon(Icons.category_outlined),
+              title: const Text('Browse categories'),
+              onTap: () => _push(context, const CategoriesPage()),
+            ),
+            ListTile(
+              leading: const Icon(Icons.attach_money),
+              title: const Text('Sales'),
+              onTap: () => _push(context, const SalesPage()),
+            ),
+            ListTile(
+              leading: const Icon(Icons.lock_outlined),
+              title: const Text('Change password'),
+              onTap: () => _push(context, const AccountSecurityPage()),
+            ),
+            ListTile(
               leading: const Icon(Icons.notifications_none),
               title: const Text('Notifications'),
               onTap: () => _push(context, const NotificationsPage()),
@@ -312,11 +340,11 @@ class _DrawerAvatar extends StatelessWidget {
 
   Widget _fallback(String initials) => CircleAvatar(
     radius: 26,
-    backgroundColor: TmcPalette.paleBlue,
+    backgroundColor: TmcPalette.surface,
     child: Text(
       initials.isEmpty ? 'T' : initials,
       style: const TextStyle(
-        color: TmcPalette.deepNavy,
+        color: TmcPalette.deepNavyBlack,
         fontWeight: FontWeight.w900,
       ),
     ),

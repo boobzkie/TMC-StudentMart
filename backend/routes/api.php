@@ -386,6 +386,11 @@ Route::middleware('auth:sanctum')->group(function () {
                 'adminIndex',
             ]);
 
+            Route::put('/orders/{order}/mark-paid', [
+                OrderController::class,
+                'markPaid',
+            ]);
+
             /*
             |--------------------------------------------------------------------------
             | Commission
