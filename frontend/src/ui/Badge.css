@@ -1,0 +1,65 @@
+/* =========================================================
+   TMC StudentMart — Badge
+   ========================================================= */
+
+.tmc-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.tmc-badge--sm {
+  padding: 2px 8px;
+}
+
+.tmc-badge--md {
+  padding: 4px 10px;
+}
+
+.tmc-badge--lg {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+/* Variants */
+.tmc-badge--neutral {
+  background: var(--tmc-admin-surface-muted);
+  color: var(--tmc-admin-secondary);
+}
+
+.tmc-badge--primary {
+  background: var(--tmc-admin-accent-soft);
+  color: var(--tmc-admin-primary);
+}
+
+.tmc-badge--success {
+  background: var(--tmc-admin-success-soft);
+  color: var(--tmc-admin-success);
+}
+
+.tmc-badge--warning {
+  background: var(--tmc-admin-warning-soft);
+  color: var(--tmc-admin-warning);
+}
+
+.tmc-badge--danger {
+  background: var(--tmc-admin-danger-soft);
+  color: var(--tmc-admin-danger);
+}
+
+.tmc-badge--info {
+  background: var(--tmc-admin-info-soft);
+  color: #4E8EA2;
+}
+
+.tmc-badge--outline {
+  background: transparent;
+  color: var(--tmc-admin-secondary);
+  border: 1px solid var(--tmc-admin-border);
+}

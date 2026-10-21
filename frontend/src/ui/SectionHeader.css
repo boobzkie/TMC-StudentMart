@@ -1,0 +1,46 @@
+/* =========================================================
+   TMC StudentMart — Section Header
+   ========================================================= */
+
+.tmc-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.tmc-section-eyebrow {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--tmc-admin-primary);
+  margin-bottom: 4px;
+}
+
+.tmc-section-title {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--tmc-admin-text);
+}
+
+.tmc-section-header .tmc-btn {
+  margin-left: auto;
+}
+
+@media (max-width: 640px) {
+  .tmc-section-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .tmc-section-header .tmc-btn {
+    margin-left: 0;
+    width: 100%;
+    justify-content: center;
+  }
+}

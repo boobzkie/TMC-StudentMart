@@ -67,8 +67,6 @@ class _SearchPageState extends State<SearchPage> {
     }
   }
 
-
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -133,7 +131,9 @@ class _SearchPageState extends State<SearchPage> {
                   ),
                   const SizedBox(width: 10),
                   FilledButton(
-                    onPressed: _loading ? null : () => _onSubmitted(_search.text),
+                    onPressed: _loading
+                        ? null
+                        : () => _onSubmitted(_search.text),
                     child: _loading
                         ? const SizedBox(
                             width: 18,
@@ -146,7 +146,6 @@ class _SearchPageState extends State<SearchPage> {
               ),
             ),
           ),
-
 
           if (_lastQuery.isNotEmpty)
             Padding(
@@ -172,36 +171,40 @@ class _SearchPageState extends State<SearchPage> {
                   )
                 : GridView.builder(
                     padding: const EdgeInsets.all(16),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      childAspectRatio: 0.78,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
-                    ),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          childAspectRatio: 0.78,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                        ),
                     itemCount: _results.length,
                     itemBuilder: (context, index) {
                       final product = _results[index];
                       return ProductCard(
                         product: product,
-                        isOwnListing: product.userId ==
+                        isOwnListing:
+                            product.userId ==
                             context.read<AuthState>().user?.id,
                         onTap: () => Navigator.of(context).push<void>(
                           MaterialPageRoute<void>(
-                            builder: (_) => ProductDetailsPage(
-                              productId: product.id,
-                            ),
+                            builder: (_) =>
+                                ProductDetailsPage(productId: product.id),
                           ),
                         ),
-                        onAdd: product.userId !=
-                                context.read<AuthState>().user?.id &&
-                            product.status == "active"
+                        onAdd:
+                            product.userId !=
+                                    context.read<AuthState>().user?.id &&
+                                product.status == "active"
                             ? () {
-                              context.read<CartState>().add(
-                                product,
-                                currentUserId:
-                                    context.read<AuthState>().user!.id,
-                              );
-                            }
+                                context.read<CartState>().add(
+                                  product,
+                                  currentUserId: context
+                                      .read<AuthState>()
+                                      .user!
+                                      .id,
+                                );
+                              }
                             : null,
                       );
                     },

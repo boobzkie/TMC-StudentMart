@@ -1,0 +1,183 @@
+/* =========================================================
+   TMC STUDENTMART — ADMIN SELLERS
+   ========================================================= */
+
+.sellers-page {
+  width: 100%;
+  max-width: 1500px;
+  margin: 0 auto;
+  padding-bottom: 32px;
+  color: var(--tmc-admin-text);
+}
+
+.sellers-page * {
+  box-sizing: border-box;
+}
+
+.sellers-page button,
+.sellers-page input,
+.sellers-page select {
+  font: inherit;
+}
+
+.sellers-section {
+  border: 1px solid var(--tmc-admin-border);
+  border-radius: 12px;
+  background: var(--tmc-admin-surface);
+  box-shadow: 0 4px 12px rgba(0, 29, 57, 0.04);
+  overflow: hidden;
+}
+
+.sellers-hero {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 30px 32px;
+  margin-bottom: 26px;
+  border-radius: 16px;
+  background: var(--tmc-admin-surface);
+  border: 1px solid var(--tmc-admin-border);
+}
+
+.sellers-hero-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.sellers-eyebrow {
+  color: var(--tmc-admin-primary);
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.sellers-hero h1 {
+  margin: 2px 0 4px;
+  color: var(--tmc-admin-text);
+  font-size: clamp(19px, 2.2vw, 26px);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.sellers-hero p {
+  margin: 0;
+  color: var(--tmc-admin-secondary);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.sellers-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.seller-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--tmc-admin-border);
+  border-radius: 12px;
+  background: var(--tmc-admin-surface);
+  box-shadow: 0 4px 12px rgba(0, 29, 57, 0.04);
+}
+
+.seller-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.seller-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--tmc-admin-primary);
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.seller-info {
+  min-width: 0;
+}
+
+.seller-info strong {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  display: block;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--tmc-admin-text);
+}
+
+.seller-info span {
+  font-size: 11.5px;
+  color: var(--tmc-admin-secondary);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.seller-stats {
+  display: flex;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.seller-stat {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--tmc-admin-secondary);
+}
+
+.seller-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.seller-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 32px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid var(--tmc-admin-border);
+  background: var(--tmc-admin-surface);
+  color: var(--tmc-admin-primary);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 190ms ease;
+}
+
+.seller-actions button:hover:not(:disabled) {
+  background: var(--tmc-admin-accent-soft);
+  border-color: var(--tmc-admin-primary);
+}
+
+.seller-actions button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@media (max-width: 900px) {
+  .sellers-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 560px) {
+  .sellers-grid { grid-template-columns: 1fr; }
+}

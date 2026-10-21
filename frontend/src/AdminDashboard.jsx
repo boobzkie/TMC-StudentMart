@@ -1,23 +1,34 @@
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
-  ShieldAlert,
+  AlertCircle,
+  ArrowRight,
+  CheckCircle2,
   CreditCard,
   Package,
-  XCircle,
+  ShoppingCart,
+  ShieldAlert,
+  UserRoundCog,
   UserRound,
-  UserPlus,
-
-
+  Users,
+  Tags,
+  XCircle,
 } from "lucide-react";
 import AdminLayout from "./components/AdminLayout";
 import { API_URL } from "./utils/api";
+import { Badge, Button, EmptyState, LoadingSpinner, StatCard, Table } from "./ui";
 import "./AdminDashboard.css";
 
-const formatDate = (value) => {
-  if (!value) return "-";
+function formatCount(value) {
+  if (value === null || value === undefined || value === "") return "—";
+  const number = Number(value);
+  return Number.isFinite(number) ? number.toLocaleString() : String(value ?? 0);
+}
+
+function formatDate(value) {
+  if (!value) return "—";
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
+  if (Number.isNaN(date.getTime())) return "—";
   return date.toLocaleString(undefined, {
     year: "numeric",
     month: "short",
@@ -25,78 +36,196 @@ const formatDate = (value) => {
     hour: "2-digit",
     minute: "2-digit",
   });
-};
+}
 
-const toneLabel = {
-  pending: "Pending",
-  danger: "Open",
-  success: "Active",
-  warning: "Low stock",
-  info: "Unverified",
-};
+function getBarWidth(value, total) {
+  if (!total || value <= 0) return "0%";
+  return `${Math.min(100, Math.max(0, (value / total) * 100))}%`;
+}
+
+function getActivityStatus(status) {
+  const key = String(status || "").toLowerCase();
+  return {
+    open: { variant: "danger", label: "Open" },
+    under_review: { variant: "warning", label: "Under review" },
+    pending: { variant: "warning", label: "Pending" },
+    active: { variant: "success", label: "Active" },
+    approved: { variant: "success", label: "Approved" },
+    confirmed: { variant: "success", label: "Confirmed" },
+    ready_for_pickup: { variant: "info", label: "Ready for pickup" },
+    completed: { variant: "success", label: "Completed" },
+    resolved: { variant: "success", label: "Resolved" },
+    rejected: { variant: "danger", label: "Rejected" },
+    declined: { variant: "danger", label: "Declined" },
+    cancelled: { variant: "neutral", label: "Cancelled" },
+    archived: { variant: "neutral", label: "Archived" },
+  }[key] || { variant: "neutral", label: String(status || "—") };
+}
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const [stats, setStats] = useState(null);
+  const [categories, setCategories] = useState(null);
+  const [categoryError, setCategoryError] = useState("");
+  const [trendPeriod, setTrendPeriod] = useState("30d");
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
 
-  const loadStats = useCallback(async () => {
-    setLoading(true);
-    setError("");
+  const fetchStats = useCallback(async () => {
+    const token = localStorage.getItem("token");
+    let response;
     try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(API_URL + "/admin/stats", {
-        headers: { Accept: "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) },
+      response = await fetch(API_URL + "/admin/stats?period=" + encodeURIComponent(trendPeriod), {
+        headers: {
+          Accept: "application/json",
+          ...(token ? { Authorization: "Bearer " + token } : {}),
+        },
       });
-      if (response.status === 401) {
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-        localStorage.removeItem("role");
-        navigate("/login", { replace: true });
-        return;
+    } catch (requestError) {
+      console.error("Dashboard API request failed:", requestError);
+      throw new Error("Unable to reach the Laravel API. Confirm the backend is running, then try again.");
+    }
+
+    if (response.status === 401) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      localStorage.removeItem("role");
+      navigate("/login", { replace: true });
+      return null;
+    }
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      console.error("Dashboard API returned HTTP", response.status);
+      if (response.status >= 500) {
+        throw new Error("Dashboard data is temporarily unavailable. Check the API and database services, then try again.");
       }
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.message || "Unable to load marketplace overview.");
-      setStats(data.stats || {});
+      throw new Error(data.message || "Unable to load marketplace overview.");
+    }
+    if (!data.stats || typeof data.stats !== "object" || Array.isArray(data.stats)) {
+      throw new Error("The marketplace overview response did not include statistics.");
+    }
+    return data.stats;
+  }, [navigate, trendPeriod]);
+
+  const fetchCategories = useCallback(async () => {
+    const token = localStorage.getItem("token");
+    const response = await fetch(API_URL + "/admin/categories", {
+      headers: {
+        Accept: "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
+    if (response.status === 401) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      localStorage.removeItem("role");
+      navigate("/login", { replace: true });
+      return;
+    }
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error("Unable to load listing categories.");
+    setCategories(Array.isArray(data.categories) ? data.categories : []);
+    setCategoryError("");
+  }, [navigate]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      fetchCategories().catch((err) => {
+        console.error("Dashboard categories request failed:", err);
+        setCategoryError("Category totals are temporarily unavailable.");
+        setCategories([]);
+      });
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [fetchCategories]);
+
+  useEffect(() => {
+    let active = true;
+    fetchStats()
+      .then((nextStats) => {
+        if (active && nextStats !== null) setStats(nextStats);
+      })
+      .catch((err) => {
+        if (active) setError(err.message || "We could not load the marketplace overview. Please try again.");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => { active = false; };
+  }, [fetchStats]);
+
+  const refreshStats = async () => {
+    if (stats) setRefreshing(true);
+    else setLoading(true);
+    setError("");
+
+    try {
+      setStats(await fetchStats());
     } catch (err) {
       setError(err.message || "We could not load the marketplace overview. Please try again.");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  }, [navigate]);
-
-  useEffect(() => {
-    loadStats();
-  }, [loadStats]);
-
-  const stat = (key, fallback = 0) => {
-    if (!stats) return fallback;
-    const value = stats[key];
-    return value === null || value === undefined ? fallback : value;
   };
 
-  if (loading) {
-    return (
-      <AdminLayout title="Dashboard" subtitle="Marketplace overview - TMC StudentMart">
-        <div style={{ padding: 40, textAlign: "center", color: "var(--tmc-text-muted)" }}>
-          Loading marketplace overview...
-        </div>
-      </AdminLayout>
-    );
-  }
+  const stat = (key) => {
+    if (!stats) return null;
+    const value = stats?.[key];
+    if (value === null || value === undefined || value === "") return null;
+    const number = Number(value);
+    return Number.isFinite(number) ? number : null;
+  };
 
+  const primaryMetrics = [
+    {
+      label: "Student accounts",
+      value: stat("total_students"),
+      subtitle: "Students in the marketplace",
+      tone: "info",
+      icon: UserRound,
+      to: "/admin/users",
+    },
+    {
+      label: "Active listings",
+      value: stat("active_products"),
+      subtitle: "Approved and visible to students",
+      tone: "success",
+      icon: Package,
+      to: "/admin/products",
+    },
+    {
+      label: "Pending orders",
+      value: stat("new_orders"),
+      subtitle: "Awaiting seller confirmation",
+      tone: "warning",
+      icon: ShoppingCart,
+      to: "/admin/transactions?status=pending",
+    },
+    {
+      label: "Pending moderation",
+      value: stat("pending_products"),
+      subtitle: "Listings waiting for review",
+      tone: "warning",
+      icon: ShieldAlert,
+      to: "/admin/product-moderation",
+    },
+  ];
 
-
-  const s = stats;
   const attentionItems = [
     {
       key: "pending_products",
-      label: "Pending product approvals",
+      label: "Pending listing approvals",
       subtitle: "Listings waiting for an administrator decision",
       value: stat("pending_products"),
       tone: "pending",
+      statusLabel: "Pending review",
+      statusVariant: "warning",
       to: "/admin/product-moderation",
+      icon: ShieldAlert,
     },
     {
       key: "open_complaints",
@@ -104,7 +233,10 @@ export default function AdminDashboard() {
       subtitle: "Student complaints that need a response",
       value: stat("open_complaints"),
       tone: "danger",
+      statusLabel: "Open",
+      statusVariant: "danger",
       to: "/admin/complaints",
+      icon: XCircle,
     },
     {
       key: "new_orders",
@@ -112,216 +244,432 @@ export default function AdminDashboard() {
       subtitle: "Orders awaiting confirmation",
       value: stat("new_orders"),
       tone: "pending",
+      statusLabel: "Pending",
+      statusVariant: "warning",
       to: "/admin/transactions",
+      icon: CreditCard,
     },
     {
-      key: "pending_payments",
-      label: "Pending payments",
-      subtitle: "Orders with payment not yet settled",
-      value: stat("pending_payments"),
-      tone: "warning",
-      to: "/admin/transactions",
+      key: "pending_staff_applications",
+      label: "Staff applications",
+      subtitle: "Applications waiting for administrator review",
+      value: stat("pending_staff_applications"),
+      tone: "pending",
+      statusLabel: "Pending review",
+      statusVariant: "warning",
+      to: "/admin/staff?status=pending",
+      icon: UserRoundCog,
     },
     {
       key: "low_stock_products",
-      label: "Low-stock products",
+      label: "Low-stock listings",
       subtitle: "Listings running low on inventory",
       value: stat("low_stock_products"),
       tone: "warning",
+      statusLabel: "Low stock",
+      statusVariant: "warning",
       to: "/admin/products",
-    },
-    {
-      key: "unverified_accounts",
-      label: "Unverified accounts",
-      subtitle: "Active accounts without email verification",
-      value: stat("unverified_accounts"),
-      tone: "info",
-      to: "/admin/users",
+      icon: Package,
     },
   ];
 
-  const gridBlocks = [
-    {
-      title: "Marketplace activity",
-      items: [
-        { label: "Active listings", value: stat("active_products"), tone: "success", to: "/admin/products", help: "Approved and visible" },
-        { label: "New listings", value: stat("new_products"), tone: "info", to: "/admin/products", help: "Added in the last 7 days" },
-        { label: "Approved listings", value: stat("approved_products"), tone: "success", to: "/admin/products?status=active" },
-        { label: "Rejected listings", value: stat("rejected_products"), tone: "danger", to: "/admin/products?status=rejected" },
-      ],
-    },
-    {
-      title: "Order activity",
-      items: [
-        { label: "New orders", value: stat("new_orders"), tone: "pending", to: "/admin/transactions?status=pending" },
-        { label: "Processing orders", value: stat("processing_orders"), tone: "pending", to: "/admin/transactions?status=confirmed" },
-        { label: "Ready for pickup", value: stat("ready_for_pickup_orders"), tone: "pending", to: "/admin/transactions?status=ready_for_pickup" },
-        { label: "Completed orders", value: stat("completed_orders"), tone: "success", to: "/admin/transactions?status=completed" },
-        { label: "Cancelled orders", value: stat("cancelled_orders"), tone: "neutral", to: "/admin/transactions?status=cancelled" },
-      ],
-    },
-    {
-      title: "Account activity",
-      items: [
-        { label: "Registered students", value: stat("total_students"), tone: "info", to: "/admin/users?role=student" },
-        { label: "Active sellers", value: stat("active_sellers"), tone: "success", to: "/admin/sellers" },
-        { label: "Staff accounts", value: stat("total_staff"), tone: "info", to: "/admin/staff" },
-        { label: "Recently registered users", value: stat("recently_registered_users"), tone: "info", to: "/admin/users" },
-      ],
-    },
-    {
-      title: "Stock alerts",
-      items: [
-        { label: "Low stock", value: stat("low_stock_products"), tone: "warning", to: "/admin/products?stock=low" },
-        { label: "Out of stock", value: stat("out_of_stock_products"), tone: "danger", to: "/admin/products?stock=out" },
-      ],
-    },
-  ];
+  const actionableItems = attentionItems.filter((item) => item.value !== null && Number(item.value) > 0);
+  const hasUnavailableAttentionCount = attentionItems.some((item) => item.value === null);
+  const recentActivity = Array.isArray(stats?.recent_activity) ? stats.recent_activity : [];
+  const recent = recentActivity.slice(0, 6);
+  const orderTotal = stat("total_orders");
+  const productTotal = stat("total_products");
+  const orderBreakdown = [
+    { label: "Pending", key: "pending_orders", tone: "warning" },
+    { label: "Confirmed", key: "processing_orders", tone: "info" },
+    { label: "Ready for pickup", key: "ready_for_pickup_orders", tone: "info" },
+    { label: "Completed", key: "completed_orders", tone: "success" },
+    { label: "Declined", key: "declined_orders", tone: "danger" },
+    { label: "Cancelled", key: "cancelled_orders", tone: "neutral" },
+  ].map((item) => ({ ...item, value: stat(item.key) }));
+  const listingBreakdown = [
+    { label: "Active", key: "active_products", tone: "success" },
+    { label: "Pending review", key: "pending_products", tone: "warning" },
+    { label: "Inactive", key: "inactive_products", tone: "neutral" },
+    { label: "Sold out", key: "sold_out_products", tone: "info" },
+    { label: "Rejected", key: "rejected_products", tone: "danger" },
+    { label: "Suspended", key: "suspended_products", tone: "danger" },
+    { label: "Archived", key: "archived_products", tone: "neutral" },
+  ].map((item) => ({ ...item, value: stat(item.key) }));
+  const hasOrderBreakdown = orderTotal !== null && orderBreakdown.every((item) => item.value !== null);
+  const hasListingBreakdown = productTotal !== null && listingBreakdown.every((item) => item.value !== null);
+  const categoryRows = Array.isArray(categories)
+    ? categories
+        .filter((category) => Number(category.listings_count) > 0 || Number(category.archived_count) > 0)
+        .sort((left, right) => Number(right.listings_count || 0) - Number(left.listings_count || 0))
+        .slice(0, 6)
+    : [];
+  const categoryMax = Math.max(1, ...categoryRows.map((category) => Number(category.listings_count) || 0));
+  const orderTrend = Array.isArray(stats?.orders_over_time) ? stats.orders_over_time : [];
+  const trendMax = Math.max(1, ...orderTrend.map((item) => Number(item.orders) || 0));
+  const trendPoints = orderTrend.map((item, index) => ({
+    ...item,
+    x: orderTrend.length < 2 ? 360 : 28 + (index * 664) / (orderTrend.length - 1),
+    y: 166 - ((Number(item.orders) || 0) / trendMax) * 132,
+  }));
+  const trendLinePoints = trendPoints.map((item) => `${item.x},${item.y}`).join(" ");
 
-  const recent = (s.recent_activity || []).slice(0, 8);
+  if (loading && !stats) {
+    return (
+      <AdminLayout title="Dashboard" subtitle="Overview of marketplace activity and administrative tasks.">
+        <div className="dashboard-loading">
+          <LoadingSpinner size="lg" />
+          <p className="dashboard-loading-text">Loading marketplace overview…</p>
+        </div>
+      </AdminLayout>
+    );
+  }
+
+  if (error && !stats) {
+    return (
+      <AdminLayout title="Dashboard" subtitle="Overview of marketplace activity and administrative tasks.">
+        <div className="dashboard-error-state" role="alert">
+          <AlertCircle size={22} aria-hidden="true" />
+          <div>
+            <strong>Unable to load the dashboard</strong>
+            <span>{error}</span>
+          </div>
+          <Button variant="outline" size="sm" loading={refreshing} onClick={refreshStats}>
+            Try again
+          </Button>
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
-    <AdminLayout title="Marketplace overview" subtitle="TMC StudentMart - what needs attention right now?">
+    <AdminLayout title="Dashboard" subtitle="Overview of marketplace activity and administrative tasks.">
       {error && (
-        <div className="dashboard-error" role="alert" style={{ padding: 16, border: "1px solid var(--tmc-error-soft)", background: "var(--tmc-error-soft)", color: "var(--tmc-error)", borderRadius: "var(--tmc-radius-md)", marginBottom: 20, display: "flex", alignItems: "center", gap: 10 }}>
-          <XCircle size={16} aria-hidden="true" />
-          <div style={{ flex: 1 }}>
+        <div className="dashboard-error" role="alert">
+          <div className="dashboard-error-body">
             <strong>Unable to load overview</strong>
-            <span style={{ fontSize: 12.5, display: "block", marginTop: 2 }}>{error}</span>
+            <span>{error}</span>
           </div>
-          <button type="button" onClick={loadStats} className="tmc-btn tmc-btn-sm tmc-btn-outline">Try again</button>
+          <Button variant="outline" size="sm" loading={refreshing} onClick={refreshStats}>
+            Try again
+          </Button>
         </div>
       )}
 
-      <section className="dashboard-section dashboard-attention">
+      <section className="dashboard-section dashboard-attention" aria-labelledby="dashboard-attention-title">
         <div className="dashboard-section-header">
-          <h2 style={{ margin: 0, fontSize: 15, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--tmc-ink)" }}>Attention required</h2>
-          <p style={{ margin: 4, fontSize: 12.5, color: "var(--tmc-text-muted)" }}>Items that need administrator action today.</p>
+          <div>
+            <span className="dashboard-section-eyebrow">Action queue</span>
+            <h2 className="dashboard-section-title" id="dashboard-attention-title">Needs attention</h2>
+            <p className="dashboard-section-subtitle">Items with work waiting for an administrator.</p>
+          </div>
+          <Button variant="outline" size="sm" loading={refreshing} onClick={refreshStats}>
+            Refresh overview
+          </Button>
         </div>
-        <div className="dashboard-kpi-grid">
-          {attentionItems.map((item) => {
-            const config = toneLabel[item.tone] ? { tone: item.tone, label: toneLabel[item.tone] } : { tone: "pending", label: "Pending" };
-            const badgeStyle = config.tone === "danger" ? { background: "var(--tmc-error-soft)", color: "var(--tmc-error)" } : config.tone === "warning" ? { background: "var(--tmc-warning-soft)", color: "var(--tmc-warning)" } : config.tone === "success" ? { background: "var(--tmc-success-soft)", color: "var(--tmc-success)" } : { background: "var(--tmc-info-soft)", color: "var(--tmc-info)" };
-            return (
-              <a
-                key={item.key}
-                href={item.to}
-                onClick={(event) => { event.preventDefault(); navigate(item.to); }}
-                className="dashboard-kpi-card dashboard-kpi-attention"
-                style={{ textDecoration: "none" }}
-              >
-                <div className="dashboard-kpi-body">
-                  <div className="dashboard-kpi-meta">
-                    <span className="dashboard-kpi-label" style={{ display: "block", fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--tmc-text-muted)" }}>{item.label}</span>
-                    <span className="dashboard-kpi-subtitle" style={{ display: "block", fontSize: 11.5, color: "var(--tmc-text-muted)", marginTop: 2 }}>{item.subtitle}</span>
-                  </div>
-                  <div className="dashboard-kpi-value" style={{ fontSize: 27, fontWeight: 800, color: "var(--tmc-ink)" }}>{item.value}</div>
-                  <span className="tmc-badge" style={{ ...badgeStyle, fontSize: 10.5, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.04em", padding: "3px 9px", borderRadius: "999px" }}>{config.label}</span>
-                </div>
-                <div className="dashboard-kpi-icon" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 40, height: 40, borderRadius: "var(--tmc-radius-md)", background: "var(--tmc-deep-navy-soft)" }}>
-                  {item.key === "pending_products" && <ShieldAlert size={18} aria-hidden="true" />}
-                  {item.key === "open_complaints" && <XCircle size={18} aria-hidden="true" />}
-                  {item.key === "new_orders" && <CreditCard size={18} aria-hidden="true" />}
-                  {item.key === "pending_payments" && <CreditCard size={18} aria-hidden="true" />}
-                  {item.key === "low_stock_products" && <Package size={18} aria-hidden="true" />}
-                  {item.key === "unverified_accounts" && <UserRound size={18} aria-hidden="true" />}
-                </div>
-                <span className="dashboard-kpi-arrow" style={{ fontSize: 12, color: "var(--tmc-text-soft)" }}>&#8594;</span>
-              </a>
-            );
-          })}
-        </div>
-      </section>
 
-
-
-      <section className="dashboard-section dashboard-grid-section">
-        {gridBlocks.map((block) => (
-          <div key={block.title} className="dashboard-card">
-            <header className="dashboard-card-header">
-              <span className="dashboard-card-title" style={{ fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--tmc-text-muted)" }}>{block.title}</span>
-            </header>
-            <div className="dashboard-kpi-grid dashboard-activity-grid">
-              {block.items.map((item) => {
-                const config = toneLabel[item.tone] ? { tone: item.tone, label: toneLabel[item.tone] } : { tone: "pending", label: "Pending" };
-                const badgeStyle = config.tone === "danger" ? { background: "var(--tmc-error-soft)", color: "var(--tmc-error)" } : config.tone === "warning" ? { background: "var(--tmc-warning-soft)", color: "var(--tmc-warning)" } : config.tone === "success" ? { background: "var(--tmc-success-soft)", color: "var(--tmc-success)" } : { background: "var(--tmc-info-soft)", color: "var(--tmc-info)" };
+        {stats === null ? (
+          <div className="attention-empty" role="status">
+            <span className="attention-empty-icon"><ShieldAlert size={19} aria-hidden="true" /></span>
+            <div>
+              <strong>Action queue unavailable</strong>
+              <p>Refresh the overview to check for items that need attention.</p>
+            </div>
+          </div>
+        ) : actionableItems.length > 0 ? (
+          <>
+            <div className={"attention-list" + (actionableItems.length === 1 ? " attention-list--single" : "")}>
+              {actionableItems.map((item) => {
+                const Icon = item.icon;
                 return (
-                  <a
-                    key={item.label}
-                    href={item.to}
-                    onClick={(event) => { event.preventDefault(); navigate(item.to); }}
-                    className="dashboard-activity-card"
-                    style={{ textDecoration: "none" }}
+                  <Link
+                    key={item.key}
+                    to={item.to}
+                    className={"attention-row attention-row--" + item.tone}
+                    aria-label={"View " + item.label + ": " + formatCount(item.value)}
                   >
-                    <div className="dashboard-activity-meta">
-                      <span className="dashboard-activity-label" style={{ display: "block", fontSize: 12.5, fontWeight: 700, color: "var(--tmc-ink)" }}>{item.label}</span>
-                      {item.help && <span className="dashboard-activity-help" style={{ display: "block", fontSize: 11, color: "var(--tmc-text-muted)", marginTop: 2 }}>{item.help}</span>}
-                    </div>
-                    <div className="dashboard-activity-value" style={{ fontSize: 24, fontWeight: 800, color: "var(--tmc-ink)" }}>{item.value}</div>
-                    <span className="tmc-badge" style={{ ...badgeStyle, fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.04em", padding: "2px 8px", borderRadius: "999px" }}>{config.label}</span>
-                    <span className="dashboard-activity-arrow" style={{ fontSize: 12, color: "var(--tmc-text-soft)" }}>&#8594;</span>
-                  </a>
+                    <span className="attention-icon">
+                      <Icon size={19} aria-hidden="true" />
+                    </span>
+                    <span className="attention-copy">
+                      <span className="attention-label">{item.label}</span>
+                      <span className="attention-subtitle">{item.subtitle}</span>
+                      <span className="attention-status">
+                        <Badge variant={item.statusVariant} size="sm">{item.statusLabel}</Badge>
+                      </span>
+                    </span>
+                    <strong className="attention-value">{formatCount(item.value)}</strong>
+                    <ArrowRight size={16} className="attention-arrow" aria-hidden="true" />
+                  </Link>
                 );
               })}
             </div>
+            {hasUnavailableAttentionCount && (
+              <p className="attention-data-note" role="status">
+                Some attention counts were not included in the API response.
+              </p>
+            )}
+          </>
+        ) : hasUnavailableAttentionCount ? (
+          <div className="attention-empty" role="status">
+            <span className="attention-empty-icon"><AlertCircle size={19} aria-hidden="true" /></span>
+            <div>
+              <strong>Action queue counts unavailable</strong>
+              <p>The API did not provide all attention counts, so this section cannot confirm that there are no pending items.</p>
+            </div>
           </div>
-        ))}
+        ) : (
+          <div className="attention-empty" role="status">
+            <span className="attention-empty-icon"><CheckCircle2 size={19} aria-hidden="true" /></span>
+            <div>
+              <strong>You’re all caught up</strong>
+              <p>There are no product reviews, complaints, pending orders, staff applications, or low-stock listings waiting for action.</p>
+            </div>
+          </div>
+        )}
       </section>
 
-      <section className="dashboard-section dashboard-recent">
-        <div className="dashboard-section-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+      <section className="dashboard-section dashboard-summary" aria-labelledby="dashboard-summary-title">
+        <div className="dashboard-section-header">
           <div>
-            <h2 style={{ margin: 0, fontSize: 15, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--tmc-ink)" }}>Recent activity</h2>
-            <p style={{ margin: 4, fontSize: 12.5, color: "var(--tmc-text-muted)" }}>Latest marketplace actions across users, listings, and orders.</p>
+            <span className="dashboard-section-eyebrow">Marketplace snapshot</span>
+            <h2 className="dashboard-section-title" id="dashboard-summary-title">At a glance</h2>
           </div>
-          {s.recent_activity && s.recent_activity.length > 8 && (
-            <button type="button" onClick={() => navigate("/admin/activity-logs")} className="tmc-btn tmc-btn-sm tmc-btn-outline">View all activity logs</button>
+        </div>
+        <div className="metrics-grid" aria-label="Marketplace summary">
+          {primaryMetrics.map((item) => (
+            <StatCard
+              key={item.label}
+              label={item.label}
+              value={formatCount(item.value)}
+              icon={item.icon}
+              tone={item.tone}
+              subtitle={item.subtitle}
+              href={item.to}
+            />
+          ))}
+        </div>
+      </section>
+
+      <section className="dashboard-section dashboard-insights" aria-labelledby="dashboard-insights-title">
+        <div className="dashboard-section-header">
+          <div>
+            <span className="dashboard-section-eyebrow">Marketplace activity</span>
+            <h2 className="dashboard-section-title" id="dashboard-insights-title">Orders and listing status</h2>
+            <p className="dashboard-section-subtitle">A current breakdown from marketplace records.</p>
+          </div>
+        </div>
+        <div className="dashboard-insight-grid">
+          <article className="dashboard-chart-card" aria-labelledby="dashboard-order-chart-title">
+            <div className="dashboard-chart-heading">
+              <div>
+                <h3 id="dashboard-order-chart-title">Orders by status</h3>
+                <p>{formatCount(orderTotal)} total orders</p>
+              </div>
+              <CreditCard size={19} aria-hidden="true" />
+            </div>
+            {!hasOrderBreakdown ? (
+              <div className="dashboard-chart-empty" role="status">Order status totals are not available.</div>
+            ) : orderTotal === 0 ? (
+              <div className="dashboard-chart-empty" role="status">No orders have been placed yet.</div>
+            ) : (
+              <div className="dashboard-chart-rows" role="img" aria-label={"Orders by status: " + orderBreakdown.map((item) => `${item.label} ${formatCount(item.value)}`).join(", ")}>
+                {orderBreakdown.map((item) => (
+                  <div className="dashboard-chart-row" key={item.key}>
+                    <span className="dashboard-chart-label">{item.label}</span>
+                    <span className="dashboard-chart-track" title={`${item.label}: ${formatCount(item.value)} of ${formatCount(orderTotal)}`} aria-hidden="true">
+                      <span className={`dashboard-chart-fill dashboard-chart-fill--${item.tone}`} style={{ width: getBarWidth(item.value, orderTotal) }} />
+                    </span>
+                    <strong className="dashboard-chart-value">{formatCount(item.value)}</strong>
+                  </div>
+                ))}
+              </div>
+            )}
+          </article>
+          <article className="dashboard-chart-card" aria-labelledby="dashboard-listing-chart-title">
+            <div className="dashboard-chart-heading">
+              <div>
+                <h3 id="dashboard-listing-chart-title">Listings by status</h3>
+                <p>{formatCount(productTotal)} total listings</p>
+              </div>
+              <Package size={19} aria-hidden="true" />
+            </div>
+            {!hasListingBreakdown ? (
+              <div className="dashboard-chart-empty" role="status">Listing status totals are not available.</div>
+            ) : productTotal === 0 ? (
+              <div className="dashboard-chart-empty" role="status">No listings have been submitted yet.</div>
+            ) : (
+              <div className="dashboard-chart-rows" role="img" aria-label={"Listings by status: " + listingBreakdown.map((item) => `${item.label} ${formatCount(item.value)}`).join(", ")}>
+                {listingBreakdown.map((item) => (
+                  <div className="dashboard-chart-row" key={item.key}>
+                    <span className="dashboard-chart-label">{item.label}</span>
+                    <span className="dashboard-chart-track" title={`${item.label}: ${formatCount(item.value)} of ${formatCount(productTotal)}`} aria-hidden="true">
+                      <span className={`dashboard-chart-fill dashboard-chart-fill--${item.tone}`} style={{ width: getBarWidth(item.value, productTotal) }} />
+                    </span>
+                    <strong className="dashboard-chart-value">{formatCount(item.value)}</strong>
+                  </div>
+                ))}
+              </div>
+            )}
+          </article>
+          <article className="dashboard-chart-card dashboard-trend-card" aria-labelledby="dashboard-trend-title">
+            <div className="dashboard-chart-heading dashboard-trend-heading">
+              <div>
+                <h3 id="dashboard-trend-title">Orders over time</h3>
+                <p>New orders created during the selected period</p>
+              </div>
+              <label className="dashboard-trend-filter">
+                <span>Trend range</span>
+                <select value={trendPeriod} onChange={(event) => setTrendPeriod(event.target.value)}>
+                  <option value="today">Today</option>
+                  <option value="7d">Last 7 days</option>
+                  <option value="30d">Last 30 days</option>
+                  <option value="90d">Last 3 months</option>
+                  <option value="12m">Last 12 months</option>
+                </select>
+              </label>
+            </div>
+            {orderTrend.length === 0 ? (
+              <div className="dashboard-chart-empty" role="status">No order trend data is available for this period.</div>
+            ) : (
+              <div className="dashboard-trend-visual" role="img" aria-label={`Orders over time: ${orderTrend.map((item) => `${item.label}, ${item.orders} orders`).join("; ")}`}>
+                <svg viewBox="0 0 720 200" preserveAspectRatio="none" aria-hidden="true">
+                  <line x1="28" y1="166" x2="692" y2="166" className="dashboard-trend-axis" />
+                  <line x1="28" y1="100" x2="692" y2="100" className="dashboard-trend-gridline" />
+                  <line x1="28" y1="34" x2="692" y2="34" className="dashboard-trend-gridline" />
+                  {trendPoints.length > 1 && <polyline points={trendLinePoints} className="dashboard-trend-line" />}
+                  {trendPoints.map((point) => (
+                    <circle key={point.key} cx={point.x} cy={point.y} r="4" className="dashboard-trend-point">
+                      <title>{point.label}: {point.orders} orders</title>
+                    </circle>
+                  ))}
+                </svg>
+                <div className="dashboard-trend-labels" aria-hidden="true">
+                  <span>{orderTrend[0].label}</span>
+                  {orderTrend.length > 2 && <span>{orderTrend[Math.floor((orderTrend.length - 1) / 2)].label}</span>}
+                  {orderTrend.length > 1 && <span>{orderTrend[orderTrend.length - 1].label}</span>}
+                </div>
+              </div>
+            )}
+          </article>
+          <article className="dashboard-chart-card" aria-labelledby="dashboard-category-chart-title">
+            <div className="dashboard-chart-heading">
+              <div>
+                <h3 id="dashboard-category-chart-title">Active listings by category</h3>
+                <p>Archived listings are counted separately</p>
+              </div>
+              <Tags size={19} aria-hidden="true" />
+            </div>
+            {categories === null ? (
+              <div className="dashboard-chart-empty" role="status">Loading category totals…</div>
+            ) : categoryError ? (
+              <div className="dashboard-chart-empty" role="status">{categoryError}</div>
+            ) : categoryRows.length === 0 ? (
+              <div className="dashboard-chart-empty" role="status">No active or archived listings are assigned to a category.</div>
+            ) : (
+              <div className="dashboard-category-rows" role="img" aria-label="Active listings and archived listings by category">
+                {categoryRows.map((category) => {
+                  const activeListings = Number(category.listings_count) || 0;
+                  const archivedListings = Number(category.archived_count) || 0;
+                  return (
+                    <div className="dashboard-category-row" key={category.id}>
+                      <span className="dashboard-category-label">
+                        <strong>{category.name}</strong>
+                        <small>{archivedListings} archived</small>
+                      </span>
+                      <span className="dashboard-chart-track" aria-hidden="true">
+                        <span className="dashboard-chart-fill dashboard-chart-fill--info" style={{ width: getBarWidth(activeListings, categoryMax) }} />
+                      </span>
+                      <strong className="dashboard-chart-value">{activeListings}</strong>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </article>
+          <article className="dashboard-chart-card dashboard-user-overview" aria-labelledby="dashboard-users-title">
+            <div className="dashboard-chart-heading">
+              <div>
+                <h3 id="dashboard-users-title">User overview</h3>
+                <p>Accounts by portal role</p>
+              </div>
+              <Users size={19} aria-hidden="true" />
+            </div>
+            <ul className="dashboard-user-rows">
+              {[
+                ["Students", stat("total_students")],
+                ["Staff", stat("total_staff")],
+                ["Administrators", stat("total_admins")],
+              ].map(([label, value]) => (
+                <li key={label}><span>{label}</span><strong>{formatCount(value)}</strong></li>
+              ))}
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section className="dashboard-section dashboard-recent" aria-labelledby="dashboard-recent-title">
+        <div className="dashboard-section-header">
+          <div>
+            <span className="dashboard-section-eyebrow">Recent activity</span>
+            <h2 className="dashboard-section-title" id="dashboard-recent-title">Latest marketplace actions</h2>
+            <p className="dashboard-section-subtitle">Recent actions across users, listings, and orders.</p>
+          </div>
+          {recentActivity.length > 6 && (
+            <Button variant="outline" size="sm" onClick={() => navigate("/admin/activity-logs")}>
+              View all activity logs
+            </Button>
           )}
         </div>
-        <div className="tmc-table-wrap">
-          <table className="tmc-table">
-            <thead>
-              <tr>
-                <th style={{ width: "210px" }}>User</th>
-                <th style={{ flex: 1 }}>Action</th>
-                <th style={{ width: "170px" }}>Date / time</th>
-                <th style={{ width: "130px" }}>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {recent.length === 0 ? (
-                <tr>
-                  <td colSpan={4} style={{ padding: 30, textAlign: "center", color: "var(--tmc-text-muted)" }}>No recent activity recorded.</td>
-                </tr>
-              ) : (
-                recent.map((item, index) => {
-                  let badgeBg = "rgba(137,138,140,0.12)";
-                  let badgeColor = "var(--tmc-text-muted)";
-                  let badgeLabel = String(item.status || "-");
-                  if (item.status === "open") { badgeBg = "var(--tmc-error-soft)"; badgeColor = "var(--tmc-error)"; badgeLabel = "Open"; }
-                  else if (item.status === "under_review") { badgeBg = "var(--tmc-warning-soft)"; badgeColor = "var(--tmc-warning)"; badgeLabel = "Under review"; }
-                  else if (item.status === "active") { badgeBg = "var(--tmc-success-soft)"; badgeColor = "var(--tmc-success)"; badgeLabel = "Active"; }
-                  else if (item.status === "rejected") { badgeBg = "var(--tmc-error-soft)"; badgeColor = "var(--tmc-error)"; badgeLabel = "Rejected"; }
-                  return (
-                    <tr key={index}>
-                      <td className="tmc-table-cell-main">
-                        <strong>{item.user}</strong>
-                        <span style={{ display: "block", fontSize: 11.5, color: "var(--tmc-text-muted)" }}>{item.type}</span>
-                      </td>
-                      <td>{item.action}</td>
-                      <td style={{ fontSize: 12.5 }}>{formatDate(item.date_time)}</td>
-                      <td>
-                        <span className="tmc-badge" style={{ background: badgeBg, color: badgeColor, fontSize: 10.5, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.04em", padding: "2px 8px", borderRadius: "999px" }}>{badgeLabel}</span>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+
+        <div className="recent-table-wrap" role="region" aria-label="Recent marketplace activity" tabIndex={0}>
+          {!Array.isArray(stats?.recent_activity) ? (
+            <EmptyState
+              icon={AlertCircle}
+              title="Recent activity unavailable"
+              subtitle="The API response did not include recent activity for this dashboard."
+            />
+          ) : recent.length === 0 ? (
+            <EmptyState
+              icon={UserRound}
+              title="No recent activity"
+              subtitle="There are no recent marketplace actions recorded yet."
+            />
+          ) : (
+            <Table>
+              <table className="tmc-table">
+                <Table.Header>
+                  <tr>
+                    <Table.HeadCell style={{ width: "220px" }}>User</Table.HeadCell>
+                    <Table.HeadCell>Action</Table.HeadCell>
+                    <Table.HeadCell style={{ width: "170px" }}>Date / time</Table.HeadCell>
+                    <Table.HeadCell style={{ width: "140px" }}>Status</Table.HeadCell>
+                  </tr>
+                </Table.Header>
+                <Table.Body>
+                  {recent.map((item, index) => {
+                    const badge = getActivityStatus(item.status);
+                    const rowKey = String(item.type || "activity") + "-" + String(item.date_time || index) + "-" + index;
+                    return (
+                      <Table.Row key={rowKey}>
+                        <Table.Cell className="user-cell-main">
+                          <strong>{item.user || "—"}</strong>
+                          <span>{item.type || "—"}</span>
+                        </Table.Cell>
+                        <Table.Cell>{item.action || "—"}</Table.Cell>
+                        <Table.Cell style={{ fontSize: 12.5 }}>{formatDate(item.date_time)}</Table.Cell>
+                        <Table.Cell>
+                          <Badge variant={badge.variant} size="sm">{badge.label}</Badge>
+                        </Table.Cell>
+                      </Table.Row>
+                    );
+                  })}
+                </Table.Body>
+              </table>
+            </Table>
+          )}
         </div>
       </section>
     </AdminLayout>
   );
 }
-

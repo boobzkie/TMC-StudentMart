@@ -1,0 +1,2 @@
+$lines = Get-Content 'c:\xampp\htdocs\TMC StudentMart\frontend\src\components\AdminLayout.jsx'
+$lines | Select-String -Pattern 'admin-layout' -Context 0,2 | ForEach-Object { Write-Host "LINE $($_.LineNumber): $($_.Line)" }

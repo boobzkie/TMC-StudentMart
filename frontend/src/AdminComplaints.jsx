@@ -1,22 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
-import {
-  AlertCircle,
-  CheckCircle2,
-  Eye,
-  Loader2,
-  MessageSquareWarning,
-  RefreshCw,
-  Search,
-  ShieldAlert,
-  Trash2,
-  X,
-} from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { AlertCircle, Search, Eye, MessageSquareWarning, ShieldAlert, CheckCircle2, XCircle } from "lucide-react";
 
 import AdminLayout from "./components/AdminLayout";
 import { API_URL } from "./utils/api";
-import "./AdminComplaints.css";
 
+import { Badge, Button, SectionHeader, EmptyState, LoadingSpinner, StatCard } from "./ui";
+
+import "./AdminComplaints.css";
 
 const STATUS_OPTIONS = [
   { value: "", label: "All Statuses" },
@@ -33,7 +24,7 @@ const STATUS_LABELS = {
   rejected: "Rejected",
 };
 
-function AdminComplaints() {
+export default function AdminComplaints() {
   const navigate = useNavigate();
 
   const [stats, setStats] = useState({
@@ -59,17 +50,11 @@ function AdminComplaints() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
 
-  const [selectedComplaint, setSelectedComplaint] =
-    useState(null);
+  const [selectedComplaint, setSelectedComplaint] = useState(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
 
-  const [detailsLoading, setDetailsLoading] =
-    useState(false);
-
-  const [statusDraft, setStatusDraft] =
-    useState("pending");
-
-  const [adminResponse, setAdminResponse] =
-    useState("");
+  const [statusDraft, setStatusDraft] = useState("pending");
+  const [adminResponse, setAdminResponse] = useState("");
 
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -82,10 +67,7 @@ function AdminComplaints() {
     localStorage.removeItem("token");
     localStorage.removeItem("role");
     localStorage.removeItem("user");
-
-    navigate("/login", {
-      replace: true,
-    });
+    navigate("/login", { replace: true });
   }, [navigate]);
 
   const request = useCallback(
@@ -97,37 +79,22 @@ function AdminComplaints() {
         throw new Error("Authentication required.");
       }
 
-      const response = await fetch(
-        `${API_URL}${url}`,
-        {
-          ...options,
-          headers: {
-            Accept: "application/json",
-            Authorization: `Bearer ${token}`,
-            ...(options.body
-              ? {
-                  "Content-Type":
-                    "application/json",
-                }
-              : {}),
-            ...(options.headers || {}),
-          },
-        }
-      );
+      const response = await fetch(`${API_URL}${url}`, {
+        ...options,
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+          ...(options.body ? { "Content-Type": "application/json" } : {}),
+          ...(options.headers || {}),
+        },
+      });
 
-      if (
-        response.status === 401 ||
-        response.status === 403
-      ) {
+      if (response.status === 401 || response.status === 403) {
         handleUnauthorized();
-
-        throw new Error(
-          "You are not authorized to access this page."
-        );
+        throw new Error("You are not authorized to access this page.");
       }
 
       let data = null;
-
       try {
         data = await response.json();
       } catch {
@@ -135,11 +102,7 @@ function AdminComplaints() {
       }
 
       if (!response.ok) {
-        throw new Error(
-          data?.message ||
-            data?.error ||
-            "The server could not complete the request."
-        );
+        throw new Error(data?.message || data?.error || "The server could not complete the request.");
       }
 
       return data;
@@ -148,110 +111,48 @@ function AdminComplaints() {
   );
 
   const loadStats = useCallback(async () => {
-    const response = await request(
-      "/admin/complaints/stats"
-    );
-
+    const response = await request("/admin/complaints/stats");
     setStats({
       total: Number(response?.stats?.total || 0),
       pending: Number(response?.stats?.pending || 0),
-      in_review: Number(
-        response?.stats?.in_review || 0
-      ),
-      resolved: Number(
-        response?.stats?.resolved || 0
-      ),
-      rejected: Number(
-        response?.stats?.rejected || 0
-      ),
+      in_review: Number(response?.stats?.in_review || 0),
+      resolved: Number(response?.stats?.resolved || 0),
+      rejected: Number(response?.stats?.rejected || 0),
     });
   }, [request]);
 
-  const loadComplaints = useCallback(
-    async (showLoader = true) => {
-      if (showLoader) {
-        setLoading(true);
-      }
-
-      setError("");
-
-      try {
-        const params = new URLSearchParams();
-
-        params.set("per_page", "10");
-        params.set("page", String(page));
-
-        if (search.trim()) {
-          params.set(
-            "search",
-            search.trim()
-          );
-        }
-
-        if (statusFilter) {
-          params.set(
-            "status",
-            statusFilter
-          );
-        }
-
-        const response = await request(
-          `/admin/complaints?${params.toString()}`
-        );
-
-        const paginatedData = response?.data;
-
-        setComplaints(
-          Array.isArray(
-            paginatedData?.data
-          )
-            ? paginatedData.data
-            : []
-        );
-
-        setPagination({
-          current_page: Number(
-            paginatedData?.current_page || 1
-          ),
-          last_page: Number(
-            paginatedData?.last_page || 1
-          ),
-          total: Number(
-            paginatedData?.total || 0
-          ),
-        });
-      } catch (err) {
-        setError(
-          err.message ||
-            "Unable to load complaint records."
-        );
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
-      }
-    },
-    [
-      page,
-      request,
-      search,
-      statusFilter,
-    ]
-  );
+  const loadComplaints = useCallback(async (showLoader = true) => {
+    if (showLoader) setLoading(true);
+    setError("");
+    try {
+      const params = new URLSearchParams();
+      params.set("per_page", "10");
+      params.set("page", String(page));
+      if (search.trim()) params.set("search", search.trim());
+      if (statusFilter) params.set("status", statusFilter);
+      const response = await request(`/admin/complaints?${params.toString()}`);
+      const paginatedData = response?.data;
+      setComplaints(Array.isArray(paginatedData?.data) ? paginatedData.data : []);
+      setPagination({
+        current_page: Number(paginatedData?.current_page || 1),
+        last_page: Number(paginatedData?.last_page || 1),
+        total: Number(paginatedData?.total || 0),
+      });
+    } catch (err) {
+      setError(err.message || "Unable to load complaint records.");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [page, request, search, statusFilter]);
 
   const loadData = useCallback(async () => {
     setRefreshing(true);
     setError("");
-
     try {
-      await Promise.all([
-        loadStats(),
-        loadComplaints(false),
-      ]);
+      await Promise.all([loadStats(), loadComplaints(false)]);
     } catch (err) {
-      setError(
-        err.message ||
-          "Unable to load complaint information."
-      );
+      setError(err.message || "Unable to load complaint information.");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -263,10 +164,7 @@ function AdminComplaints() {
       loadComplaints(true);
       loadStats();
     }, 350);
-
-    return () => {
-      clearTimeout(timer);
-    };
+    return () => clearTimeout(timer);
   }, [loadComplaints, loadStats]);
 
   const handleSearchChange = (event) => {
@@ -285,939 +183,350 @@ function AdminComplaints() {
 
   const openComplaint = async (complaint) => {
     setSelectedComplaint(complaint);
-
-    setStatusDraft(
-      complaint.status || "pending"
-    );
-
-    setAdminResponse(
-      complaint.admin_response || ""
-    );
-
+    setStatusDraft(complaint.status || "pending");
+    setAdminResponse(complaint.admin_response || "");
     setDetailsLoading(true);
     setError("");
-
     try {
-      const response = await request(
-        `/admin/complaints/${complaint.id}`
-      );
-
+      const response = await request(`/admin/complaints/${complaint.id}`);
       let details = response?.data || complaint;
       if (details.status === "pending") {
-        const reviewResponse = await request(
-          `/admin/complaints/${details.id}`,
-          { method: "PUT", body: JSON.stringify({ status: "in_review" }) }
-        );
+        const reviewResponse = await request(`/admin/complaints/${details.id}`, {
+          method: "PUT",
+          body: JSON.stringify({ status: "in_review" }),
+        });
         details = reviewResponse?.data || { ...details, status: "in_review" };
       }
-
       setSelectedComplaint(details);
-
-      setStatusDraft(
-        details.status || "pending"
-      );
-
-      setAdminResponse(
-        details.admin_response || ""
-      );
+      setStatusDraft(details.status || "pending");
+      setAdminResponse(details.admin_response || "");
     } catch (err) {
-      setError(
-        err.message ||
-          "Unable to load complaint details."
-      );
+      setError(err.message || "Unable to load complaint details.");
     } finally {
       setDetailsLoading(false);
     }
   };
 
   const closeComplaint = () => {
-    if (saving || deleting) {
-      return;
-    }
-
+    if (saving || deleting) return;
     setSelectedComplaint(null);
     setDetailsLoading(false);
   };
 
   const handleSave = async () => {
-    if (!selectedComplaint) {
-      return;
-    }
+    if (!selectedComplaint) return;
     if (statusDraft === "rejected" && adminResponse.trim().length < 5) {
       setError("Enter a response of at least five characters before rejecting a complaint.");
       return;
     }
-
     setSaving(true);
     setError("");
-
     try {
-      const response = await request(
-        `/admin/complaints/${selectedComplaint.id}`,
-        {
-          method: "PUT",
-          body: JSON.stringify({
-            status: statusDraft,
-            admin_response:
-              adminResponse.trim() || null,
-          }),
-        }
-      );
-
-      const updatedComplaint =
-        response?.data || {
-          ...selectedComplaint,
+      const response = await request(`/admin/complaints/${selectedComplaint.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
           status: statusDraft,
-          admin_response:
-            adminResponse.trim() || null,
-        };
-
-      setSelectedComplaint(
-        updatedComplaint
-      );
-
-      await Promise.all([
-        loadStats(),
-        loadComplaints(false),
-      ]);
+          admin_response: adminResponse.trim() || null,
+        }),
+      });
+      const updatedComplaint = response?.data || {
+        ...selectedComplaint,
+        status: statusDraft,
+        admin_response: adminResponse.trim() || null,
+      };
+      setSelectedComplaint(updatedComplaint);
+      await Promise.all([loadStats(), loadComplaints(false)]);
     } catch (err) {
-      setError(
-        err.message ||
-          "Unable to update the complaint."
-      );
+      setError(err.message || "Unable to update the complaint.");
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!selectedComplaint) {
-      return;
-    }
-
-    const confirmed = window.confirm(
-      "Are you sure you want to permanently delete this complaint?"
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
+    if (!selectedComplaint) return;
+    const confirmed = window.confirm("Are you sure you want to permanently delete this complaint?");
+    if (!confirmed) return;
     setDeleting(true);
     setError("");
-
     try {
-      await request(
-        `/admin/complaints/${selectedComplaint.id}`,
-        {
-          method: "DELETE",
-        }
-      );
-
+      await request(`/admin/complaints/${selectedComplaint.id}`, { method: "DELETE" });
       setSelectedComplaint(null);
-
-      await Promise.all([
-        loadStats(),
-        loadComplaints(false),
-      ]);
+      await Promise.all([loadStats(), loadComplaints(false)]);
     } catch (err) {
-      setError(
-        err.message ||
-          "Unable to delete the complaint."
-      );
+      setError(err.message || "Unable to delete the complaint.");
     } finally {
       setDeleting(false);
     }
   };
 
   const formatDate = (date) => {
-    if (!date) {
-      return "—";
-    }
-
+    if (!date) return "—";
     const parsedDate = new Date(date);
-
-    if (
-      Number.isNaN(
-        parsedDate.getTime()
-      )
-    ) {
-      return "—";
-    }
-
-    return parsedDate.toLocaleDateString(
-      undefined,
-      {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      }
-    );
+    if (Number.isNaN(parsedDate.getTime())) return "—";
+    return parsedDate.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
   };
 
   const formatDateTime = (date) => {
-    if (!date) {
-      return "—";
-    }
-
+    if (!date) return "—";
     const parsedDate = new Date(date);
-
-    if (
-      Number.isNaN(
-        parsedDate.getTime()
-      )
-    ) {
-      return "—";
-    }
-
-    return parsedDate.toLocaleString(
-      undefined,
-      {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-      }
-    );
+    if (Number.isNaN(parsedDate.getTime())) return "—";
+    return parsedDate.toLocaleString(undefined, { year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
   };
 
-  const getStatusClass = (status) => {
-    return `status-${status || "pending"}`;
+  const badgeVariantForStatus = (status) => {
+    const variants = {
+      pending: "warning",
+      in_review: "info",
+      resolved: "success",
+      rejected: "danger",
+    };
+    return variants[status] || "neutral";
   };
 
   return (
-    <AdminLayout
-      title="Complaints"
-      subtitle="Review and manage marketplace complaints."
-    >
+    <AdminLayout title="Complaints" subtitle="Review and manage marketplace complaints.">
       <div className="complaints-page">
-        <section className="complaints-hero">
-          <div className="complaints-hero-icon">
-            <MessageSquareWarning
-              size={25}
-            />
-          </div>
-
-          <div className="complaints-hero-content">
-            <span>ADMIN MANAGEMENT</span>
-
-            <h1>
-              Complaints Management
-            </h1>
-
-            <p>
-              Review student complaints and
-              marketplace issues from one
-              centralized administration page.
-            </p>
-          </div>
-
-          <button
-            type="button"
-            className="complaints-refresh-button"
-            onClick={handleRefresh}
-            disabled={refreshing}
-          >
-            <RefreshCw
-              size={16}
-              className={
-                refreshing
-                  ? "complaints-spin"
-                  : ""
-              }
-            />
-
-            {refreshing
-              ? "Refreshing..."
-              : "Refresh"}
-          </button>
-        </section>
+        <SectionHeader
+          title="Complaints"
+          subtitle="Complaints Management"
+          action={handleRefresh}
+          actionLabel={refreshing ? "Refreshing…" : "Refresh"}
+          actionVariant="outline"
+        />
 
         {error && (
-          <div className="complaints-error">
-            <AlertCircle size={18} />
-
-            <span>{error}</span>
+          <div className="complaints-error" role="alert">
+            <AlertCircle size={18} aria-hidden="true" />
+            <div>
+              <strong>Unable to load complaints</strong>
+              <span>{error}</span>
+            </div>
+            <Button variant="outline" size="sm" onClick={handleRefresh}>
+              Try again
+            </Button>
           </div>
         )}
 
         <section className="complaints-status-grid">
-          <article className="complaints-status-card">
-            <div className="complaints-status-icon blue">
-              <MessageSquareWarning
-                size={20}
-              />
-            </div>
-
-            <span>Total Complaints</span>
-
-            <strong>{stats.total}</strong>
-
-            <small>
-              All complaint records
-            </small>
-          </article>
-
-          <article className="complaints-status-card">
-            <div className="complaints-status-icon orange">
-              <AlertCircle size={20} />
-            </div>
-
-            <span>Pending</span>
-
-            <strong>
-              {stats.pending}
-            </strong>
-
-            <small>
-              Waiting for review
-            </small>
-          </article>
-
-          <article className="complaints-status-card">
-            <div className="complaints-status-icon purple">
-              <ShieldAlert size={20} />
-            </div>
-
-            <span>In Review</span>
-
-            <strong>
-              {stats.in_review}
-            </strong>
-
-            <small>
-              Currently being investigated
-            </small>
-          </article>
-
-          <article className="complaints-status-card">
-            <div className="complaints-status-icon green">
-              <CheckCircle2 size={20} />
-            </div>
-
-            <span>Resolved</span>
-
-            <strong>
-              {stats.resolved}
-            </strong>
-
-            <small>
-              Successfully resolved
-            </small>
-          </article>
+          {[
+            { label: "Total Complaints", value: stats.total, icon: MessageSquareWarning, tone: "primary", subtitle: "All complaint records" },
+            { label: "Pending", value: stats.pending, icon: AlertCircle, tone: "warning", subtitle: "Waiting for review" },
+            { label: "In Review", value: stats.in_review, icon: ShieldAlert, tone: "info", subtitle: "Being reviewed now" },
+            { label: "Resolved", value: stats.resolved, icon: CheckCircle2, tone: "success", subtitle: "Successfully resolved" },
+            { label: "Rejected", value: stats.rejected, icon: XCircle, tone: "danger", subtitle: "Rejected complaints" },
+          ].map((card, idx) => (
+            <StatCard
+              key={idx}
+              label={card.label}
+              value={card.value}
+              icon={card.icon}
+              tone={card.tone}
+              subtitle={card.subtitle}
+            />
+          ))}
         </section>
 
-        <section className="complaints-panel">
-          <div className="complaints-panel-header">
-            <div>
-              <span>
-                COMPLAINT DATABASE
-              </span>
-
-              <h2>
-                Complaint Records
-              </h2>
-
-              <p>
-                Search, review, update, and
-                manage actual complaint records
-                from the database.
-              </p>
-            </div>
-
-            <div className="complaints-panel-icon">
-              <MessageSquareWarning
-                size={19}
-              />
-            </div>
-          </div>
-
+        <section className="complaints-table-section">
           <div className="complaints-toolbar">
             <div className="complaints-search">
-              <Search size={18} />
-
+              <Search size={18} aria-hidden="true" />
               <input
-                type="text"
+                type="search"
                 value={search}
-                onChange={
-                  handleSearchChange
-                }
-                placeholder="Search complaints, students, or products..."
+                onChange={handleSearchChange}
+                placeholder="Search complaints…"
+                aria-label="Search complaints"
               />
             </div>
-
             <select
-              className="complaints-filter"
+              className="complaints-filter-select"
               value={statusFilter}
-              onChange={
-                handleStatusChange
-              }
-              aria-label="Filter complaints by status"
+              onChange={handleStatusChange}
+              aria-label="Filter by status"
             >
-              {STATUS_OPTIONS.map(
-                (option) => (
-                  <option
-                    key={option.value}
-                    value={option.value}
-                  >
-                    {option.label}
-                  </option>
-                )
-              )}
+              {STATUS_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
             </select>
           </div>
 
-          {loading ? (
-            <div className="complaints-loading">
-              <Loader2
-                size={30}
-                className="complaints-spin"
+          <div className="complaints-table-wrap">
+            {loading ? (
+              <div className="complaints-loading">
+                <LoadingSpinner size="sm" />
+                <p>Loading complaints…</p>
+              </div>
+            ) : complaints.length === 0 ? (
+              <EmptyState
+                icon={() => null}
+                title="No complaints found"
+                subtitle={search || statusFilter ? "Try changing your search or filter." : "There are no complaints to review."}
               />
-
-              <span>
-                Loading complaint records...
-              </span>
-            </div>
-          ) : complaints.length === 0 ? (
-            <div className="complaints-empty">
-              <div className="complaints-empty-icon">
-                <ShieldAlert
-                  size={32}
-                />
-              </div>
-
-              <h3>
-                No Complaint Records Found
-              </h3>
-
-              <p>
-                There are no complaint records
-                matching your current search
-                or filter.
-              </p>
-            </div>
-          ) : (
-            <>
-              <div className="complaints-table-wrapper">
-                <table className="complaints-table">
-                  <thead>
-                    <tr>
-                      <th>
-                        Complaint
-                      </th>
-
-                      <th>
-                        Student
-                      </th>
-
-                      <th>
-                        Product
-                      </th>
-
-                      <th>
-                        Status
-                      </th>
-
-                      <th>
-                        Date
-                      </th>
-
-                      <th>
-                        Action
-                      </th>
+            ) : (
+              <table className="complaints-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Student</th>
+                    <th>Subject</th>
+                    <th>Status</th>
+                    <th>Submitted</th>
+                    <th className="actions-column">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {complaints.map((complaint) => (
+                    <tr key={complaint.id}>
+                      <td>#{complaint.id}</td>
+                      <td className="complaint-student-cell">
+                        <strong>{complaint.student_name || complaint.student?.name || "Unknown"}</strong>
+                        <span>{complaint.student_email || complaint.student?.email || "—"}</span>
+                      </td>
+                      <td>
+                        <div className="complaint-subject">
+                          <strong>{complaint.subject || "No subject"}</strong>
+                          <span>{complaint.description ? complaint.description.slice(0, 80) : ""}</span>
+                        </div>
+                      </td>
+                      <td>
+                        <Badge variant={badgeVariantForStatus(complaint.status)} size="sm">
+                          {STATUS_LABELS[complaint.status] || complaint.status}
+                        </Badge>
+                      </td>
+                      <td>{formatDate(complaint.created_at)}</td>
+                      <td className="actions-cell">
+                        <Button variant="outline" size="sm" onClick={() => openComplaint(complaint)} aria-label={`View complaint #${complaint.id}`}>
+                          <Eye size={14} aria-hidden="true" />
+                        </Button>
+                      </td>
                     </tr>
-                  </thead>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
 
-                  <tbody>
-                    {complaints.map(
-                      (complaint) => (
-                        <tr
-                          key={
-                            complaint.id
-                          }
-                        >
-                          <td>
-                            <div className="complaint-title-cell">
-                              <strong>
-                                {complaint.subject ||
-                                  "Untitled Complaint"}
-                              </strong>
-
-                              <span>
-                                #
-                                {
-                                  complaint.id
-                                }
-                              </span>
-                            </div>
-                          </td>
-
-                          <td>
-                            <div className="complaint-person-cell">
-                              <strong>
-                                {complaint
-                                  .user
-                                  ?.name ||
-                                  "Unknown Student"}
-                              </strong>
-
-                              <span>
-                                {complaint
-                                  .user
-                                  ?.student_id ||
-                                  complaint
-                                    .user
-                                    ?.email ||
-                                  "—"}
-                              </span>
-                            </div>
-                          </td>
-
-                          <td>
-                            {complaint
-                              .product
-                              ?.name ||
-                              "General Complaint"}
-                          </td>
-
-                          <td>
-                            <span
-                              className={`complaint-status ${getStatusClass(
-                                complaint.status
-                              )}`}
-                            >
-                              {STATUS_LABELS[
-                                complaint
-                                  .status
-                              ] ||
-                                complaint.status ||
-                                "Pending"}
-                            </span>
-                          </td>
-
-                          <td>
-                            {formatDate(
-                              complaint.created_at
-                            )}
-                          </td>
-
-                          <td>
-                            <button
-                              type="button"
-                              className="complaint-view-button"
-                              onClick={() =>
-                                openComplaint(
-                                  complaint
-                                )
-                              }
-                            >
-                              <Eye size={16} />
-                              View
-                            </button>
-                          </td>
-                        </tr>
-                      )
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="complaints-pagination">
-                <span>
-                  Showing{" "}
-                  {complaints.length} of{" "}
-                  {pagination.total}{" "}
-                  complaints
-                </span>
-
-                <div className="complaints-pagination-buttons">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setPage(
-                        (current) =>
-                          Math.max(
-                            1,
-                            current - 1
-                          )
-                      )
-                    }
-                    disabled={
-                      pagination.current_page <=
-                      1
-                    }
-                  >
-                    Previous
-                  </button>
-
-                  <span>
-                    Page{" "}
-                    {
-                      pagination.current_page
-                    }{" "}
-                    of{" "}
-                    {
-                      pagination.last_page
-                    }
-                  </span>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setPage(
-                        (current) =>
-                          Math.min(
-                            pagination.last_page,
-                            current + 1
-                          )
-                      )
-                    }
-                    disabled={
-                      pagination.current_page >=
-                      pagination.last_page
-                    }
-                  >
-                    Next
-                  </button>
-                </div>
-              </div>
-            </>
-          )}
+          <div className="complaints-pagination">
+            <span>{pagination.total || 0} complaints · Page {pagination.current_page || 1} of {pagination.last_page || 1}</span>
+            <div>
+              <Button variant="outline" size="sm" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={page <= 1}>
+                <ChevronLeftIcon size={15} aria-hidden="true" /> Previous
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setPage((current) => Math.min(pagination.last_page || 1, current + 1))} disabled={page >= (pagination.last_page || 1)}>
+                Next <ChevronRightIcon size={15} aria-hidden="true" />
+              </Button>
+            </div>
+          </div>
         </section>
 
         {selectedComplaint && (
-          <div
-            className="complaint-modal-backdrop"
-            onMouseDown={(event) => {
-              if (
-                event.target ===
-                event.currentTarget
-              ) {
-                closeComplaint();
-              }
-            }}
-          >
-            <div
-              className="complaint-modal"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="complaint-modal-title"
-            >
-              <div className="complaint-modal-header">
+          <div className="complaint-detail-modal-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeComplaint(); }}>
+            <section className="complaint-detail-modal" role="dialog" aria-modal="true" aria-labelledby="complaint-detail-title">
+              <header className="complaint-modal-header">
                 <div>
-                  <span>
-                    COMPLAINT #
-                    {
-                      selectedComplaint.id
-                    }
-                  </span>
-
-                  <h2 id="complaint-modal-title">
-                    Complaint Details
-                  </h2>
+                  <span className="complaint-modal-eyebrow">Complaint Details</span>
+                  <h2 id="complaint-detail-title">{selectedComplaint.subject || "Complaint"}</h2>
+                  <Badge variant={badgeVariantForStatus(selectedComplaint.status)} size="sm">
+                    {STATUS_LABELS[selectedComplaint.status] || selectedComplaint.status}
+                  </Badge>
                 </div>
+                <button type="button" onClick={closeComplaint} aria-label="Close details">×</button>
+              </header>
 
-                <button
-                  type="button"
-                  className="complaint-modal-close"
-                  onClick={
-                    closeComplaint
-                  }
-                  disabled={
-                    saving || deleting
-                  }
-                  aria-label="Close complaint details"
-                >
-                  <X size={19} />
-                </button>
-              </div>
-
-              {detailsLoading ? (
-                <div className="complaint-modal-loading">
-                  <Loader2
-                    size={28}
-                    className="complaints-spin"
-                  />
-
-                  <span>
-                    Loading complaint details...
-                  </span>
-                </div>
-              ) : (
-                <div className="complaint-modal-body">
-                  <div className="complaint-detail-grid">
-                    <div className="complaint-detail-item">
-                      <span>
-                        Subject
-                      </span>
-
-                      <strong>
-                        {
-                          selectedComplaint.subject ||
-                          "—"
-                        }
-                      </strong>
-                    </div>
-
-                    <div className="complaint-detail-item">
-                      <span>
-                        Submitted
-                      </span>
-
-                      <strong>
-                        {formatDateTime(
-                          selectedComplaint.created_at
-                        )}
-                      </strong>
-                    </div>
-
-                    <div className="complaint-detail-item">
-                      <span>
-                        Student
-                      </span>
-
-                      <strong>
-                        {selectedComplaint
-                          .user?.name ||
-                          "Unknown Student"}
-                      </strong>
-                    </div>
-
-                    <div className="complaint-detail-item">
-                      <span>
-                        Student ID
-                      </span>
-
-                      <strong>
-                        {selectedComplaint
-                          .user
-                          ?.student_id ||
-                          "—"}
-                      </strong>
-                    </div>
-
-                    <div className="complaint-detail-item">
-                      <span>
-                        Email
-                      </span>
-
-                      <strong>
-                        {selectedComplaint
-                          .user?.email ||
-                          "—"}
-                      </strong>
-                    </div>
-
-                    <div className="complaint-detail-item">
-                      <span>
-                        Product
-                      </span>
-
-                      <strong>
-                        {selectedComplaint
-                          .product?.name ||
-                          "General Complaint"}
-                      </strong>
-                    </div>
-                  </div>
-
-                  <div className="complaint-description">
-                    <span>
-                      Description
-                    </span>
-
-                    <p>
-                      {selectedComplaint.description ||
-                        "No description provided."}
-                    </p>
-                  </div>
-
-                  <div className="complaint-form-grid">
-                    <label className="complaint-field">
-                      <span>
-                        Complaint Status
-                      </span>
-
-                      <select
-                        value={
-                          statusDraft
-                        }
-                        onChange={(
-                          event
-                        ) =>
-                          setStatusDraft(
-                            event.target
-                              .value
-                          )
-                        }
-                        disabled={saving}
-                      >
-                        {STATUS_OPTIONS.filter(
-                          (option) =>
-                            option.value !== "" &&
-                            (option.value === selectedComplaint.status ||
-                              (selectedComplaint.status === "pending" && option.value === "in_review") ||
-                              (selectedComplaint.status === "in_review" && ["resolved", "rejected"].includes(option.value)))
-                        ).map(
-                          (option) => (
-                            <option
-                              key={
-                                option.value
-                              }
-                              value={
-                                option.value
-                              }
-                            >
-                              {
-                                option.label
-                              }
-                            </option>
-                          )
-                        )}
-                      </select>
-                    </label>
-
-                    <div className="complaint-current-status">
-                      <span>
-                        Current Status
-                      </span>
-
-                      <strong
-                        className={`complaint-status ${getStatusClass(
-                          selectedComplaint.status
-                        )}`}
-                      >
-                        {STATUS_LABELS[
-                          selectedComplaint
-                            .status
-                        ] ||
-                          selectedComplaint.status ||
-                          "Pending"}
-                      </strong>
-                    </div>
-                  </div>
-
-                  <label className="complaint-field">
-                    <span>
-                      Administrator Response
-                    </span>
-
-                    <textarea
-                      value={
-                        adminResponse
-                      }
-                      onChange={(
-                        event
-                      ) =>
-                        setAdminResponse(
-                          event.target
-                            .value
-                        )
-                      }
-                      placeholder="Enter a response for the student..."
-                      maxLength={5000}
-                      disabled={saving}
-                      rows={5}
-                    />
-
-                    <small>
-                      {
-                        adminResponse.length
-                      }
-                      /5000
-                    </small>
-                  </label>
-
-                  {selectedComplaint.resolved_at && (
-                    <div className="complaint-resolved-note">
-                      <CheckCircle2
-                        size={17}
-                      />
-
-                      <span>
-                        Resolved on{" "}
-                        {formatDateTime(
-                          selectedComplaint.resolved_at
-                        )}
-                      </span>
-                    </div>
-                  )}
+              {detailsLoading && (
+                <div className="complaint-loading-state">
+                  <LoadingSpinner size="sm" />
+                  <p>Loading complaint details…</p>
                 </div>
               )}
 
               {!detailsLoading && (
-                <div className="complaint-modal-footer">
-                  <button
-                    type="button"
-                    className="complaint-delete-button"
-                    onClick={
-                      handleDelete
-                    }
-                    disabled={
-                      saving ||
-                      deleting
-                    }
-                  >
-                    {deleting ? (
-                      <Loader2
-                        size={16}
-                        className="complaints-spin"
-                      />
-                    ) : (
-                      <Trash2
-                        size={16}
-                      />
+                <>
+                  <div className="complaint-detail-grid">
+                    <div>
+                      <span>Student</span>
+                      <strong>{selectedComplaint.student_name || selectedComplaint.student?.name || "—"}</strong>
+                    </div>
+                    <div>
+                      <span>Email</span>
+                      <strong>{selectedComplaint.student_email || selectedComplaint.student?.email || "—"}</strong>
+                    </div>
+                    <div>
+                      <span>Subject</span>
+                      <strong>{selectedComplaint.subject || "—"}</strong>
+                    </div>
+                    <div>
+                      <span>Status</span>
+                      <strong>{STATUS_LABELS[selectedComplaint.status] || selectedComplaint.status}</strong>
+                    </div>
+                    <div>
+                      <span>Submitted</span>
+                      <strong>{formatDateTime(selectedComplaint.created_at)}</strong>
+                    </div>
+                    <div>
+                      <span>Updated</span>
+                      <strong>{formatDateTime(selectedComplaint.updated_at)}</strong>
+                    </div>
+                  </div>
+
+                  <div className="complaint-description-section">
+                    <h3>Description</h3>
+                    <p>{selectedComplaint.description || "No description provided."}</p>
+                  </div>
+
+                  <div className="complaint-action-section">
+                    <h3>Update Status &amp; Response</h3>
+                    <div className="complaint-action-form">
+                      <label>
+                        Status
+                        <select
+                          value={statusDraft}
+                          onChange={(event) => setStatusDraft(event.target.value)}
+                        >
+                          {STATUS_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>{option.label}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <label>
+                        Admin Response
+                        <textarea
+                          value={adminResponse}
+                          onChange={(event) => setAdminResponse(event.target.value)}
+                          placeholder="Enter your response to the student…"
+                          rows={4}
+                        />
+                      </label>
+                      {statusDraft === "rejected" && (
+                        <p className="complaint-reject-note">A response of at least 5 characters is required when rejecting.</p>
+                      )}
+                      <div className="complaint-action-buttons">
+                        <Button variant="outline" size="sm" onClick={closeComplaint} disabled={saving}>
+                          Cancel
+                        </Button>
+                        <Button variant="primary" size="sm" onClick={handleSave} disabled={saving}>
+                          {saving ? "Saving…" : "Save Changes"}
+                        </Button>
+                      </div>
+                    </div>
+
+                    {selectedComplaint.admin_response && (
+                      <div className="complaint-admin-response">
+                        <h3>Admin Response</h3>
+                        <p>{selectedComplaint.admin_response}</p>
+                      </div>
                     )}
 
-                    Delete
-                  </button>
-
-                  <div className="complaint-modal-actions">
-                    <button
-                      type="button"
-                      className="complaint-cancel-button"
-                      onClick={
-                        closeComplaint
-                      }
-                      disabled={
-                        saving ||
-                        deleting
-                      }
-                    >
-                      Cancel
-                    </button>
-
-                    <button
-                      type="button"
-                      className="complaint-save-button"
-                      onClick={
-                        handleSave
-                      }
-                      disabled={
-                        saving ||
-                        deleting
-                      }
-                    >
-                      {saving ? (
-                        <Loader2
-                          size={16}
-                          className="complaints-spin"
-                        />
-                      ) : (
-                        <CheckCircle2
-                          size={16}
-                        />
-                      )}
-
-                      {saving
-                        ? "Saving..."
-                        : "Save Changes"}
-                    </button>
+                    <div className="complaint-danger-actions">
+                      <Button variant="danger" size="sm" onClick={handleDelete} disabled={deleting}>
+                        {deleting ? "Deleting…" : <><Trash2Icon size={16} aria-hidden="true" /> Delete Complaint</>}
+                      </Button>
+                    </div>
                   </div>
-                </div>
+                </>
               )}
-            </div>
+            </section>
           </div>
         )}
       </div>
@@ -1225,4 +534,60 @@ function AdminComplaints() {
   );
 }
 
-export default AdminComplaints;
+function Trash2Icon({ size = 16, ...props }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+    </svg>
+  );
+}
+
+function ChevronLeftIcon({ size = 15, ...props }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
+      <polyline points="15 18 9 12 15 6" />
+    </svg>
+  );
+}
+
+function ChevronRightIcon({ size = 15, ...props }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
+      <polyline points="9 18 15 12 9 6" />
+    </svg>
+  );
+}

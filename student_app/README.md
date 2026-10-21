@@ -21,7 +21,7 @@ flutter pub get
 flutter run
 ```
 
-The app selects a local API address for Chrome and Android emulators when no address is supplied. To set one explicitly:
+The app defaults to the local API on Chrome and Windows desktop, and to the Android emulator host when running on an Android emulator. To set an address explicitly:
 
 ```powershell
 # Chrome or Windows desktop
@@ -29,9 +29,10 @@ flutter run -d chrome --dart-define=API_BASE_URL=http://127.0.0.1:8000/api
 
 # Android emulator
 flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000/api
-```
 
-For a physical phone, replace the host with the computer's LAN IP address and keep both devices on the same network. You can also use the current HTTPS tunnel URL with `--dart-define=API_BASE_URL`.
+# Physical Android phone using the active ngrok tunnel
+flutter run --dart-define=API_BASE_URL=https://freestyle-fondly-auction.ngrok-free.dev/api
+```
 
 ## Verify the app
 

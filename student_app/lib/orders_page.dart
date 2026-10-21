@@ -663,12 +663,15 @@ class _OrderLineItem extends StatelessWidget {
                     fontSize: 12,
                   ),
                 ),
-                if (variantLabel.isNotEmpty || variantAttributes.isNotEmpty) ...[
+                if (variantLabel.isNotEmpty ||
+                    variantAttributes.isNotEmpty) ...[
                   const SizedBox(height: 3),
                   Text(
                     [
                       if (variantLabel.isNotEmpty) variantLabel,
-                      ...variantAttributes.entries.map((entry) => '${entry.key}: ${entry.value}'),
+                      ...variantAttributes.entries.map(
+                        (entry) => '${entry.key}: ${entry.value}',
+                      ),
                     ].join(' · '),
                     style: const TextStyle(
                       color: TmcPalette.navyBlue,

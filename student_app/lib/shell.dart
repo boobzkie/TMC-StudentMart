@@ -90,11 +90,9 @@ class _AppShellState extends State<AppShell> {
           ),
           IconButton(
             tooltip: 'Search',
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => const SearchPage(),
-              ),
-            ),
+            onPressed: () => Navigator.of(
+              context,
+            ).push(MaterialPageRoute<void>(builder: (_) => const SearchPage())),
             icon: const Icon(Icons.search),
           ),
           if (_index != 4)
@@ -149,9 +147,9 @@ class _StudentDrawer extends StatelessWidget {
 
   void _push(BuildContext context, Widget page) {
     Navigator.of(context).pop();
-    Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(builder: (_) => page),
-    );
+    Navigator.of(
+      context,
+    ).push<void>(MaterialPageRoute<void>(builder: (_) => page));
   }
 
   @override
@@ -251,10 +249,7 @@ class _StudentDrawer extends StatelessWidget {
             ListTile(
               leading: const Icon(Icons.manage_accounts_outlined),
               title: const Text('Edit profile and privacy'),
-              onTap: () => _push(
-                context,
-                const EditStudentProfilePage(),
-              ),
+              onTap: () => _push(context, const EditStudentProfilePage()),
             ),
             ListTile(
               leading: const Icon(Icons.receipt_long_outlined),

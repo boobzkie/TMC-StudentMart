@@ -163,7 +163,8 @@
 .admin-sidebar .admin-logout-button:disabled { opacity: 0.65; cursor: wait; }
 
 .admin-layout[data-sidebar-collapsed="true"] .admin-sidebar { width: 76px !important; }
-.admin-layout[data-sidebar-collapsed="true"] .admin-sidebar-header { justify-content: center; padding-inline: 7px; }
+.admin-layout[data-sidebar-collapsed="true"] .admin-sidebar-header { justify-content: center; gap: 2px; padding-inline: 7px; }
+.admin-layout[data-sidebar-collapsed="true"] .admin-sidebar-collapse { width: 28px; min-width: 28px; height: 28px; flex: 0 0 28px; padding: 0; }
 .admin-layout[data-sidebar-collapsed="true"] .admin-brand { justify-content: center; }
 .admin-layout[data-sidebar-collapsed="true"] .admin-brand-text,
 .admin-layout[data-sidebar-collapsed="true"] .admin-sidebar-profile-info,
@@ -264,23 +265,23 @@
 }
 
 /* Semantic states retain their meaning in both themes. */
-.admin-layout[data-theme] .admin-content :is(.active,.approved,.resolved,.paid,.success,.status-active,.status-approved) {
+.admin-layout[data-theme] .admin-content :is(.status-badge.active,.status-badge.approved,.status-active,.status-approved,.status-resolved,.status-paid,.account-status-badge.active,.order-option-status.active) {
   color: var(--tmc-admin-success) !important;
   border-color: color-mix(in srgb, var(--tmc-admin-success) 28%, transparent) !important;
   background-color: var(--tmc-admin-success-soft) !important;
 }
-.admin-layout[data-theme] .admin-content :is(.pending,.in_review,.open,.warning,.status-pending) {
+.admin-layout[data-theme] .admin-content :is(.status-badge.pending,.status-pending,.status-in_review,.status-open,.status-warning,.order-option-status.pending) {
   color: var(--tmc-admin-warning) !important;
   border-color: color-mix(in srgb, var(--tmc-admin-warning) 28%, transparent) !important;
   background-color: var(--tmc-admin-warning-soft) !important;
 }
-.admin-layout[data-theme] .admin-content :is(.rejected,.inactive,.suspended,.closed,.unpaid,.overdue,.danger,.error,.status-rejected) {
+.admin-layout[data-theme] .admin-content :is(.status-badge.rejected,.status-badge.inactive,.status-rejected,.status-inactive,.status-suspended,.status-closed,.status-unpaid,.status-overdue) {
   color: var(--tmc-admin-danger) !important;
   border-color: color-mix(in srgb, var(--tmc-admin-danger) 28%, transparent) !important;
   background-color: var(--tmc-admin-danger-soft) !important;
 }
 .admin-layout[data-theme] .admin-content :is([role="alert"], [class$="-error"]) { color: var(--tmc-admin-danger) !important; border-color: var(--tmc-admin-danger-soft) !important; background: var(--tmc-admin-danger-soft) !important; }
-.admin-layout[data-theme] .admin-content :is([role="status"], [class$="-success"]) { color: var(--tmc-admin-success) !important; border-color: var(--tmc-admin-success-soft) !important; background: var(--tmc-admin-success-soft) !important; }
+.admin-layout[data-theme] .admin-content :is(.status-success,.success-state,[class$="-success"]) { color: var(--tmc-admin-success) !important; border-color: var(--tmc-admin-success-soft) !important; background: var(--tmc-admin-success-soft) !important; }
 .admin-layout[data-theme] .admin-content :is(button,a,[role="button"],[role="link"]):focus-visible { outline: 3px solid var(--tmc-admin-accent-border) !important; outline-offset: 2px !important; }
 .admin-layout[data-theme] .admin-content :is(input,select,textarea):focus-visible { outline: 3px solid var(--tmc-admin-accent-border) !important; outline-offset: 1px !important; }
 
@@ -392,6 +393,17 @@
   .admin-layout[data-theme] .admin-sidebar { inset: 0 auto 0 0 !important; width: min(86vw, 290px) !important; transform: translateX(-105%) !important; }
   .admin-layout[data-theme] .admin-sidebar.mobile-open { transform: translateX(0) !important; }
   .admin-layout[data-theme] .admin-sidebar-collapse { display: none; }
+  .admin-layout[data-theme] .admin-sidebar.mobile-open .admin-brand-text,
+  .admin-layout[data-theme] .admin-sidebar.mobile-open .admin-sidebar-profile-info,
+  .admin-layout[data-theme] .admin-sidebar.mobile-open .admin-nav-label,
+  .admin-layout[data-theme] .admin-sidebar.mobile-open .admin-nav-link span,
+  .admin-layout[data-theme] .admin-sidebar.mobile-open .admin-logout-button span { display: initial !important; }
+  .admin-layout[data-theme] .admin-sidebar.mobile-open .admin-brand-text,
+  .admin-layout[data-theme] .admin-sidebar.mobile-open .admin-sidebar-profile-info { display: flex !important; }
+  .admin-layout[data-theme] .admin-sidebar.mobile-open .admin-nav-label { display: block !important; }
+  .admin-layout[data-theme] .admin-sidebar.mobile-open .admin-navigation { padding-inline: 11px !important; }
+  .admin-layout[data-theme] .admin-sidebar.mobile-open .admin-nav-link,
+  .admin-layout[data-theme] .admin-sidebar.mobile-open .admin-logout-button { justify-content: flex-start; padding-inline: 11px; }
   .admin-layout[data-theme] .admin-mobile-menu { display: inline-flex; }
   .admin-layout[data-theme] .admin-mobile-close { display: grid; }
   .admin-layout[data-theme] .admin-main,.admin-layout[data-sidebar-collapsed="true"] .admin-main { width: 100% !important; margin-left: 0 !important; }

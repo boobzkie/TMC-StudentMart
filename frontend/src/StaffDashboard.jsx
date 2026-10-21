@@ -6,7 +6,6 @@ import {
   ArrowRight,
   BarChart3,
   MessageSquareWarning,
-  RefreshCw,
   ShieldAlert,
   UserCheck,
   Users,
@@ -17,6 +16,7 @@ import {
 import AdminLayout from "./components/AdminLayout";
 import { API_URL } from "./utils/api";
 
+import { Card, Badge, Button, SectionHeader, EmptyState, LoadingSpinner, StatCard } from "./ui";
 import "./StaffDashboard.css";
 
 function readPermissions() {
@@ -41,21 +41,13 @@ function formatDate(value) {
   if (!value) {
     return "—";
   }
-
-  return new Date(value).toLocaleDateString(undefined, {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "—";
+  }
+  return date.toLocaleDateString(undefined, {
     dateStyle: "medium",
   });
-}
-
-function getLastUpdatedLabel(timestamp) {
-  if (!timestamp) {
-    return "Not updated yet";
-  }
-
-  return `Updated at ${new Date(timestamp).toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  })}`;
 }
 
 const STAFF_METRIC_CARDS = [
@@ -64,28 +56,28 @@ const STAFF_METRIC_CARDS = [
     label: "Student Accounts",
     description: "Registered student users",
     icon: Users,
-    tone: "blue",
+    tone: "primary",
   },
   {
     key: "active_students",
-    label: "Active Student Accounts",
+    label: "Active Accounts",
     description: "Students with active status",
     icon: UserCheck,
-    tone: "green",
+    tone: "success",
   },
   {
     key: "inactive_students",
-    label: "Inactive Student Accounts",
+    label: "Inactive Accounts",
     description: "Students needing attention",
     icon: UserRoundX,
-    tone: "amber",
+    tone: "warning",
   },
   {
     key: "new_students_30_days",
-    label: "New Student Accounts in 30 Days",
+    label: "New in 30 Days",
     description: "Recently registered accounts",
     icon: UserPlus,
-    tone: "purple",
+    tone: "info",
   },
 ];
 
@@ -102,7 +94,6 @@ export default function StaffDashboard() {
   const [recentStudents, setRecentStudents] = useState([]);
   const [loading, setLoading] = useState(staffCanManageStudents);
   const [error, setError] = useState("");
-  const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
 
   const tools = useMemo(
@@ -129,7 +120,7 @@ export default function StaffDashboard() {
         staffCanViewReports && {
           to: "/staff/reports",
           label: "Reports",
-          description: "Review real product and complaint activity.",
+          description: "Review product and complaint activity.",
           icon: BarChart3,
         },
         staffCanViewAnalytics && {
@@ -186,12 +177,7 @@ export default function StaffDashboard() {
       }
 
       setStats(data.stats || {});
-
-      setRecentStudents(
-        Array.isArray(data.recent_students) ? data.recent_students : []
-      );
-
-      setLastUpdatedAt(Date.now());
+      setRecentStudents(Array.isArray(data.recent_students) ? data.recent_students : []);
     } catch (err) {
       setError(err.message || "Unable to load the staff dashboard.");
     } finally {
@@ -218,297 +204,211 @@ export default function StaffDashboard() {
       ? Math.round((activeStudents / (activeStudents + inactiveStudents)) * 100)
       : 0;
 
-  const welcomeText = staffCanManageStudents
-    ? "Review student account activity and update account status when needed."
-    : "Open the tools assigned to your Staff account.";
-
-  const dataStatusText = loading
-    ? "Loading workspace data"
-    : refreshing
-      ? "Updating workspace data"
-      : error
-        ? "Update failed"
-        : getLastUpdatedLabel(lastUpdatedAt);
-
   return (
     <AdminLayout
-      title="Marketplace Overview"
+      title="Staff Dashboard"
       subtitle="Your assigned StudentMart workspace."
     >
       <section className="staff-dashboard">
-        <div className="staff-dashboard-hero">
-          <div className="staff-dashboard-hero-content">
-            <div className="staff-dashboard-hero-icon">
-              <Activity size={24} strokeWidth={2} aria-hidden="true" />
-            </div>
-
-            <div>
-              <span className="staff-dashboard-eyebrow">
-                STAFF WORKSPACE
-              </span>
-
-              <h2>
-                {staffCanManageStudents
-                  ? "Student Account Overview"
-                  : "Welcome to your workspace"}
-              </h2>
-
-              <p>{welcomeText}</p>
-            </div>
-          </div>
-
-          <div className="staff-dashboard-status">
-            <span className="staff-status-dot" />
-            <span>{dataStatusText}</span>
-          </div>
-
-          {staffCanManageStudents ? (
-            <button
-              type="button"
-              className="staff-dashboard-refresh-button"
-              onClick={() => {
-                if (!loading && !refreshing) {
-                  loadDashboard(true);
-                }
-              }}
-              disabled={loading || refreshing}
-            >
-              <RefreshCw
-                size={16}
-                className={refreshing ? "staff-dashboard-spin" : ""}
-                aria-hidden="true"
-              />
-              {refreshing ? "Updating..." : "Refresh Data"}
-            </button>
-          ) : null}
-        </div>
+        <SectionHeader
+          title="Workspace overview"
+          subtitle="Current activity and tools assigned to your role."
+          action={() => loadDashboard(true)}
+          actionLabel={refreshing ? "Updating…" : "Refresh data"}
+          actionVariant="outline"
+        />
 
         {error ? (
-          <div
-            className="staff-dashboard-error"
-            role="alert"
-          >
-            <span>{error}</span>
-
-            <button type="button" onClick={loadDashboard}>
-              Try Again
-            </button>
+          <div className="dashboard-error" role="alert">
+            <div className="dashboard-error-body">
+              <strong>Unable to load dashboard</strong>
+              <span>{error}</span>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => loadDashboard(true)}>
+              Try again
+            </Button>
           </div>
         ) : null}
 
         {staffCanManageStudents ? (
           <>
-            <div className="staff-metric-grid">
+            <div className="metrics-grid">
               {STAFF_METRIC_CARDS.map((card) => {
                 const Icon = card.icon;
-
+                const value = loading ? "—" : formatValue(stats?.[card.key] ?? 0);
                 return (
-                  <article
-                    className={`staff-metric-card tone-${card.tone}`}
+                  <StatCard
                     key={card.key}
-                  >
-                    <div className="staff-metric-icon">
-                      <Icon size={20} aria-hidden="true" />
-                    </div>
-
-                    <span>{card.label}</span>
-
-                    <strong>
-                      {loading ? "..." : formatValue(stats?.[card.key] ?? 0)}
-                    </strong>
-
-                    <small>{card.description}</small>
-                  </article>
+                    label={card.label}
+                    value={value}
+                    icon={Icon}
+                    tone={card.tone}
+                    subtitle={card.description}
+                  />
                 );
               })}
             </div>
 
-            <div className="staff-analytics-grid">
-              <article className="staff-chart-card">
-                <div className="staff-chart-header">
-                  <div>
-                    <h3>Student Account Status</h3>
-                    <p>
-                      Current student accounts grouped by account status.
-                    </p>
-                  </div>
-
-                  <span className="staff-chart-total">
-                    {formatValue(totalStudents)} total
-                  </span>
-                </div>
-
-                {loading ? (
-                  <div className="staff-chart-skeleton">
-                    <span />
-                    <span />
-                    <span />
-                  </div>
-                ) : totalStudents > 0 ? (
-                  <>
-                    <div
-                      className="staff-chart-block"
-                      role="img"
-                      aria-label="Bar chart of student account status"
-                    >
-                      <div className="staff-chart-row">
-                        <div className="staff-chart-row-top">
-                          <span>Active students</span>
-                          <strong>{formatValue(activeStudents)}</strong>
+            <div className="activity-grid-2">
+              <Card className="staff-chart-card">
+                <Card.Header>
+                  <span className="staff-chart-eyebrow">Student Account Status</span>
+                  <h3 className="staff-chart-title">Current student accounts grouped by status</h3>
+                </Card.Header>
+                <Card.Body>
+                  {loading ? (
+                    <div className="staff-chart-skeleton">
+                      <LoadingSpinner size="sm" />
+                      <p>Loading account status…</p>
+                    </div>
+                  ) : totalStudents > 0 ? (
+                    <>
+                      <div className="chart-total">
+                        <span>{formatValue(totalStudents)}</span>
+                        <span className="chart-total-label">total accounts</span>
+                      </div>
+                      <div className="chart-block">
+                        <div className="chart-row">
+                          <div className="chart-row-top">
+                            <span>Active students</span>
+                            <strong>{formatValue(activeStudents)}</strong>
+                          </div>
+                          <div className="chart-track">
+                            <div
+                              className="chart-fill chart-fill--success"
+                              style={{
+                                width: `${Math.round((activeStudents / statusTotal) * 100)}%`,
+                              }}
+                            />
+                          </div>
+                          <small className="chart-percent">{activeRate}%</small>
                         </div>
 
-                        <div className="staff-chart-track">
-                          <div
-                            className="staff-chart-fill green"
-                            style={{
-                              width: `${Math.round(
-                                (activeStudents / statusTotal) * 100
-                              )}%`,
-                            }}
-                          />
+                        <div className="chart-row">
+                          <div className="chart-row-top">
+                            <span>Inactive / suspended</span>
+                            <strong>{formatValue(inactiveStudents)}</strong>
+                          </div>
+                          <div className="chart-track">
+                            <div
+                              className="chart-fill chart-fill--warning"
+                              style={{
+                                width: `${Math.round((inactiveStudents / statusTotal) * 100)}%`,
+                              }}
+                            />
+                          </div>
+                          <small className="chart-percent">{100 - activeRate}%</small>
                         </div>
-
-                        <small>{activeRate}% of status-counted students</small>
                       </div>
 
-                      <div className="staff-chart-row">
-                        <div className="staff-chart-row-top">
-                          <span>Inactive or suspended students</span>
-                          <strong>{formatValue(inactiveStudents)}</strong>
+                      {newStudents > 0 && (
+                        <div className="chart-note">
+                          <Activity size={14} aria-hidden="true" />
+                          <span>
+                            {formatValue(newStudents)} account{newStudents === 1 ? "" : "s"} registered in the last 30 days.
+                          </span>
                         </div>
+                      )}
+                    </>
+                  ) : (
+                    <EmptyState
+                      icon={BarChart3}
+                      title="No student account data"
+                      subtitle="Student account status summaries will appear here once accounts are registered."
+                    />
+                  )}
+                </Card.Body>
+              </Card>
 
-                        <div className="staff-chart-track">
-                          <div
-                            className="staff-chart-fill amber"
-                            style={{
-                              width: `${Math.round(
-                                (inactiveStudents / statusTotal) * 100
-                              )}%`,
-                            }}
-                          />
-                        </div>
-
-                        <small>
-                          {100 - activeRate}% of status-counted students
-                        </small>
-                      </div>
+              <Card className="staff-chart-card">
+                <Card.Header>
+                  <span className="staff-chart-eyebrow">Recent Registrations</span>
+                  <h3 className="staff-chart-title">Latest student accounts added to StudentMart</h3>
+                </Card.Header>
+                <Card.Body>
+                  {loading ? (
+                    <div className="staff-chart-skeleton">
+                      <LoadingSpinner size="sm" />
+                      <p>Loading student activity…</p>
                     </div>
-
-                    <div className="staff-chart-note">
-                      <Activity size={16} aria-hidden="true" />
-                      <p>
-                        {formatValue(newStudents)} account
-                        {newStudents === 1 ? "" : "s"} registered in the last
-                        30 days. Historical trend charts are not included because
-                        the staff endpoint provides account status totals only.
-                      </p>
-                    </div>
-                  </>
-                ) : (
-                  <div className="staff-empty-state">
-                    <BarChart3 size={22} aria-hidden="true" />
-                    <strong>No student account data</strong>
-                    <span>
-                      Student account status summaries will appear here.
-                    </span>
-                  </div>
-                )}
-              </article>
-
-              <article className="staff-chart-card">
-                <div className="staff-chart-header">
-                  <div>
-                    <h3>Recent Registrations</h3>
-                    <p>
-                      Latest student accounts added to StudentMart.
-                    </p>
-                  </div>
-                </div>
-
-                {loading ? (
-                  <div className="staff-recent-empty">
-                    Loading student activity...
-                  </div>
-                ) : recentStudents.length === 0 ? (
-                  <div className="staff-recent-empty">
-                    No students have registered yet.
-                  </div>
-                ) : (
-                  <div className="staff-recent-table-wrap">
-                    <table className="staff-recent-table">
-                      <caption className="staff-visually-hidden">
-                        Recently registered student accounts
-                      </caption>
-
-                      <thead>
-                        <tr>
-                          <th>Student</th>
-                          <th>Student ID</th>
-                          <th>Email</th>
-                          <th>Status</th>
-                          <th>Registered</th>
-                        </tr>
-                      </thead>
-
-                      <tbody>
-                        {recentStudents.map((student) => (
-                          <tr key={student.id}>
-                            <td>{student.name || "—"}</td>
-                            <td>{student.student_id || "—"}</td>
-                            <td>{student.email || "—"}</td>
-                            <td>
-                              <span
-                                className={`staff-status ${String(
-                                  student.status || ""
-                                ).toLowerCase()}`}
-                              >
-                                {student.status || "Unknown"}
-                              </span>
-                            </td>
-                            <td>
-                              {formatDate(student.created_at)}
-                            </td>
+                  ) : recentStudents.length === 0 ? (
+                    <EmptyState
+                      icon={Users}
+                      title="No recent registrations"
+                      subtitle="No students have registered yet."
+                    />
+                  ) : (
+                    <div className="recent-table-wrap">
+                      <table className="staff-recent-table">
+                        <thead>
+                          <tr>
+                            <th style={{ width: "200px" }}>Student</th>
+                            <th style={{ width: "130px" }}>Student ID</th>
+                            <th>Email</th>
+                            <th style={{ width: "130px" }}>Status</th>
+                            <th style={{ width: "150px" }}>Registered</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                        </thead>
+                        <tbody>
+                          {recentStudents.map((student) => (
+                            <tr key={student.id}>
+                              <td className="user-cell-main">
+                                <strong>{student.name || "—"}</strong>
+                                <span>{student.student_id || "—"}</span>
+                              </td>
+                              <td>{student.student_id || "—"}</td>
+                              <td>{student.email || "—"}</td>
+                              <td>
+                                <Badge
+                                  variant={
+                                    String(student.status || "").toLowerCase() === "active"
+                                      ? "success"
+                                      : String(student.status || "").toLowerCase() === "inactive" ||
+                                        String(student.status || "").toLowerCase() === "suspended"
+                                      ? "warning"
+                                      : "neutral"
+                                  }
+                                  size="sm"
+                                >
+                                  {student.status || "Unknown"}
+                                </Badge>
+                              </td>
+                              <td style={{ fontSize: 12.5 }}>{formatDate(student.created_at)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </Card.Body>
+                {staffCanManageStudents && (
+                  <Card.Footer>
+                    <Link className="staff-primary-link" to="/staff/users">
+                      Manage student accounts
+                      <ArrowRight size={15} aria-hidden="true" />
+                    </Link>
+                  </Card.Footer>
                 )}
-              </article>
+              </Card>
             </div>
-
-            {staffCanManageStudents ? (
-              <div className="staff-dashboard-action">
-                <Link
-                  className="staff-primary-link"
-                  to="/staff/users"
-                >
-                  Manage student accounts
-                  <ArrowRight size={17} aria-hidden="true" />
-                </Link>
-              </div>
-            ) : null}
           </>
         ) : null}
 
         <section className="staff-tool-section">
           <div className="staff-tool-heading">
             <div>
-              <span className="staff-eyebrow">
-                ASSIGNED ACCESS
-              </span>
-
-              <h2>Available Tools</h2>
+              <span className="staff-eyebrow">Assigned Access</span>
+              <h2 className="staff-tool-heading-title">Available Tools</h2>
             </div>
-
             <Activity size={20} aria-hidden="true" />
           </div>
 
           {tools.length === 0 ? (
-            <div className="staff-recent-empty">
-              No Staff tools are assigned yet. Contact an administrator to request
-              access.
-            </div>
+            <EmptyState
+              icon={ShieldAlert}
+              title="No Staff tools assigned"
+              subtitle="Contact an administrator to request access to staff tools."
+            />
           ) : (
             <div className="staff-tool-grid">
               {tools.map(({ to, label, description, icon: Icon }) => (
@@ -521,9 +421,9 @@ export default function StaffDashboard() {
                     <Icon size={19} aria-hidden="true" />
                   </span>
 
-                  <strong>{label}</strong>
+                  <strong className="staff-tool-label">{label}</strong>
 
-                  <p>{description}</p>
+                  <p className="staff-tool-description">{description}</p>
 
                   <span className="staff-tool-open">
                     Open tool

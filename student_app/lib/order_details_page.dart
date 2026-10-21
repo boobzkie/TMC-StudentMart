@@ -621,7 +621,9 @@ class _Item extends StatelessWidget {
                 Text(
                   [
                     if (variantLabel.isNotEmpty) variantLabel,
-                    ...variantAttributes.entries.map((entry) => '${entry.key}: ${entry.value}'),
+                    ...variantAttributes.entries.map(
+                      (entry) => '${entry.key}: ${entry.value}',
+                    ),
                   ].join(' · '),
                   style: const TextStyle(
                     color: TmcPalette.navyBlue,

@@ -1,1 +1,157 @@
 /* TMC StudentMart - Activity logs page styles */
+
+.activity-logs-page {
+  width: 100%;
+  max-width: 1600px;
+  margin: 0 auto;
+  padding-bottom: 32px;
+  color: var(--tmc-admin-text);
+}
+
+.activity-logs-page * {
+  box-sizing: border-box;
+}
+
+.activity-logs-section {
+  border: 1px solid var(--tmc-admin-border);
+  border-radius: 12px;
+  background: var(--tmc-admin-surface);
+  box-shadow: 0 4px 12px rgba(0, 29, 57, 0.04);
+  overflow: hidden;
+}
+
+.activity-logs-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--tmc-admin-surface-muted);
+  flex-wrap: wrap;
+}
+
+.activity-logs-header div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.activity-logs-eyebrow {
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--tmc-admin-primary);
+}
+
+.activity-logs-header h2 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--tmc-admin-text);
+  letter-spacing: -0.01em;
+}
+
+.activity-logs-header p {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--tmc-admin-secondary);
+}
+
+.activity-logs-list {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.activity-log-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border: 1px solid var(--tmc-admin-surface-muted);
+  border-radius: 10px;
+  background: var(--tmc-admin-surface);
+  transition: all 190ms ease;
+}
+
+.activity-log-item:hover {
+  border-color: var(--tmc-admin-accent-border);
+  background: var(--tmc-admin-surface);
+}
+
+.activity-log-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: var(--tmc-admin-surface-muted);
+  color: var(--tmc-admin-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.activity-log-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.activity-log-title {
+  margin: 0 0 2px;
+  font-size: 12.5px;
+  font-weight: 800;
+  color: var(--tmc-admin-text);
+}
+
+.activity-log-body {
+  margin: 0 0 6px;
+  font-size: 12px;
+  color: var(--tmc-admin-secondary);
+  line-height: 1.5;
+}
+
+.activity-log-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 11.5px;
+  color: var(--tmc-admin-secondary);
+}
+
+.activity-log-time {
+  font-size: 11px;
+  color: #8FA8C2;
+}
+
+.activity-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--tmc-admin-secondary);
+}
+
+.activity-empty strong {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--tmc-admin-text);
+  margin-top: 16px;
+}
+
+.activity-empty p {
+  font-size: 13.5px;
+  margin-top: 8px;
+  max-width: 420px;
+}
+
+@media (max-width: 640px) {
+  .activity-logs-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

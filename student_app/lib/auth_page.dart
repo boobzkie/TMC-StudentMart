@@ -134,11 +134,12 @@ class _AuthPageState extends State<AuthPage> {
                         Text(
                           'TMC StudentMart',
                           textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            color: TmcPalette.deepNavy,
-                            fontWeight: FontWeight.w900,
-                            fontSize: 26,
-                          ),
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(
+                                color: TmcPalette.deepNavy,
+                                fontWeight: FontWeight.w900,
+                                fontSize: 26,
+                              ),
                         ),
                         const SizedBox(height: 5),
                         Text(
@@ -146,17 +147,19 @@ class _AuthPageState extends State<AuthPage> {
                               ? 'Create your student account'
                               : 'Your campus marketplace',
                           textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: TmcPalette.darkGray,
-                          ),
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(color: TmcPalette.darkGray),
                         ),
                         const SizedBox(height: 26),
                         Text(
-                          _registering ? 'Join the TMC community' : 'Welcome back',
-                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            color: TmcPalette.deepNavyBlack,
-                            fontWeight: FontWeight.w800,
-                          ),
+                          _registering
+                              ? 'Join the TMC community'
+                              : 'Welcome back',
+                          style: Theme.of(context).textTheme.headlineSmall
+                              ?.copyWith(
+                                color: TmcPalette.deepNavyBlack,
+                                fontWeight: FontWeight.w800,
+                              ),
                         ),
                         const SizedBox(height: 18),
                         if (_registering) ...<Widget>[
@@ -176,7 +179,8 @@ class _AuthPageState extends State<AuthPage> {
                               labelText: 'Student ID',
                               prefixIcon: Icon(Icons.badge_outlined),
                             ),
-                            validator: (value) => _required(value, 'Student ID'),
+                            validator: (value) =>
+                                _required(value, 'Student ID'),
                           ),
                           const SizedBox(height: 12),
                         ],
@@ -223,7 +227,8 @@ class _AuthPageState extends State<AuthPage> {
                             validator: (value) => value == null
                                 ? 'Select your course / department.'
                                 : null,
-                            onChanged: (value) => setState(() => _course = value),
+                            onChanged: (value) =>
+                                setState(() => _course = value),
                           ),
                           const SizedBox(height: 12),
                         ],
@@ -237,8 +242,9 @@ class _AuthPageState extends State<AuthPage> {
                             labelText: 'Password',
                             prefixIcon: const Icon(Icons.lock_outline),
                             suffixIcon: IconButton(
-                              onPressed: () =>
-                                  setState(() => _showPassword = !_showPassword),
+                              onPressed: () => setState(
+                                () => _showPassword = !_showPassword,
+                              ),
                               tooltip: _showPassword
                                   ? 'Hide password'
                                   : 'Show password',
@@ -304,16 +310,18 @@ class _AuthPageState extends State<AuthPage> {
                                     color: Colors.white,
                                   ),
                                 )
-                              : Text(_registering ? 'Create account' : 'Sign in'),
+                              : Text(
+                                  _registering ? 'Create account' : 'Sign in',
+                                ),
                         ),
                         const SizedBox(height: 10),
                         TextButton(
                           onPressed: busy
                               ? null
                               : () => setState(() {
-                                    _registering = !_registering;
-                                    _error = null;
-                                  }),
+                                  _registering = !_registering;
+                                  _error = null;
+                                }),
                           child: Text(
                             _registering
                                 ? 'Already registered? Sign in'
@@ -324,9 +332,8 @@ class _AuthPageState extends State<AuthPage> {
                         Text(
                           'Student accounts are handled by the TMC StudentMart service. Use the email address registered with your account.',
                           textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: TmcPalette.darkGray,
-                          ),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: TmcPalette.darkGray),
                         ),
                       ],
                     ),
@@ -345,7 +352,8 @@ class _PasswordRecoveryDialog extends StatefulWidget {
   const _PasswordRecoveryDialog();
 
   @override
-  State<_PasswordRecoveryDialog> createState() => _PasswordRecoveryDialogState();
+  State<_PasswordRecoveryDialog> createState() =>
+      _PasswordRecoveryDialogState();
 }
 
 class _PasswordRecoveryDialogState extends State<_PasswordRecoveryDialog> {
@@ -451,10 +459,9 @@ class _PasswordRecoveryDialogState extends State<_PasswordRecoveryDialog> {
                 labelText: 'Reset token',
                 prefixIcon: Icon(Icons.key_outlined),
               ),
-              validator: (value) =>
-                  (value == null || value.trim().isEmpty)
-                      ? 'Reset token is required.'
-                      : null,
+              validator: (value) => (value == null || value.trim().isEmpty)
+                  ? 'Reset token is required.'
+                  : null,
               enabled: !_loading,
             ),
             const SizedBox(height: 12),
@@ -586,9 +593,9 @@ class _PasswordRecoveryDialogState extends State<_PasswordRecoveryDialog> {
             onPressed: _loading
                 ? null
                 : () => setState(() {
-                      _resetMode = true;
-                      _error = null;
-                    }),
+                    _resetMode = true;
+                    _error = null;
+                  }),
             child: const Text('I have a token'),
           ),
         if (_resetMode && !_resetComplete)
@@ -606,6 +613,7 @@ class _PasswordRecoveryDialogState extends State<_PasswordRecoveryDialog> {
     );
   }
 }
+
 class _InlineError extends StatelessWidget {
   const _InlineError({required this.message});
   final String message;

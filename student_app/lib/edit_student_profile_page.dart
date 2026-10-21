@@ -8,8 +8,7 @@ class EditStudentProfilePage extends StatefulWidget {
   const EditStudentProfilePage({super.key});
 
   @override
-  State<EditStudentProfilePage> createState() =>
-      _EditStudentProfilePageState();
+  State<EditStudentProfilePage> createState() => _EditStudentProfilePageState();
 }
 
 class _EditStudentProfilePageState extends State<EditStudentProfilePage> {
@@ -61,10 +60,7 @@ class _EditStudentProfilePageState extends State<EditStudentProfilePage> {
         'share_contact_info': _shareContactInfo,
       });
 
-      await Future.wait([
-        marketplace.loadProducts(),
-        marketplace.loadMine(),
-      ]);
+      await Future.wait([marketplace.loadProducts(), marketplace.loadMine()]);
 
       if (!mounted) return;
 
@@ -104,13 +100,11 @@ class _EditStudentProfilePageState extends State<EditStudentProfilePage> {
                       textCapitalization: TextCapitalization.words,
                       autofillHints: const [AutofillHints.name],
                       maxLength: 255,
-                      decoration: const InputDecoration(
-                        labelText: 'Full name',
-                      ),
+                      decoration: const InputDecoration(labelText: 'Full name'),
                       validator: (value) =>
                           value == null || value.trim().isEmpty
-                              ? 'Enter your name.'
-                              : null,
+                          ? 'Enter your name.'
+                          : null,
                     ),
                     const SizedBox(height: 10),
                     TextFormField(
@@ -222,5 +216,4 @@ class _EditStudentProfilePageState extends State<EditStudentProfilePage> {
       ),
     );
   }
-
 }

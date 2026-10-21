@@ -51,6 +51,24 @@ test('active administrators retain admin API access', function () {
     $this->getJson('/api/admin/stats')->assertOk();
     $this->getJson('/api/admin/users')->assertOk();
 });
+
+test('admin dashboard stats include pending staff applications and all status fields', function () {
+    $admin = User::factory()->create([
+        'role' => 'admin',
+        'status' => 'active',
+    ]);
+    User::factory()->create(['role' => 'staff', 'status' => 'pending']);
+    User::factory()->create(['role' => 'staff', 'status' => 'active']);
+    User::factory()->create(['role' => 'staff', 'status' => 'archived']);
+    User::factory()->create(['role' => 'student', 'status' => 'pending']);
+    Sanctum::actingAs($admin);
+
+    $this->getJson('/api/admin/stats')
+        ->assertOk()
+        ->assertJsonPath('stats.pending_staff_applications', 1)
+        ->assertJsonPath('stats.suspended_products', 0)
+        ->assertJsonPath('stats.declined_orders', 0);
+});
 test('the admin seeder does not reset or reactivate an existing administrator', function () {
     $admin = User::factory()->create([
         'role' => 'admin',

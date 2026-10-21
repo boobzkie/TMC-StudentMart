@@ -31,33 +31,37 @@ export default function AdminActivityLogs() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const loadLogs = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(API_URL + "/admin/stats", {
-        headers: { Accept: "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) },
-      });
-      if (response.status === 401) {
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-        localStorage.removeItem("role");
-        window.location.replace("/login");
-        return;
-      }
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.message || "Unable to load activity logs.");
-      setLogs(Array.isArray(data.stats && data.stats.recent_activity) ? data.stats.recent_activity : []);
-    } catch (err) {
-      setError(err.message || "We could not load activity logs. Please try again.");
-    } finally {
-      setLoading(false);
+  const fetchLogs = useCallback(async () => {
+    const token = localStorage.getItem("token");
+    const response = await fetch(API_URL + "/admin/stats", {
+      headers: { Accept: "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) },
+    });
+    if (response.status === 401) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      localStorage.removeItem("role");
+      window.location.replace("/login");
+      return null;
     }
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.message || "Unable to load activity logs.");
+    return Array.isArray(data.stats && data.stats.recent_activity) ? data.stats.recent_activity : [];
   }, []);
 
-  useEffect(() => { loadLogs(); }, [loadLogs]);
-
+  useEffect(() => {
+    let active = true;
+    fetchLogs()
+      .then((nextLogs) => {
+        if (active && nextLogs !== null) setLogs(nextLogs);
+      })
+      .catch((err) => {
+        if (active) setError(err.message || "We could not load activity logs. Please try again.");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => { active = false; };
+  }, [fetchLogs]);
   if (loading) {
     return (
       <AdminLayout title="Activity logs" subtitle="TMC StudentMart - administrator activity log">

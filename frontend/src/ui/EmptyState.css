@@ -1,0 +1,40 @@
+/* =========================================================
+   TMC StudentMart — Empty State
+   ========================================================= */
+
+.tmc-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--tmc-admin-secondary);
+}
+
+.tmc-empty-state-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  background: var(--tmc-admin-surface-muted);
+  color: var(--tmc-admin-accent-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+  font-size: 28px;
+}
+
+.tmc-empty-state-title {
+  margin: 0 0 8px;
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--tmc-admin-text);
+}
+
+.tmc-empty-state-subtitle {
+  margin: 0 0 20px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  max-width: 420px;
+}

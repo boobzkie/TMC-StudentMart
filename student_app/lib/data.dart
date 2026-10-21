@@ -1,5 +1,6 @@
 import 'dart:async' show TimeoutException;
 import 'dart:convert';
+import 'dart:io' show SocketException;
 import 'dart:math' show Random;
 
 import 'package:flutter/foundation.dart';
@@ -43,10 +44,20 @@ class ProductCategory {
       );
 }
 
+enum ApiErrorType {
+  noInternet,
+  cannotConnect,
+  timeout,
+  ngrokUnavailable,
+  invalidUrl,
+  httpError,
+}
+
 class ApiException implements Exception {
-  const ApiException(this.message, {this.statusCode});
+  const ApiException(this.message, {this.statusCode, this.type});
   final String message;
   final int? statusCode;
+  final ApiErrorType? type;
   @override
   String toString() => message;
 }
@@ -71,34 +82,60 @@ class ApiService {
         : cleaned;
   }
 
-  static List<String> _buildCandidateBaseUrls() {
+  @visibleForTesting
+  static List<String> resolveBaseUrls({
+    String? configuredBaseUrls,
+    String? configuredBaseUrl,
+    bool? isWeb,
+    TargetPlatform? platform,
+  }) {
+    final multiValue = configuredBaseUrls ?? _configuredBaseUrls;
+    final singleValue = configuredBaseUrl ?? _configuredBaseUrl;
+    final targetPlatform = platform ?? defaultTargetPlatform;
+    final runningOnWeb = isWeb ?? kIsWeb;
+
+    String forPlatform(String value) {
+      // Use the URL exactly as configured. Do not rewrite localhost or
+      // 127.0.0.1 to the emulator-only 10.0.2.2 alias: that address does not
+      // work on physical Android phones.
+      return normalizeBaseUrl(value);
+    }
+
     final configured = <String>[];
-    if (_configuredBaseUrls.trim().isNotEmpty) {
+    if (multiValue.trim().isNotEmpty) {
       configured.addAll(
-        _configuredBaseUrls
+        multiValue
             .split(',')
-            .map(normalizeBaseUrl)
+            .map(forPlatform)
             .where((value) => value.isNotEmpty),
       );
     }
-    if (configured.isEmpty && _configuredBaseUrl.trim().isNotEmpty) {
-      final singleUrl = normalizeBaseUrl(_configuredBaseUrl);
+    if (configured.isEmpty && singleValue.trim().isNotEmpty) {
+      final singleUrl = forPlatform(singleValue);
       if (singleUrl.isNotEmpty) {
         configured.add(singleUrl);
       }
     }
     if (configured.isEmpty) {
-      configured.addAll([
-        'https://freestyle-fondly-auction.ngrok-free.dev/api',
-        if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android)
-          'http://10.0.2.2:8000/api',
-        'http://127.0.0.1:8000/api',
-        'http://localhost:8000/api',
-      ]);
+      if (runningOnWeb) {
+        // Flutter Web running on the same PC as Laravel.
+        configured.add('http://127.0.0.1:8000/api');
+      } else if (targetPlatform == TargetPlatform.android) {
+        // ngrok is the correct address for a physical Android phone.
+        // Do not fall back to 10.0.2.2: that is the Android emulator-only
+        // alias and does not work on physical devices.
+        configured.add('https://freestyle-fondly-auction.ngrok-free.dev/api');
+      } else {
+        // Other platforms running on the same PC.
+        configured.add('http://127.0.0.1:8000/api');
+
+        configured.add('https://freestyle-fondly-auction.ngrok-free.dev/api');
+      }
     }
     return configured.toSet().toList(growable: false);
   }
-  static final List<String> _candidateBaseUrls = _buildCandidateBaseUrls();
+
+  static final List<String> _candidateBaseUrls = resolveBaseUrls();
   static String _activeBaseUrl = _candidateBaseUrls.isEmpty
       ? ''
       : _candidateBaseUrls.first;
@@ -134,7 +171,8 @@ class ApiService {
   Future<dynamic> _request(Future<http.Response> Function() send) async {
     if (_candidateBaseUrls.isEmpty) {
       throw const ApiException(
-        'No Laravel API base URL is configured. For an Android emulator use --dart-define=API_BASE_URL=http://10.0.2.2:8000/api; for a physical phone use your computer IP or a tunnel URL.',
+        'No Laravel API base URL is configured. Use --dart-define=API_BASE_URL=https://freestyle-fondly-auction.ngrok-free.dev/api for a physical Android phone, or --dart-define=API_BASE_URL=http://127.0.0.1:8000/api for web or desktop.',
+        type: ApiErrorType.invalidUrl,
       );
     }
     ApiException? lastError;
@@ -146,21 +184,34 @@ class ApiService {
       _activeBaseUrl = candidate;
       attemptedBases.add(candidate);
 
+      final uri = Uri.tryParse(candidate);
+      final isNgrok = uri != null && uri.host.toLowerCase().contains('ngrok');
+
       for (var retry = 0; retry < 2; retry++) {
         try {
           return _decode(await send().timeout(const Duration(seconds: 10)));
+        } on SocketException {
+          lastError = ApiException(
+            'No internet connection. The device cannot reach the network at all. Check Wi-Fi or mobile data.',
+            type: ApiErrorType.noInternet,
+          );
         } on TimeoutException {
           lastError = ApiException(
-            'Timed out while contacting the Laravel API at $candidate. The current network may not reach the local Wi-Fi server or the ngrok tunnel.',
+            'Timed out while contacting the Laravel API at $candidate. The server or ngrok tunnel may be slow or unreachable.',
+            type: ApiErrorType.timeout,
           );
         } on http.ClientException {
           lastError = ApiException(
-            'Cannot reach the Laravel API at $candidate. Check that the device has Internet access, the backend is running, and the server or ngrok tunnel is still active.',
+            isNgrok
+                ? 'The ngrok tunnel at $candidate is unavailable. Check that ngrok is still running and forwarding to http://localhost:8000.'
+                : 'Cannot connect to the Laravel API at $candidate. Check that the backend is running on port 8000.',
+            type: ApiErrorType.cannotConnect,
           );
         } catch (error) {
           if (error is ApiException) rethrow;
           lastError = ApiException(
-            'Cannot reach the Laravel API at $candidate. Check that the device has Internet access, the backend is running, and the server or ngrok tunnel is still active.',
+            'Unexpected error contacting the Laravel API at $candidate: $error.',
+            type: ApiErrorType.cannotConnect,
           );
         }
 
@@ -181,6 +232,7 @@ class ApiService {
     throw lastError ??
         ApiException(
           'Cannot reach any configured Laravel API server. Tried: ${attemptedBases.join(', ')}.',
+          type: ApiErrorType.cannotConnect,
         );
   }
 
@@ -251,9 +303,24 @@ class ApiService {
     try {
       final streamed = await _client.send(request);
       return _decode(await http.Response.fromStream(streamed));
-    } on http.ClientException catch (_) {
+    } on SocketException {
       throw ApiException(
-        'Cannot reach the Laravel API at $baseUrl. Check that the backend is running and restart the app with the correct API URL for this platform.',
+        'No internet connection. The device cannot reach the network at all. Check Wi-Fi or mobile data.',
+        type: ApiErrorType.noInternet,
+      );
+    } on TimeoutException {
+      throw ApiException(
+        'Timed out while contacting the Laravel API at $baseUrl.',
+        type: ApiErrorType.timeout,
+      );
+    } on http.ClientException catch (_) {
+      final isNgrok =
+          Uri.tryParse(baseUrl)?.host.toLowerCase().contains('ngrok') == true;
+      throw ApiException(
+        isNgrok
+            ? 'The ngrok tunnel at $baseUrl is unavailable. Check that ngrok is still running and forwarding to http://localhost:8000.'
+            : 'Cannot reach the Laravel API at $baseUrl. Check that the backend is running and restart the app with the correct API URL for this platform.',
+        type: ApiErrorType.cannotConnect,
       );
     }
   }
@@ -298,7 +365,11 @@ class ApiService {
           if (first is List && first.isNotEmpty) message = valueOf(first.first);
         }
       }
-      throw ApiException(message, statusCode: response.statusCode);
+      throw ApiException(
+        message,
+        statusCode: response.statusCode,
+        type: ApiErrorType.httpError,
+      );
     }
     return payload;
   }

@@ -1,0 +1,46 @@
+/* =========================================================
+   TMC StudentMart — Avatar
+   ========================================================= */
+
+.tmc-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--tmc-admin-primary);
+  color: #FFFFFF;
+  font-weight: 800;
+  font-size: 12px;
+  letter-spacing: -0.02em;
+  vertical-align: middle;
+}
+
+.tmc-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.tmc-avatar--sm { width: 28px; height: 28px; font-size: 10px; }
+.tmc-avatar--md { width: 36px; height: 36px; font-size: 11px; }
+.tmc-avatar--lg { width: 44px; height: 44px; font-size: 13px; }
+
+.tmc-avatar.status {
+  position: relative;
+}
+
+.tmc-avatar.status::after {
+  content: "";
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid #FFFFFF;
+  background: var(--tmc-admin-success);
+}
+
+.tmc-avatar.status.offline::after { background: #94A3B8; }
+.tmc-avatar.status.busy::after { background: var(--tmc-admin-danger); }

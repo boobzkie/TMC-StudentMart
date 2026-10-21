@@ -1,0 +1,66 @@
+/* =========================================================
+   TMC StudentMart — Card
+   ========================================================= */
+
+.tmc-card {
+  background: var(--tmc-admin-surface);
+  border: 1px solid var(--tmc-admin-border);
+  border-radius: var(--tmc-ui-radius-lg);
+  box-shadow: var(--tmc-admin-card-shadow);
+  transition: box-shadow 190ms ease, border-color 190ms ease;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.tmc-card:hover {
+  box-shadow: var(--tmc-admin-card-hover);
+  border-color: var(--tmc-admin-accent-border);
+}
+
+.tmc-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--tmc-admin-surface-muted);
+  background: var(--tmc-admin-bg-muted);
+}
+
+.tmc-card-body {
+  padding: 20px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.tmc-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 20px;
+  border-top: 1px solid var(--tmc-admin-surface-muted);
+  background: var(--tmc-admin-surface);
+}
+
+.tmc-card.compact {
+  border-radius: 12px;
+}
+
+.tmc-card.compact .tmc-card-header {
+  padding: 12px 16px;
+  background: transparent;
+  border-bottom: none;
+}
+
+.tmc-card.compact .tmc-card-body {
+  padding: 16px;
+}
+
+.tmc-card.compact .tmc-card-footer {
+  padding: 12px 16px;
+  background: transparent;
+  border-top: none;
+}

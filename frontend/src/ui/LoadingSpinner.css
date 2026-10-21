@@ -1,0 +1,71 @@
+/* =========================================================
+   TMC StudentMart — Loading Spinner
+   ========================================================= */
+
+.tmc-loader {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tmc-loader--sm { padding: 12px; }
+.tmc-loader--md { padding: 24px; }
+.tmc-loader--lg { padding: 32px; }
+
+.tmc-loader-spinner {
+  width: 30px;
+  height: 30px;
+  border: 3px solid var(--tmc-admin-border);
+  border-top-color: var(--tmc-admin-primary);
+  border-radius: 50%;
+  animation: tmc-spin 0.8s linear infinite;
+}
+
+.tmc-loader--sm .tmc-loader-spinner { width: 20px; height: 20px; border-width: 2px; }
+.tmc-loader--lg .tmc-loader-spinner { width: 44px; height: 44px; border-width: 4px; }
+
+@keyframes tmc-spin {
+  to { transform: rotate(360deg); }
+}
+
+.tmc-skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--tmc-admin-surface-muted);
+  border-radius: 8px;
+}
+
+.tmc-skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.7), transparent);
+  animation: tmc-skeleton 1.4s infinite;
+}
+
+@keyframes tmc-skeleton {
+  100% { transform: translateX(100%); }
+}
+
+.tmc-skeleton-text {
+  height: 12px;
+  margin-bottom: 8px;
+  border-radius: 6px;
+  background: var(--tmc-admin-surface-muted);
+}
+
+.tmc-skeleton-title {
+  width: 60%;
+  height: 18px;
+  margin-bottom: 12px;
+  border-radius: 6px;
+  background: var(--tmc-admin-surface-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tmc-loader-spinner,
+  .tmc-skeleton::after {
+    animation: none !important;
+  }
+}

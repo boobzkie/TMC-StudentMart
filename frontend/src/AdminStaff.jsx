@@ -48,7 +48,7 @@ export default function AdminStaff() {
   const [pagination, setPagination] = useState({ current_page: 1, last_page: 1, total: 0 });
   const [search, setSearch] = useState("");
   const [department, setDepartment] = useState("");
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState(() => new URLSearchParams(window.location.search).get("status") || "");
   const [employmentStatus, setEmploymentStatus] = useState("");
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);

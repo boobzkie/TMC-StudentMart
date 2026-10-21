@@ -1,0 +1,120 @@
+/* =========================================================
+   TMC StudentMart — Modal
+   ========================================================= */
+
+.tmc-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 29, 57, 0.4);
+  backdrop-filter: blur(4px);
+}
+
+.tmc-modal {
+  width: 100%;
+  max-width: 560px;
+  max-height: 90vh;
+  background: var(--tmc-admin-surface);
+  border: 1px solid var(--tmc-admin-border);
+  border-radius: var(--tmc-ui-radius-lg);
+  box-shadow: 0 20px 45px rgba(0, 29, 57, 0.15);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: tmc-modal-enter 220ms ease;
+}
+
+@keyframes tmc-modal-enter {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.tmc-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--tmc-admin-surface-muted);
+}
+
+.tmc-modal-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--tmc-admin-text);
+  letter-spacing: -0.01em;
+}
+
+.tmc-modal-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--tmc-admin-border);
+  background: var(--tmc-admin-surface);
+  color: var(--tmc-admin-secondary);
+  cursor: pointer;
+  font-size: 20px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 190ms ease;
+}
+
+.tmc-modal-close:hover {
+  background: var(--tmc-admin-surface-muted);
+  color: var(--tmc-admin-text);
+  border-color: var(--tmc-admin-accent-border);
+}
+
+.tmc-modal-body {
+  padding: 24px;
+  overflow-y: auto;
+  max-height: 60vh;
+}
+
+.tmc-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 24px;
+  border-top: 1px solid var(--tmc-admin-surface-muted);
+  background: var(--tmc-admin-surface);
+}
+
+.tmc-btn-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2.5px solid rgba(255, 255, 255, 0.45);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: tmc-spin 0.8s linear infinite;
+}
+
+@keyframes tmc-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 560px) {
+  .tmc-modal-overlay {
+    padding: 16px;
+  }
+  .tmc-modal {
+    max-height: 95vh;
+    border-radius: 12px;
+  }
+  .tmc-modal-header {
+    padding: 16px 20px;
+  }
+  .tmc-modal-body {
+    padding: 20px;
+  }
+  .tmc-modal-footer {
+    padding: 12px 20px;
+  }
+}

@@ -69,9 +69,7 @@ class _AccountSecurityPageState extends State<AccountSecurityPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Change password"),
-      ),
+      appBar: AppBar(title: const Text("Change password")),
       body: Form(
         key: _formKey,
         child: ListView(
@@ -103,10 +101,8 @@ class _AccountSecurityPageState extends State<AccountSecurityPage> {
                           ),
                         ),
                       ),
-                      validator: (value) => _required(
-                        value,
-                        "Current password",
-                      ),
+                      validator: (value) =>
+                          _required(value, "Current password"),
                     ),
                     const SizedBox(height: 14),
                     TextFormField(
@@ -115,8 +111,7 @@ class _AccountSecurityPageState extends State<AccountSecurityPage> {
                       autofillHints: const [AutofillHints.newPassword],
                       decoration: InputDecoration(
                         labelText: "New password",
-                        helperText:
-                            "Must be at least 8 characters.",
+                        helperText: "Must be at least 8 characters.",
                         suffixIcon: IconButton(
                           tooltip: _obscureNew
                               ? "Show password"
@@ -132,10 +127,7 @@ class _AccountSecurityPageState extends State<AccountSecurityPage> {
                         ),
                       ),
                       validator: (value) {
-                        final required = _required(
-                          value,
-                          "New password",
-                        );
+                        final required = _required(value, "New password");
                         if (required != null) return required;
                         if (value!.length < 8) {
                           return "Password must be at least 8 characters.";
@@ -165,10 +157,7 @@ class _AccountSecurityPageState extends State<AccountSecurityPage> {
                         ),
                       ),
                       validator: (value) {
-                        final required = _required(
-                          value,
-                          "Confirm password",
-                        );
+                        final required = _required(value, "Confirm password");
                         if (required != null) return required;
                         if (value != _newPassword.text) {
                           return "Passwords do not match.";
@@ -205,9 +194,7 @@ class _AccountSecurityPageState extends State<AccountSecurityPage> {
                 icon: _saving
                     ? const SizedBox.square(
                         dimension: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                        ),
+                        child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.lock_outlined),
                 label: Text(_saving ? "Changing..." : "Change password"),
@@ -219,5 +206,3 @@ class _AccountSecurityPageState extends State<AccountSecurityPage> {
     );
   }
 }
-
-

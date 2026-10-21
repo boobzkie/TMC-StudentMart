@@ -324,10 +324,10 @@ class StatusBadge extends StatelessWidget {
     final normalized = status.toLowerCase();
     final color = normalized == 'active'
         ? TmcPalette.success
-          : normalized == 'sold_out'
-          ? TmcPalette.error
-          : normalized == 'archived'
-          ? TmcPalette.darkGray
+        : normalized == 'sold_out'
+        ? TmcPalette.error
+        : normalized == 'archived'
+        ? TmcPalette.darkGray
         : normalized == 'pending' || normalized == 'in_review'
         ? TmcPalette.warning
         : normalized == 'rejected' || normalized == 'declined'
@@ -383,7 +383,7 @@ class ProductCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cardRadius = BorderRadius.circular(TmcRadius.lg);
-      final soldOut = product.status == 'sold_out' || product.stockQuantity <= 0;
+    final soldOut = product.status == 'sold_out' || product.stockQuantity <= 0;
     return Container(
       decoration: BoxDecoration(
         color: TmcPalette.white,
@@ -405,7 +405,7 @@ class ProductCard extends StatelessWidget {
                 Stack(
                   children: [
                     ProductPhoto(product: product, height: 132),
-                      if (management || product.status == 'sold_out')
+                    if (management || product.status == 'sold_out')
                       Positioned(
                         right: 8,
                         top: 8,
@@ -493,25 +493,25 @@ class ProductCard extends StatelessWidget {
                     child: Tooltip(
                       message: isOwnListing
                           ? 'You cannot purchase your own product.'
-                            : soldOut
-                            ? 'This product is sold out.'
-                            : 'Add this product to your cart.',
+                          : soldOut
+                          ? 'This product is sold out.'
+                          : 'Add this product to your cart.',
                       child: OutlinedButton.icon(
-                          onPressed: isOwnListing || soldOut ? null : onAdd,
+                        onPressed: isOwnListing || soldOut ? null : onAdd,
                         icon: Icon(
-                            isOwnListing
+                          isOwnListing
                               ? Icons.storefront_outlined
-                                : soldOut
-                                ? Icons.remove_shopping_cart_outlined
-                                : Icons.add_shopping_cart,
+                              : soldOut
+                              ? Icons.remove_shopping_cart_outlined
+                              : Icons.add_shopping_cart,
                           size: 17,
                         ),
                         label: Text(
-                            isOwnListing
-                                ? 'Your listing'
-                                : soldOut
-                                ? 'Sold out'
-                                : 'Add to cart',
+                          isOwnListing
+                              ? 'Your listing'
+                              : soldOut
+                              ? 'Sold out'
+                              : 'Add to cart',
                         ),
                         style: OutlinedButton.styleFrom(
                           minimumSize: const Size(48, 40),

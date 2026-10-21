@@ -44,11 +44,46 @@ class _SalesPageState extends State<SalesPage> {
     });
   }
 
-  List<Map<String, dynamic>> _filteredOrders(List<Map<String, dynamic>> orders) {
+  Future<String?> _promptDeclineReason() async {
+    final controller = TextEditingController();
+    try {
+      return await showDialog<String>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text("Decline this order?"),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            maxLines: 3,
+            maxLength: 1000,
+            decoration: const InputDecoration(
+              labelText: "Reason for declining",
+              hintText: "Let the buyer know why you cannot fulfill this order.",
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text("Cancel"),
+            ),
+            FilledButton(
+              onPressed: () =>
+                  Navigator.of(dialogContext).pop(controller.text.trim()),
+              child: const Text("Decline order"),
+            ),
+          ],
+        ),
+      );
+    } finally {
+      controller.dispose();
+    }
+  }
+
+  List<Map<String, dynamic>> _filteredOrders(
+    List<Map<String, dynamic>> orders,
+  ) {
     if (_statusFilter == "all") return orders;
-    return orders
-        .where((o) => valueOf(o["status"]) == _statusFilter)
-        .toList();
+    return orders.where((o) => valueOf(o["status"]) == _statusFilter).toList();
   }
 
   double _revenue(List<Map<String, dynamic>> orders) {
@@ -62,34 +97,43 @@ class _SalesPageState extends State<SalesPage> {
     return total;
   }
 
-
-
   Future<void> _updateOrderStatus(
     Map<String, dynamic> order,
     String newStatus,
   ) async {
     final id = int.tryParse(valueOf(order["id"]));
     if (id == null || _busyOrderIds.contains(id)) return;
+
+    String? sellerNote;
+    if (newStatus == "declined") {
+      sellerNote = await _promptDeclineReason();
+      if (!mounted || sellerNote == null) return;
+      if (sellerNote.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Enter a reason before declining.")),
+        );
+        return;
+      }
+    }
+
+    final payload = <String, dynamic>{"status": newStatus};
+    if (sellerNote != null) payload["seller_note"] = sellerNote;
+
     setState(() => _busyOrderIds.add(id));
     try {
-      await context.read<ApiService>().put(
-        "/seller/orders/$id/status",
-        {"status": newStatus},
-      );
+      await context.read<ApiService>().put("/seller/orders/$id", payload);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            "Order #${valueOf(order["order_number"])} updated.",
-          ),
+          content: Text("Order #${valueOf(order["order_number"])} updated."),
         ),
       );
       _reload();
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.toString())),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.toString())));
     } finally {
       if (mounted) setState(() => _busyOrderIds.remove(id));
     }
@@ -143,7 +187,6 @@ class _SalesPageState extends State<SalesPage> {
               : <Map<String, dynamic>>[];
           final filtered = _filteredOrders(orders);
           final revenue = _revenue(orders);
-
 
           return Column(
             children: [
@@ -220,16 +263,14 @@ class _SalesPageState extends State<SalesPage> {
                     ? EmptyMessage(
                         icon: Icons.receipt_long_outlined,
                         title: "No orders",
-                        message:
-                            _statusFilter == "all"
+                        message: _statusFilter == "all"
                             ? "You have no sales yet."
                             : "No ${_statuses.firstWhere((e) => e.$1 == _statusFilter).$2} orders.",
                       )
                     : ListView.separated(
                         padding: const EdgeInsets.all(16),
                         itemCount: filtered.length,
-                        separatorBuilder: (_, _) =>
-                            const SizedBox(height: 10),
+                        separatorBuilder: (_, _) => const SizedBox(height: 10),
                         itemBuilder: (context, index) {
                           final order = filtered[index];
                           final status = valueOf(order["status"]);
@@ -255,12 +296,7 @@ class _SalesPageState extends State<SalesPage> {
     );
   }
 
-  Widget _summaryCard(
-    String label,
-    String value,
-    IconData icon,
-    Color color,
-  ) {
+  Widget _summaryCard(String label, String value, IconData icon, Color color) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(14),
@@ -287,20 +323,14 @@ class _SalesPageState extends State<SalesPage> {
             const SizedBox(height: 4),
             Text(
               label,
-              style: const TextStyle(
-                fontSize: 12,
-                color: TmcPalette.textMuted,
-              ),
+              style: const TextStyle(fontSize: 12, color: TmcPalette.textMuted),
             ),
           ],
         ),
       ),
     );
   }
-
 }
-
-
 
 class _OrderRow extends StatelessWidget {
   const _OrderRow({
@@ -354,23 +384,25 @@ class _OrderRow extends StatelessWidget {
   }
 
   List<DropdownMenuItem<String>> _statusOptions(String current) {
-    final options = <String>[
-      "pending",
-      "confirmed",
-      "ready_for_pickup",
-      "completed",
-      "declined",
-      "cancelled",
+    final nextStatuses = switch (current) {
+      "pending" => <String>["confirmed", "declined"],
+      "confirmed" => <String>["ready_for_pickup"],
+      "ready_for_pickup" => <String>["completed"],
+      _ => <String>[],
+    };
+    return [
+      DropdownMenuItem<String>(
+        value: current,
+        enabled: false,
+        child: Text(_statusLabel(current)),
+      ),
+      ...nextStatuses.map(
+        (nextStatus) => DropdownMenuItem<String>(
+          value: nextStatus,
+          child: Text(_statusLabel(nextStatus)),
+        ),
+      ),
     ];
-    return options
-        .where((s) => s != current)
-        .map(
-          (s) => DropdownMenuItem<String>(
-            value: s,
-            child: Text(_statusLabel(s)),
-          ),
-        )
-        .toList();
   }
 
   @override
@@ -378,6 +410,7 @@ class _OrderRow extends StatelessWidget {
     final orderNumber = valueOf(order["order_number"]);
     final total = double.tryParse(valueOf(order["total_amount"])) ?? 0;
     final createdAt = valueOf(order["created_at"]);
+    final statusOptions = _statusOptions(status);
     return Card(
       child: InkWell(
         borderRadius: BorderRadius.circular(TmcRadius.lg),
@@ -459,12 +492,12 @@ class _OrderRow extends StatelessWidget {
                   Expanded(
                     child: DropdownButtonFormField<String>(
                       initialValue: status,
-                      items: _statusOptions(status),
-                      onChanged: isBusy
+                      items: statusOptions,
+                      onChanged: isBusy || statusOptions.length <= 1
                           ? null
                           : (value) {
-                            if (value != null) onStatus(value);
-                          },
+                              if (value != null) onStatus(value);
+                            },
                       decoration: const InputDecoration(
                         contentPadding: EdgeInsets.symmetric(
                           horizontal: 10,
@@ -498,4 +531,3 @@ class _OrderRow extends StatelessWidget {
     );
   }
 }
-

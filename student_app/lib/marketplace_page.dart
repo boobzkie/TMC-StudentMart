@@ -25,9 +25,9 @@ Future<void> _addProductToCart(
             children: [
               Text(
                 'Choose an option',
-                style: Theme.of(sheetContext).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
+                style: Theme.of(
+                  sheetContext,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 6),
               const Text('Each option has its own available stock.'),
@@ -80,19 +80,24 @@ Future<void> _addProductToCart(
         : selectedVariant != null && selectedVariant.stockQuantity <= 0
         ? 'This option is sold out.'
         : 'You have reached the available stock limit.';
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   } catch (error) {
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.toString())),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.toString())));
     }
   }
 }
 
 String _attributeLabel(String key) => key
     .split('_')
-    .map((part) => part.isEmpty ? part : '${part[0].toUpperCase()}${part.substring(1)}')
+    .map(
+      (part) =>
+          part.isEmpty ? part : '${part[0].toUpperCase()}${part.substring(1)}',
+    )
     .join(' ');
 
 class HomePage extends StatefulWidget {
@@ -168,11 +173,20 @@ class _HomePageState extends State<HomePage> {
                 const SizedBox(height: 16),
                 Row(
                   children: [
-                    _HomeStat(label: 'Listings', value: '${state.products.length}'),
+                    _HomeStat(
+                      label: 'Listings',
+                      value: '${state.products.length}',
+                    ),
                     const SizedBox(width: 10),
-                    _HomeStat(label: 'Cart', value: '${context.watch<CartState>().itemCount}'),
+                    _HomeStat(
+                      label: 'Cart',
+                      value: '${context.watch<CartState>().itemCount}',
+                    ),
                     const SizedBox(width: 10),
-                    _HomeStat(label: 'Categories', value: '${state.categories.length}'),
+                    _HomeStat(
+                      label: 'Categories',
+                      value: '${state.categories.length}',
+                    ),
                   ],
                 ),
                 const SizedBox(height: 18),
@@ -209,7 +223,8 @@ class _HomePageState extends State<HomePage> {
                 ),
               ],
             ),
-          ),          const SizedBox(height: 16),
+          ),
+          const SizedBox(height: 16),
           TextField(
             readOnly: true,
             onTap: widget.onOpenMarketplace,
@@ -549,7 +564,9 @@ class ProductDetailsPage extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            unavailable ? (isArchived ? 'Product is no longer available.' : 'Sold out') : '${product.stockQuantity} available',
+            unavailable
+                ? (isArchived ? 'Product is no longer available.' : 'Sold out')
+                : '${product.stockQuantity} available',
             style: TextStyle(
               color: unavailable ? TmcPalette.error : TmcPalette.darkGray,
               fontWeight: FontWeight.w700,
@@ -604,7 +621,9 @@ class ProductDetailsPage extends StatelessWidget {
                       .map(
                         (entry) => Padding(
                           padding: const EdgeInsets.symmetric(vertical: 3),
-                          child: Text('${_attributeLabel(entry.key)}: ${entry.value}'),
+                          child: Text(
+                            '${_attributeLabel(entry.key)}: ${entry.value}',
+                          ),
                         ),
                       )
                       .toList(),
@@ -621,15 +640,26 @@ class ProductDetailsPage extends StatelessWidget {
             const SizedBox(height: 7),
             Card(
               child: Column(
-                children: product.variants.map((variant) => ListTile(
-                  title: Text(variant.label),
-                  subtitle: Text(variant.attributes.entries
-                      .map((entry) => '${_attributeLabel(entry.key)}: ${entry.value}')
-                      .join(' · ')),
-                  trailing: Text(variant.stockQuantity > 0
-                      ? '${variant.stockQuantity} available'
-                      : 'Sold out'),
-                )).toList(),
+                children: product.variants
+                    .map(
+                      (variant) => ListTile(
+                        title: Text(variant.label),
+                        subtitle: Text(
+                          variant.attributes.entries
+                              .map(
+                                (entry) =>
+                                    '${_attributeLabel(entry.key)}: ${entry.value}',
+                              )
+                              .join(' · '),
+                        ),
+                        trailing: Text(
+                          variant.stockQuantity > 0
+                              ? '${variant.stockQuantity} available'
+                              : 'Sold out',
+                        ),
+                      ),
+                    )
+                    .toList(),
               ),
             ),
           ],
@@ -658,7 +688,9 @@ class ProductDetailsPage extends StatelessWidget {
                       style: TextStyle(fontWeight: FontWeight.w800),
                     ),
                     const SizedBox(height: 8),
-                    SelectableText('Contact number: ${product.sellerContactNumber}'),
+                    SelectableText(
+                      'Contact number: ${product.sellerContactNumber}',
+                    ),
                   ],
                 ),
               ),
@@ -674,18 +706,20 @@ class ProductDetailsPage extends StatelessWidget {
             icon: Icon(
               isOwnListing
                   ? Icons.storefront_outlined
-                   : unavailable
-                   ? Icons.remove_shopping_cart_outlined
+                  : unavailable
+                  ? Icons.remove_shopping_cart_outlined
                   : Icons.add_shopping_cart,
             ),
             label: Text(
               isOwnListing
                   ? 'Your listing'
-               : unavailable
-                  ? (isArchived ? 'Product is no longer available.' : 'Sold out')
+                  : unavailable
+                  ? (isArchived
+                        ? 'Product is no longer available.'
+                        : 'Sold out')
                   : product.variants.isNotEmpty
-                      ? 'Choose option & add'
-                      : 'Add to cart',
+                  ? 'Choose option & add'
+                  : 'Add to cart',
             ),
           ),
           if (isOwnListing) ...[

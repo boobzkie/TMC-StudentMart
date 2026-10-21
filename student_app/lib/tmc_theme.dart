@@ -1,36 +1,38 @@
 import 'package:flutter/material.dart';
 
 abstract final class TmcPalette {
-  // TMC StudentMart brand palette (shared with the React Admin portal).
-  static const primary = Color(0xFF0A4174);
-  static const primaryHover = Color(0xFF08335C);
+  // TMC StudentMart blue and teal palette shared with the React Admin portal.
   static const deepNavy = Color(0xFF001D39);
-  static const deepNavyBlack = Color(0xFF06151E);
+  static const primary = Color(0xFF0A4174);
+  static const primaryHover = Color(0xFF49769F);
   static const slateBlue = Color(0xFF49769F);
   static const tealBlue = Color(0xFF4E8EA2);
   static const mutedTeal = Color(0xFF6EA2B3);
   static const lightBlue = Color(0xFF7BBDE8);
   static const paleBlue = Color(0xFFBDD8E9);
 
-  static const white = Color(0xFFFFFFFF);
-  static const pageBackground = Color(0xFFF4F6F8);
-  static const surface = Color(0xFFFFFFFF);
-  static const border = Color(0xFFD6D6D6);
-  static const borderSoft = Color(0xFFE2E4E6);
-  static const text = Color(0xFF06151E);
-  static const textMuted = Color(0xFF545A5B);
-  static const textSoft = Color(0xFF898A8C);
-  static const invertedText = Color(0xFFFFFFFF);
+  static const deepNavyBlack = deepNavy;
+  static const mutedGreen = tealBlue;
+  static const satinGold = mutedTeal;
+  static const white = Color(0xFFF9FCFE);
+  static const pageBackground = Color(0xFFEAF3F8);
+  static const surface = Color(0xFFF9FCFE);
+  static const border = Color(0xFFD3E3ED);
+  static const borderSoft = Color(0xFFE7F1F7);
+  static const text = deepNavy;
+  static const textMuted = slateBlue;
+  static const textSoft = Color(0xFF5E7890);
+  static const invertedText = white;
 
-  static const success = Color(0xFF166534);
-  static const successSoft = Color(0xFFECFDF3);
-  static const warning = Color(0xFF92400E);
-  static const warningSoft = Color(0xFFFDF4E3);
-  static const error = Color(0xFFB42332);
-  static const errorSoft = Color(0xFFFDF0F2);
-  static const information = Color(0xFF0A4174);
-  static const informationSoft = Color(0xFFEFF6FB);
-  static const primarySoft = Color(0xFFEFF6FB);
+  static const success = Color(0xFF45664F);
+  static const successSoft = Color(0xFFE7EFE8);
+  static const warning = Color(0xFF8B5E1A);
+  static const warningSoft = Color(0xFFF7EEDB);
+  static const error = Color(0xFFA34147);
+  static const errorSoft = Color(0xFFF8E8E8);
+  static const information = slateBlue;
+  static const informationSoft = Color(0xFFE7F1F7);
+  static const primarySoft = Color(0xFFE7F1F7);
 
   // Backward-compatible aliases for existing pages ported to the TMC brand.
   static const navyBlue = primary;
@@ -40,7 +42,6 @@ abstract final class TmcPalette {
   static const tikTokCyan = primary;
   static const neutralSurface = pageBackground;
 }
-
 abstract final class TmcTypography {
   static const fontFamily = 'Roboto';
 
@@ -76,22 +77,22 @@ abstract final class TmcSpacing {
   static const sm = 8.0;
   static const md = 12.0;
   static const lg = 16.0;
-  static const xl = 24.0;
+  static const xl = 22.0;
   static const xxl = 32.0;
 }
 
 abstract final class TmcRadius {
   static const sm = 8.0;
-  static const md = 14.0;
-  static const lg = 20.0;
-  static const xl = 24.0;
+  static const md = 12.0;
+  static const lg = 16.0;
+  static const xl = 22.0;
   static const pill = 999.0;
 }
 
 abstract final class TmcNeumorphism {
   static const lightRaised = <BoxShadow>[
-    BoxShadow(color: Color(0x2206151E), offset: Offset(5, 5), blurRadius: 14),
-    BoxShadow(color: Color(0xCFFFFFFF), offset: Offset(-5, -5), blurRadius: 14),
+    BoxShadow(color: Color(0x1F001D39), offset: Offset(4, 4), blurRadius: 12),
+    BoxShadow(color: Color(0xB3FFFFFF), offset: Offset(-4, -4), blurRadius: 12),
   ];
 
   static const darkRaised = <BoxShadow>[
@@ -100,14 +101,14 @@ abstract final class TmcNeumorphism {
   ];
 
   static const lightInset = <BoxShadow>[
-    BoxShadow(color: Color(0x1F06151E), offset: Offset(2, 2), blurRadius: 6),
+    BoxShadow(color: Color(0x16001D39), offset: Offset(2, 2), blurRadius: 6),
     BoxShadow(color: Color(0xBFFFFFFF), offset: Offset(-2, -2), blurRadius: 6),
   ];
 }
 
 abstract final class TmcMotion {
   static const fast = Duration(milliseconds: 150);
-  static const standard = Duration(milliseconds: 190);
+  static const standard = Duration(milliseconds: 200);
   static const slow = Duration(milliseconds: 250);
 }
 
@@ -258,7 +259,7 @@ abstract final class TmcTheme {
       ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: TmcPalette.white,
-        indicatorColor: TmcPalette.primary.withValues(alpha: .14),
+        indicatorColor: TmcPalette.tealBlue.withValues(alpha: .18),
         elevation: 0,
         height: TmcControlSize.filledButtonHeight + 18,
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,

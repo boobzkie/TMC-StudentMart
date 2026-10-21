@@ -125,9 +125,9 @@ class _CategoriesPageState extends State<CategoriesPage> {
         actions: [
           IconButton(
             tooltip: "Cart",
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => const CartPage()),
-            ),
+            onPressed: () => Navigator.of(
+              context,
+            ).push(MaterialPageRoute<void>(builder: (_) => const CartPage())),
             icon: Badge(
               isLabelVisible: cartCount > 0,
               label: Text(cartCount > 99 ? "99+" : "$cartCount"),
@@ -299,25 +299,27 @@ class _CategoriesPageState extends State<CategoriesPage> {
                     final product = _products[index];
                     return ProductCard(
                       product: product,
-                      isOwnListing: product.userId ==
-                          context.read<AuthState>().user?.id,
+                      isOwnListing:
+                          product.userId == context.read<AuthState>().user?.id,
                       onTap: () => Navigator.of(context).push<void>(
                         MaterialPageRoute<void>(
-                          builder: (_) => ProductDetailsPage(
-                            productId: product.id,
-                          ),
+                          builder: (_) =>
+                              ProductDetailsPage(productId: product.id),
                         ),
                       ),
-                      onAdd: product.userId !=
-                              context.read<AuthState>().user?.id &&
-                          product.status == "active"
+                      onAdd:
+                          product.userId !=
+                                  context.read<AuthState>().user?.id &&
+                              product.status == "active"
                           ? () {
-                            context.read<CartState>().add(
-                              product,
-                              currentUserId:
-                                  context.read<AuthState>().user!.id,
-                            );
-                          }
+                              context.read<CartState>().add(
+                                product,
+                                currentUserId: context
+                                    .read<AuthState>()
+                                    .user!
+                                    .id,
+                              );
+                            }
                           : null,
                     );
                   },

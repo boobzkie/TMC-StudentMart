@@ -30,33 +30,37 @@ export default function AdminNotifications() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const loadStats = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(API_URL + "/admin/stats", {
-        headers: { Accept: "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) },
-      });
-      if (response.status === 401) {
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-        localStorage.removeItem("role");
-        window.location.replace("/login");
-        return;
-      }
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.message || "Unable to load notifications.");
-      setStats(data.stats || {});
-    } catch (err) {
-      setError(err.message || "We could not load notifications. Please try again.");
-    } finally {
-      setLoading(false);
+  const fetchStats = useCallback(async () => {
+    const token = localStorage.getItem("token");
+    const response = await fetch(API_URL + "/admin/stats", {
+      headers: { Accept: "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) },
+    });
+    if (response.status === 401) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      localStorage.removeItem("role");
+      window.location.replace("/login");
+      return null;
     }
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.message || "Unable to load notifications.");
+    return data.stats || {};
   }, []);
 
-  useEffect(() => { loadStats(); }, [loadStats]);
-
+  useEffect(() => {
+    let active = true;
+    fetchStats()
+      .then((nextStats) => {
+        if (active && nextStats !== null) setStats(nextStats);
+      })
+      .catch((err) => {
+        if (active) setError(err.message || "We could not load notifications. Please try again.");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => { active = false; };
+  }, [fetchStats]);
   const stat = (key, fallback = 0) => {
     if (!stats) return fallback;
     const value = stats[key];

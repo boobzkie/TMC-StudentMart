@@ -1,0 +1,145 @@
+/* =========================================================
+   TMC StudentMart — Button
+   ========================================================= */
+
+.tmc-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: var(--tmc-ui-radius-sm);
+  border: 1px solid transparent;
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  transition: all 190ms cubic-bezier(0.2, 0, 0, 1);
+  text-decoration: none;
+  background: var(--tmc-admin-surface);
+  color: var(--tmc-admin-text);
+}
+
+.tmc-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.tmc-btn:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--tmc-admin-focus) 32%, transparent);
+  outline-offset: 2px;
+}
+
+/* Sizes */
+.tmc-btn--sm { min-height: 34px; padding: 0 10px; font-size: 12px; }
+.tmc-btn--md { min-height: 44px; padding: 0 16px; font-size: 13.5px; }
+.tmc-btn--lg { min-height: 50px; padding: 0 20px; font-size: 15px; }
+
+/* Variants */
+.tmc-btn--primary {
+  background: var(--tmc-admin-primary);
+  color: #fff;
+  border-color: var(--tmc-admin-primary);
+}
+.tmc-btn--primary:hover:not(:disabled) {
+  background: var(--tmc-admin-primary-hover);
+  border-color: var(--tmc-admin-primary-hover);
+  box-shadow: var(--tmc-admin-card-shadow);
+}
+
+.tmc-btn--secondary {
+  background: var(--tmc-admin-surface);
+  color: var(--tmc-admin-text);
+  border-color: var(--tmc-admin-border);
+}
+.tmc-btn--secondary:hover:not(:disabled) {
+  background: var(--tmc-admin-bg);
+  border-color: var(--tmc-admin-accent-border);
+}
+
+.tmc-btn--outline {
+  background: transparent;
+  color: var(--tmc-admin-primary);
+  border-color: var(--tmc-admin-primary);
+}
+.tmc-btn--outline:hover:not(:disabled) {
+  background: var(--tmc-admin-accent-soft);
+}
+
+.tmc-btn--ghost {
+  background: transparent;
+  color: var(--tmc-admin-secondary);
+  border-color: transparent;
+}
+.tmc-btn--ghost:hover:not(:disabled) {
+  background: var(--tmc-admin-surface-muted);
+  color: var(--tmc-admin-text);
+}
+
+.tmc-btn--danger {
+  background: var(--tmc-admin-danger);
+  color: #fff;
+  border-color: var(--tmc-admin-danger);
+}
+.tmc-btn--danger:hover:not(:disabled) {
+  background: #991B1B;
+  border-color: #991B1B;
+}
+
+.tmc-btn--success {
+  background: var(--tmc-admin-success);
+  color: #fff;
+  border-color: var(--tmc-admin-success);
+}
+.tmc-btn--success:hover:not(:disabled) {
+  background: #14532D;
+  border-color: #14532D;
+}
+
+.tmc-btn--warning {
+  background: var(--tmc-admin-warning);
+  color: #fff;
+  border-color: var(--tmc-admin-warning);
+}
+.tmc-btn--warning:hover:not(:disabled) {
+  background: #78350F;
+  border-color: #78350F;
+}
+
+.tmc-btn-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2.5px solid rgba(255, 255, 255, 0.45);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: tmc-spin 0.8s linear infinite;
+}
+
+@keyframes tmc-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Icon button variant */
+.tmc-btn--icon {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: var(--tmc-ui-radius-sm);
+  background: var(--tmc-admin-surface);
+  color: var(--tmc-admin-secondary);
+  border: 1px solid var(--tmc-admin-border);
+}
+.tmc-btn--icon:hover:not(:disabled) {
+  background: var(--tmc-admin-bg);
+  color: var(--tmc-admin-text);
+  border-color: var(--tmc-admin-accent-border);
+}
+.tmc-btn--icon.tmc-btn--primary {
+  background: var(--tmc-admin-primary);
+  color: #fff;
+  border-color: var(--tmc-admin-primary);
+}
+.tmc-btn--icon.tmc-btn--primary:hover:not(:disabled) {
+  background: var(--tmc-admin-primary-hover);
+}

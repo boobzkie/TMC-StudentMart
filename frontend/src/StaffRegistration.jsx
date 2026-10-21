@@ -88,7 +88,7 @@ export default function StaffRegistration() {
       if (!response.ok) throw new Error(data.message || "Unable to check this application.");
       setStatusResult(data);
     } catch (err) {
-      setError(err.message || "Unable to check this application.");
+      setError(err instanceof TypeError ? "Unable to connect to the server. Please try again." : (err.message || "Unable to check this application."));
     } finally {
       setLoading(false);
     }
@@ -153,9 +153,39 @@ export default function StaffRegistration() {
       <div className="staff-registration-heading"><span className="staff-form-eyebrow">APPLICATION STATUS</span><h1>Check your application</h1><p>Use the email address and private reference shown after you submitted your application.</p></div>
       {error && <div className="staff-form-error" role="alert">{error}</div>}
       <form className="staff-status-form" onSubmit={checkStatus}><label>Email address<input type="email" value={statusForm.email} onChange={(event) => setStatusForm((current) => ({ ...current, email: event.target.value }))} required /></label><label>Application reference<input value={statusForm.application_reference} onChange={(event) => setStatusForm((current) => ({ ...current, application_reference: event.target.value }))} minLength="24" required /></label><button className="staff-submit-button" type="submit" disabled={loading}>{loading ? "Checking…" : "Check status"}</button></form>
-      {statusResult && <div className="staff-status-result" role="status"><span className={"staff-status-pill " + String(statusResult.status).toLowerCase()}>{statusResult.status}</span><p>{statusResult.message}</p>{statusResult.decision_reason && <div><strong>Administrator note</strong><p>{statusResult.decision_reason}</p></div>}{Array.isArray(statusResult.history) && statusResult.history.length > 0 && <div className="staff-status-history"><strong>Application history</strong><ol>{statusResult.history.map((item, index) => (<li key={index}><span>{String(item.from_status || "not recorded")} to {String(item.to_status || "pending")}</span><small>{new Date(item.created_at).toLocaleString()}</small>{item.note ? <p>{item.note}</p> : null}</li>))}</ol></div>}</div>}
+      {statusResult && (() => {
+        const normalizedStatus = String(statusResult.status || "pending").toLowerCase().replace(/\s+/g, "_");
+        const statusLabel = normalizedStatus === "active"
+          ? "Approved"
+          : normalizedStatus.split("_").map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(" ");
+        const history = Array.isArray(statusResult.history) ? statusResult.history : [];
+        const latestEvent = history.length ? history[history.length - 1] : null;
+        const lastUpdated = statusResult.reviewed_at || latestEvent?.created_at || statusResult.submitted_at;
+        const formatDate = (value) => {
+          if (!value) return "Not recorded";
+          const date = new Date(value);
+          return Number.isNaN(date.getTime()) ? "Not recorded" : new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(date);
+        };
+        return (
+          <div className="staff-status-result" role="status">
+            <div className="staff-status-summary">
+              <span className={"staff-status-pill " + normalizedStatus}>{statusLabel}</span>
+              <p>{statusResult.message}</p>
+            </div>
+            <dl className="staff-status-meta">
+              <div><dt>Email</dt><dd>{statusForm.email}</dd></div>
+              <div><dt>Application reference</dt><dd>{statusForm.application_reference}</dd></div>
+              <div><dt>Submitted</dt><dd>{formatDate(statusResult.submitted_at)}</dd></div>
+              <div><dt>Last updated</dt><dd>{formatDate(lastUpdated)}</dd></div>
+            </dl>
+            {statusResult.decision_reason && <div className="staff-status-note"><strong>Administrator note</strong><p>{statusResult.decision_reason}</p></div>}
+            {history.length > 0 && <div className="staff-status-history"><strong>Application history</strong><ol>{history.map((item, index) => (<li key={item.created_at || index}><span>{String(item.from_status || "not recorded")} to {String(item.to_status || "pending")}</span><small>{formatDate(item.created_at)}</small>{item.note ? <p>{item.note}</p> : null}</li>))}</ol></div>}
+          </div>
+        );
+      })()}
     </section>}
     <footer className="staff-registration-footer"><Link to="/login">← Return to login</Link><span>Students should continue to use the Flutter application.</span></footer>
   </section></div></section></main>;
 }
+
 

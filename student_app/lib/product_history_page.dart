@@ -123,7 +123,8 @@ class _ProductHistoryPageState extends State<ProductHistoryPage> {
                         EmptyMessage(
                           icon: Icons.history,
                           title: 'No history yet',
-                          message: 'Product and order activity will appear here.',
+                          message:
+                              'Product and order activity will appear here.',
                         ),
                       ],
                     )
@@ -176,14 +177,17 @@ class _ProductHistoryPageState extends State<ProductHistoryPage> {
                                 ],
                                 if (before != null || after != null) ...[
                                   const SizedBox(height: 7),
-                                  Text('Stock: ${before ?? '—'} → ${after ?? '—'}'),
+                                  Text(
+                                    'Stock: ${before ?? '—'} → ${after ?? '—'}',
+                                  ),
                                 ],
                                 if (orderNumber.isNotEmpty) ...[
                                   const SizedBox(height: 8),
                                   Wrap(
                                     spacing: 8,
                                     runSpacing: 6,
-                                    crossAxisAlignment: WrapCrossAlignment.center,
+                                    crossAxisAlignment:
+                                        WrapCrossAlignment.center,
                                     children: [
                                       Text(
                                         orderNumber,
@@ -197,7 +201,9 @@ class _ProductHistoryPageState extends State<ProductHistoryPage> {
                                       if (quantity.isNotEmpty)
                                         Text('Qty $quantity'),
                                       if (amount.isNotEmpty)
-                                        Text(peso(double.tryParse(amount) ?? 0)),
+                                        Text(
+                                          peso(double.tryParse(amount) ?? 0),
+                                        ),
                                     ],
                                   ),
                                 ],

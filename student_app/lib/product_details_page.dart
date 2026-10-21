@@ -28,7 +28,10 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
       await context.read<ApiService>().get("/products/${widget.productId}"),
     );
     if (response["success"] == false) {
-      throw const ApiException("This product could not be found.", statusCode: 404);
+      throw const ApiException(
+        "This product could not be found.",
+        statusCode: 404,
+      );
     }
     return response;
   }
@@ -62,39 +65,38 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
               const SizedBox(height: 6),
               const Text(
                 "Each option has its own available stock.",
-                style: TextStyle(
-                  fontSize: 13,
-                  color: TmcPalette.textMuted,
-                ),
+                style: TextStyle(fontSize: 13, color: TmcPalette.textMuted),
               ),
               const SizedBox(height: 12),
-              ...product.variants.map((variant) => ListTile(
-                contentPadding: EdgeInsets.zero,
-                enabled: variant.stockQuantity > 0,
-                title: Text(
-                  variant.label,
-                  style: const TextStyle(fontWeight: FontWeight.w700),
-                ),
-                subtitle: Text(
-                  variant.attributes.entries
-                      .map((entry) => "${entry.key}: ${entry.value}")
-                      .join(" \u00b7 "),
-                ),
-                trailing: Text(
-                  variant.stockQuantity > 0
-                      ? "${variant.stockQuantity} available"
-                      : "Sold out",
-                  style: TextStyle(
-                    color: variant.stockQuantity > 0
-                        ? TmcPalette.textMuted
-                        : TmcPalette.error,
-                    fontWeight: FontWeight.w700,
+              ...product.variants.map(
+                (variant) => ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  enabled: variant.stockQuantity > 0,
+                  title: Text(
+                    variant.label,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
+                  subtitle: Text(
+                    variant.attributes.entries
+                        .map((entry) => "${entry.key}: ${entry.value}")
+                        .join(" \u00b7 "),
+                  ),
+                  trailing: Text(
+                    variant.stockQuantity > 0
+                        ? "${variant.stockQuantity} available"
+                        : "Sold out",
+                    style: TextStyle(
+                      color: variant.stockQuantity > 0
+                          ? TmcPalette.textMuted
+                          : TmcPalette.error,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  onTap: variant.stockQuantity > 0
+                      ? () => Navigator.pop(sheetContext, variant)
+                      : null,
                 ),
-                onTap: variant.stockQuantity > 0
-                    ? () => Navigator.pop(sheetContext, variant)
-                    : null,
-              )),
+              ),
               const SizedBox(height: 12),
             ],
           ),
@@ -105,17 +107,15 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
     setState(() {});
   }
 
-
-
   Future<void> _addToCart(Product product) async {
     if (_selectedVariant == null && product.variants.isNotEmpty) {
       await _chooseVariant(product);
       if (!mounted) return;
     }
     if (_selectedVariant != null && _selectedVariant!.stockQuantity <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("This option is sold out.")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("This option is sold out.")));
       return;
     }
     try {
@@ -180,11 +180,8 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
     );
   }
 
-
-
   Widget _buildProductView(BuildContext context, Product product) {
-    final soldOut = product.status == "sold_out" ||
-        product.stockQuantity <= 0;
+    final soldOut = product.status == "sold_out" || product.stockQuantity <= 0;
     final variants = product.variants;
     final primaryImage = product.images.isNotEmpty
         ? product.images.first.path
@@ -322,8 +319,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                       ),
                       subtitle: Text(
                         variant.attributes.entries
-                            .map((entry) =>
-                                "${entry.key}: ${entry.value}")
+                            .map((entry) => "${entry.key}: ${entry.value}")
                             .join(" · "),
                         style: const TextStyle(
                           fontSize: 12,
@@ -383,9 +379,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                 width: double.infinity,
                 height: 50,
                 child: FilledButton.icon(
-                  onPressed: soldOut
-                      ? null
-                      : () => _addToCart(product),
+                  onPressed: soldOut ? null : () => _addToCart(product),
                   icon: const Icon(Icons.shopping_cart_outlined),
                   label: Text(
                     soldOut ? "Sold out" : "Add to cart",
