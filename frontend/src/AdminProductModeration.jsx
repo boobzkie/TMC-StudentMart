@@ -6,12 +6,14 @@ import {
   Package,
   RefreshCw,
   Search,
+  ShieldAlert,
   X,
   XCircle,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import AdminLayout from "./components/AdminLayout";
+import AdminPageHero from "./components/AdminPageHero";
 import { API_URL, SERVER_URL } from "./utils/api";
 
 import "./AdminProductModeration.css";
@@ -464,42 +466,16 @@ export default function AdminProductModeration() {
     >
       <div className="moderation-page">
 
-        {/* HERO */}
-        <section className="moderation-hero">
-
-          <div className="moderation-hero-content">
-
-            <div className="moderation-icon">
-              <Package size={27} />
-            </div>
-
-            <div>
-              <span className="moderation-eyebrow">
-                MARKETPLACE MODERATION
-              </span>
-
-              <h2>
-                {isStaff ? "Marketplace Product Moderation" : "Pending Product Review"}
-              </h2>
-
-              <p>
-                Review listings, inspect their history, and record a clear decision for the seller.
-              </p>
-            </div>
-
-          </div>
-
-          <div className="pending-counter">
-            <span>
-              Products shown
-            </span>
-
-            <strong>
-              {products.length}
-            </strong>
-          </div>
-
-        </section>
+        <AdminPageHero
+          title="Product Moderation"
+          description={isStaff
+            ? "Review student listings assigned to your Staff account and record clear moderation decisions."
+            : "Review submitted listings, inspect their history, and record clear decisions for sellers."}
+          icon={ShieldAlert}
+          onRefresh={() => loadPendingProducts(true)}
+          refreshing={loading || refreshing}
+          meta={`${products.length} products shown`}
+        />
 
         {/* ALERTS */}
         {error && (
@@ -576,29 +552,6 @@ export default function AdminProductModeration() {
               )}
 
             </div>
-
-            <button
-              type="button"
-              className="moderation-refresh"
-              onClick={() =>
-                loadPendingProducts(true)
-              }
-              disabled={
-                loading ||
-                refreshing
-              }
-            >
-              <RefreshCw
-                size={17}
-                className={
-                  refreshing
-                    ? "moderation-spin"
-                    : ""
-                }
-              />
-
-              Refresh
-            </button>
 
           </div>
 

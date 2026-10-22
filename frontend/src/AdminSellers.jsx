@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 
 import {
   Search,
-  RefreshCw,
   Store,
   Package,
   CheckCircle2,
@@ -15,6 +14,7 @@ import {
 } from "lucide-react";
 
 import AdminLayout from "./components/AdminLayout";
+import AdminPageHero from "./components/AdminPageHero";
 import { API_URL, SERVER_URL } from "./utils/api";
 
 import "./AdminSellers.css";
@@ -221,59 +221,13 @@ export default function AdminSellers() {
     >
       <div className="sellers-page">
 
-        {/* =====================================================
-            PAGE HEADER
-        ===================================================== */}
-
-        <section className="sellers-hero">
-
-          <div className="sellers-hero-icon">
-            <Store
-              size={25}
-              strokeWidth={2}
-            />
-          </div>
-
-          <div className="sellers-hero-content">
-
-            <span>
-              MARKETPLACE MANAGEMENT
-            </span>
-
-            <h2>
-              Seller Management
-            </h2>
-
-            <p>
-              View student sellers,
-              monitor their product
-              activity, and check
-              marketplace status.
-            </p>
-
-          </div>
-
-          <button
-            type="button"
-            className="sellers-refresh-button"
-            onClick={handleRefresh}
-            disabled={refreshing}
-          >
-            <RefreshCw
-              size={16}
-              className={
-                refreshing
-                  ? "sellers-spin"
-                  : ""
-              }
-            />
-
-            {refreshing
-              ? "Refreshing..."
-              : "Refresh"}
-          </button>
-
-        </section>
+        <AdminPageHero
+          title="Seller Management"
+          description="View student sellers, monitor their product activity, and check marketplace status."
+          icon={Store}
+          onRefresh={handleRefresh}
+          refreshing={refreshing}
+        />
 
         {/* =====================================================
             ERROR

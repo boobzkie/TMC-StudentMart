@@ -5,13 +5,13 @@ import {
   CheckCircle2,
   Clock3,
   Coins,
-  RefreshCw,
   Save,
   ShieldCheck,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import AdminLayout from "./components/AdminLayout";
+import AdminPageHero from "./components/AdminPageHero";
 import { API_URL } from "./utils/api";
 
 import "./AdminCommission.css";
@@ -203,20 +203,13 @@ function AdminCommission() {
   return (
     <AdminLayout title="Commission">
       <div className="commission-page">
-        <section className="commission-hero">
-          <div className="commission-hero-content">
-            <div className="commission-hero-icon"><Coins size={27} /></div>
-            <div>
-              <span className="commission-eyebrow">MARKETPLACE FINANCE</span>
-              <h2>Commission &amp; tax tracking</h2>
-              <p>Review commissions from completed orders and record manual collection.</p>
-            </div>
-          </div>
-          <button type="button" className="commission-refresh-button" onClick={() => void loadData(true)} disabled={loading || refreshing}>
-            <RefreshCw size={17} className={refreshing ? "commission-spin" : ""} />
-            <span>{refreshing ? "Refreshing" : "Refresh"}</span>
-          </button>
-        </section>
+        <AdminPageHero
+          title="Commission & tax tracking"
+          description="Review commissions from completed orders and record manual collection."
+          icon={Coins}
+          onRefresh={() => loadData(true)}
+          refreshing={loading || refreshing}
+        />
 
         {error && <div className="commission-alert error" role="alert">{error}</div>}
         {success && <div className="commission-alert success" role="status">{success}</div>}

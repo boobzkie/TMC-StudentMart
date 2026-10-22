@@ -743,6 +743,28 @@
   outline-color: rgba(78, 142, 162, 0.56) !important;
 }
 
+/* Keep the complete account record readable at desktop widths; scroll the table on smaller screens. */
+.admin-layout[data-theme] .admin-content .users-page-label {
+  color: var(--tmc-admin-primary) !important;
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: 0.13em;
+}
+
+.admin-layout[data-theme] .admin-content .users-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: 14px;
+  scrollbar-color: #A7A9D7 transparent;
+  scrollbar-width: thin;
+}
+
+.admin-layout[data-theme] .admin-content .users-table {
+  width: 100%;
+  min-width: 1180px;
+  table-layout: auto;
+}
+
 @media (max-width: 700px) {
   .users-page-staff .users-toolbar-top h2 {
     font-size: 25px !important;

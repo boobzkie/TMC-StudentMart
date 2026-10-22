@@ -5,7 +5,9 @@ import {
   Activity,
   ArrowRight,
   BarChart3,
+  CheckCircle2,
   MessageSquareWarning,
+  LayoutDashboard,
   ShieldAlert,
   UserCheck,
   Users,
@@ -14,9 +16,10 @@ import {
 } from "lucide-react";
 
 import AdminLayout from "./components/AdminLayout";
+import AdminPageHero from "./components/AdminPageHero";
 import { API_URL } from "./utils/api";
 
-import { Card, Badge, Button, SectionHeader, EmptyState, LoadingSpinner, StatCard } from "./ui";
+import { Card, Badge, Button, EmptyState, LoadingSpinner, StatCard } from "./ui";
 import "./StaffDashboard.css";
 
 function readPermissions() {
@@ -81,6 +84,49 @@ const STAFF_METRIC_CARDS = [
   },
 ];
 
+function StaffActionQueue({ actionItems, actionableItems, actionCountsAvailable, loading }) {
+  if (actionItems.length === 0) return null;
+
+  return (
+    <section className="staff-action-queue" aria-labelledby="staff-action-queue-title">
+      <div className="staff-action-heading">
+        <div>
+          <span className="staff-eyebrow">Assigned workload</span>
+          <h2 id="staff-action-queue-title">Needs your attention</h2>
+          <p>Open the work queues available to your Staff role.</p>
+        </div>
+      </div>
+      {loading ? (
+        <div className="staff-action-state" role="status">Loading assigned work...</div>
+      ) : actionableItems.length > 0 ? (
+        <div className="staff-action-grid">
+          {actionableItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <Link className="staff-action-card" key={item.key} to={item.to}>
+                <span className="staff-action-icon"><Icon size={19} aria-hidden="true" /></span>
+                <span className="staff-action-copy">
+                  <strong>{item.label}</strong>
+                  <span>{item.description}</span>
+                </span>
+                <Badge variant="warning" size="sm">{formatValue(item.value)}</Badge>
+                <ArrowRight className="staff-action-arrow" size={16} aria-hidden="true" />
+              </Link>
+            );
+          })}
+        </div>
+      ) : actionCountsAvailable ? (
+        <div className="staff-action-state staff-action-state--clear" role="status">
+          <CheckCircle2 size={19} aria-hidden="true" />
+          <span>You're all caught up in your assigned work queues.</span>
+        </div>
+      ) : (
+        <div className="staff-action-state" role="status">Assigned workload counts are unavailable. Refresh to try again.</div>
+      )}
+    </section>
+  );
+}
+
 export default function StaffDashboard() {
   const navigate = useNavigate();
   const permissions = useMemo(() => readPermissions(), []);
@@ -89,10 +135,11 @@ export default function StaffDashboard() {
   const staffCanManageComplaints = permissions.includes("manage_complaints");
   const staffCanViewReports = permissions.includes("view_reports");
   const staffCanViewAnalytics = permissions.includes("view_analytics");
+  const hasDashboardDataAccess = staffCanManageStudents || staffCanModerateProducts || staffCanManageComplaints;
 
   const [stats, setStats] = useState(null);
   const [recentStudents, setRecentStudents] = useState([]);
-  const [loading, setLoading] = useState(staffCanManageStudents);
+  const [loading, setLoading] = useState(hasDashboardDataAccess);
   const [error, setError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
 
@@ -140,7 +187,7 @@ export default function StaffDashboard() {
   );
 
   const loadDashboard = useCallback(async (showRefresh = false) => {
-    if (!staffCanManageStudents) {
+    if (!hasDashboardDataAccess) {
       setLoading(false);
       return;
     }
@@ -184,7 +231,7 @@ export default function StaffDashboard() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [navigate, staffCanManageStudents]);
+  }, [hasDashboardDataAccess, navigate]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -198,24 +245,86 @@ export default function StaffDashboard() {
   const inactiveStudents = toNumber(stats?.inactive_students);
   const totalStudents = toNumber(stats?.total_students);
   const newStudents = toNumber(stats?.new_students_30_days);
+  const actionItems = [
+    staffCanModerateProducts && {
+      key: "pending_products",
+      label: "Listings awaiting moderation",
+      description: "Student listings waiting for a review decision.",
+      value: stats?.pending_products,
+      to: "/staff/product-moderation",
+      icon: ShieldAlert,
+    },
+    staffCanManageComplaints && {
+      key: "open_complaints",
+      label: "Complaints to review",
+      description: "Pending and in-review student complaints.",
+      value: stats?.open_complaints,
+      to: "/staff/complaints",
+      icon: MessageSquareWarning,
+    },
+  ].filter(Boolean);
+  const actionCountsAvailable = actionItems.every((item) => Number.isFinite(Number(item.value)));
+  const actionableItems = actionItems.filter((item) => Number(item.value) > 0);
   const statusTotal = Math.max(1, activeStudents + inactiveStudents);
   const activeRate =
     activeStudents + inactiveStudents > 0
       ? Math.round((activeStudents / (activeStudents + inactiveStudents)) * 100)
       : 0;
+  const staffPulseMetrics = [
+    staffCanManageStudents && { label: "New students", value: stats?.new_students_30_days, icon: UserPlus, tone: "info" },
+    staffCanModerateProducts && { label: "Listings to review", value: stats?.pending_products, icon: ShieldAlert, tone: "warning" },
+    staffCanManageComplaints && { label: "Open complaints", value: stats?.open_complaints, icon: MessageSquareWarning, tone: "danger" },
+  ].filter(Boolean);
 
   return (
     <AdminLayout
       title="Staff Dashboard"
       subtitle="Your assigned StudentMart workspace."
     >
-      <section className="staff-dashboard">
-        <SectionHeader
-          title="Workspace overview"
-          subtitle="Current activity and tools assigned to your role."
-          action={() => loadDashboard(true)}
-          actionLabel={refreshing ? "Updating…" : "Refresh data"}
-          actionVariant="outline"
+      <section className="staff-dashboard staff-dashboard-page">
+
+        <AdminPageHero
+          title="Staff Dashboard"
+          description="See the queues and student activity available to your Staff role, then jump straight into the next task."
+          icon={LayoutDashboard}
+          onRefresh={hasDashboardDataAccess ? () => loadDashboard(true) : undefined}
+          refreshing={refreshing || loading}
+          actions={tools.length > 0 && (
+            <Link className="admin-page-hero-link" to={tools[0].to}>
+              Open {tools[0].label}
+              <ArrowRight size={16} aria-hidden="true" />
+            </Link>
+          )}
+          sideContent={(
+            <div className="staff-welcome-visual" aria-label="Assigned staff overview">
+            <div className="staff-pulse-orbit staff-pulse-orbit--outer" aria-hidden="true" />
+            <div className="staff-pulse-card">
+              <div className="staff-pulse-heading">
+                <span className="staff-pulse-icon"><Activity size={17} aria-hidden="true" /></span>
+                <span><strong>Your workspace</strong><small>Based on assigned access</small></span>
+              </div>
+              <div className="staff-pulse-metrics">
+                {staffPulseMetrics.map((item) => {
+                  const Icon = item.icon;
+                  const valueAvailable = item.value !== null && item.value !== undefined && item.value !== "";
+                  return (
+                    <div className={`staff-pulse-metric staff-pulse-metric--${item.tone}`} key={item.label}>
+                      <span className="staff-pulse-metric-icon"><Icon size={15} aria-hidden="true" /></span>
+                      <span className="staff-pulse-metric-label">{item.label}</span>
+                      <strong>{loading || !valueAvailable ? "..." : formatValue(item.value)}</strong>
+                    </div>
+                  );
+                })}
+                {staffPulseMetrics.length === 0 && (
+                  <div className="staff-pulse-access">
+                    <span>{tools.length}</span>
+                    <p>tools assigned to your role</p>
+                  </div>
+                )}
+              </div>
+            </div>
+            </div>
+          )}
         />
 
         {error ? (
@@ -249,6 +358,13 @@ export default function StaffDashboard() {
               })}
             </div>
 
+            <StaffActionQueue
+              actionItems={actionItems}
+              actionableItems={actionableItems}
+              actionCountsAvailable={actionCountsAvailable}
+              loading={loading}
+            />
+
             <div className="activity-grid-2">
               <Card className="staff-chart-card">
                 <Card.Header>
@@ -263,11 +379,21 @@ export default function StaffDashboard() {
                     </div>
                   ) : totalStudents > 0 ? (
                     <>
-                      <div className="chart-total">
-                        <span>{formatValue(totalStudents)}</span>
-                        <span className="chart-total-label">total accounts</span>
-                      </div>
-                      <div className="chart-block">
+                      <div className="staff-status-summary">
+                        <div
+                          className="staff-status-ring"
+                          role="img"
+                          aria-label={`${activeRate}% of ${formatValue(totalStudents)} student accounts are active`}
+                          style={{ "--staff-active-rate": `${activeRate}%` }}
+                        >
+                          <span><strong>{activeRate}%</strong><small>active</small></span>
+                        </div>
+                        <div className="staff-status-details">
+                          <div className="chart-total">
+                            <span>{formatValue(totalStudents)}</span>
+                            <span className="chart-total-label">total accounts</span>
+                          </div>
+                          <div className="chart-block">
                         <div className="chart-row">
                           <div className="chart-row-top">
                             <span>Active students</span>
@@ -298,6 +424,8 @@ export default function StaffDashboard() {
                             />
                           </div>
                           <small className="chart-percent">{100 - activeRate}%</small>
+                        </div>
+                          </div>
                         </div>
                       </div>
 
@@ -392,7 +520,14 @@ export default function StaffDashboard() {
               </Card>
             </div>
           </>
-        ) : null}
+        ) : (
+          <StaffActionQueue
+            actionItems={actionItems}
+            actionableItems={actionableItems}
+            actionCountsAvailable={actionCountsAvailable}
+            loading={loading}
+          />
+        )}
 
         <section className="staff-tool-section">
           <div className="staff-tool-heading">

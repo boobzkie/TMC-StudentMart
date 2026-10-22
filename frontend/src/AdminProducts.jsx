@@ -15,7 +15,9 @@ import {
 } from "lucide-react";
 
 import AdminLayout from "./components/AdminLayout";
-import { API_URL, SERVER_URL } from "./utils/api";
+import AdminPageHero from "./components/AdminPageHero";
+import { SortableHead } from "./ui/Table";
+import { API_URL, SERVER_URL, sortRows } from "./utils/api";
 
 import "./AdminProducts.css";
 
@@ -24,6 +26,7 @@ export default function AdminProducts() {
   const navigate = useNavigate();
 
   const [products, setProducts] = useState([]);
+  const [sort, setSort] = useState({ key: "created_at", direction: "desc" });
 
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
@@ -35,6 +38,17 @@ export default function AdminProducts() {
 
   const [actionLoading, setActionLoading] =
     useState(null);
+
+  const toggleSort = (key) => setSort((current) => ({ key, direction: current.key === key && current.direction === "asc" ? "desc" : "asc" }));
+  const sortedProducts = sortRows(products, sort, (product, key) => ({
+    name: product.name,
+    seller: product.seller?.name || product.seller_name || product.user?.name,
+    category: product.category?.name || product.category_name || product.category,
+    price: Number.parseFloat(String(product.price ?? "").replace(/[^0-9.-]/g, "")),
+    quantity: Number(product.quantity),
+    status: product.status,
+    created_at: product.created_at,
+  })[key]);
 
   const loadProducts = async (
     showRefresh = false
@@ -522,43 +536,14 @@ export default function AdminProducts() {
 
       </div>
 
-      {/* HEADER */}
-      <div className="products-page-header">
-
-        <div>
-          <span className="products-count">
-            {products.length}
-          </span>
-
-          <span className="products-count-text">
-            {" "}
-            products found
-          </span>
-        </div>
-
-        <button
-          type="button"
-          className="products-refresh"
-          onClick={() =>
-            loadProducts(true)
-          }
-          disabled={refreshing}
-        >
-          <RefreshCw
-            size={16}
-            className={
-              refreshing
-                ? "products-spin"
-                : ""
-            }
-          />
-
-          {refreshing
-            ? "Refreshing..."
-            : "Refresh"}
-        </button>
-
-      </div>
+      <AdminPageHero
+        title="Product Management"
+        description="Review marketplace listings, manage product information, and maintain accurate inventory records."
+        icon={Package}
+        onRefresh={() => loadProducts(true)}
+        refreshing={refreshing}
+        meta={`${products.length} products found`}
+      />
 
       {/* ERROR */}
       {error && (
@@ -618,20 +603,20 @@ export default function AdminProducts() {
 
               <thead>
                 <tr>
-                  <th>PRODUCT</th>
-                  <th>SELLER</th>
-                  <th>CATEGORY</th>
-                  <th>PRICE</th>
-                  <th>QUANTITY</th>
-                  <th>STATUS</th>
-                  <th>DATE</th>
+                  <SortableHead field="name" sort={sort} onSort={toggleSort}>PRODUCT</SortableHead>
+                  <SortableHead field="seller" sort={sort} onSort={toggleSort}>SELLER</SortableHead>
+                  <SortableHead field="category" sort={sort} onSort={toggleSort}>CATEGORY</SortableHead>
+                  <SortableHead field="price" sort={sort} onSort={toggleSort}>PRICE</SortableHead>
+                  <SortableHead field="quantity" sort={sort} onSort={toggleSort}>QUANTITY</SortableHead>
+                  <SortableHead field="status" sort={sort} onSort={toggleSort}>STATUS</SortableHead>
+                  <SortableHead field="created_at" sort={sort} onSort={toggleSort}>DATE</SortableHead>
                   <th>ACTIONS</th>
                 </tr>
               </thead>
 
               <tbody>
 
-                {products.map(
+                {sortedProducts.map(
                   (product) => {
                     const imageUrl =
                       getImageUrl(

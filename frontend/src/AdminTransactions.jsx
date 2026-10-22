@@ -4,14 +4,16 @@ import {
   CheckCircle2,
   Clock3,
   Package,
-  RefreshCw,
+  CreditCard,
   Search,
   ShoppingBag,
   XCircle,
 } from "lucide-react";
 
 import AdminLayout from "./components/AdminLayout";
-import { API_URL } from "./utils/api";
+import AdminPageHero from "./components/AdminPageHero";
+import { SortableHead } from "./ui/Table";
+import { API_URL, sortRows } from "./utils/api";
 
 import "./AdminTransactions.css";
 
@@ -64,6 +66,7 @@ function statusLabel(status) {
 function AdminTransactions() {
   const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
+  const [sort, setSort] = useState({ key: "created_at", direction: "desc" });
   const [summary, setSummary] = useState({
     total_orders: 0,
     pending: 0,
@@ -86,6 +89,19 @@ function AdminTransactions() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
+
+  const toggleSort = (key) => setSort((current) => ({ key, direction: current.key === key && current.direction === "asc" ? "desc" : "asc" }));
+  const sortedOrders = sortRows(orders, sort, (order, key) => ({
+    order_number: order.order_number,
+    buyer: order.buyer?.name,
+    seller: order.seller?.name,
+    items: Array.isArray(order.items) ? order.items.map((item) => item.product_name).join(" ") : "",
+    total_amount: Number(order.total_amount),
+    payment_method: order.payment_method?.name,
+    pickup_location: order.pickup_location?.name,
+    status: order.status,
+    created_at: order.created_at,
+  })[key]);
 
   const loadOrders = useCallback(async (showRefresh = false) => {
     if (showRefresh) setRefreshing(true);
@@ -173,25 +189,13 @@ function AdminTransactions() {
   return (
     <AdminLayout title="Order Requests">
       <div className="transactions-page">
-        <section className="transactions-hero">
-          <div className="transactions-hero-content">
-            <div className="transactions-hero-icon"><ShoppingBag size={27} /></div>
-            <div>
-              <span className="transactions-eyebrow">MARKETPLACE</span>
-              <h2>Order Requests</h2>
-              <p>Review order status and the payment and pickup arrangements selected at checkout. Payment is not collected here.</p>
-            </div>
-          </div>
-          <button
-            type="button"
-            className="transactions-refresh-button"
-            onClick={() => void loadOrders(true)}
-            disabled={loading || refreshing}
-          >
-            <RefreshCw size={17} className={refreshing ? "is-spinning" : ""} />
-            <span>{refreshing ? "Refreshing" : "Refresh"}</span>
-          </button>
-        </section>
+        <AdminPageHero
+          title="Order Requests"
+          description="Review order status and the payment and pickup arrangements selected at checkout. Payment is not collected here."
+          icon={CreditCard}
+          onRefresh={() => loadOrders(true)}
+          refreshing={loading || refreshing}
+        />
 
         <section className="transactions-status-grid" aria-label="Order totals">
           {STATUS_CARDS.map(({ key, label, icon, tone }) => (
@@ -311,10 +315,10 @@ function AdminTransactions() {
             <div className="transactions-table-wrap">
               <table className="transactions-table">
                 <thead>
-                  <tr><th>Order</th><th>Buyer</th><th>Seller</th><th>Items</th><th>Total</th><th>Payment method</th><th>Pickup location</th><th>Status</th><th>Placed</th></tr>
+                  <tr><SortableHead field="order_number" sort={sort} onSort={toggleSort}>Order</SortableHead><SortableHead field="buyer" sort={sort} onSort={toggleSort}>Buyer</SortableHead><SortableHead field="seller" sort={sort} onSort={toggleSort}>Seller</SortableHead><SortableHead field="items" sort={sort} onSort={toggleSort}>Items</SortableHead><SortableHead field="total_amount" sort={sort} onSort={toggleSort}>Total</SortableHead><SortableHead field="payment_method" sort={sort} onSort={toggleSort}>Payment method</SortableHead><SortableHead field="pickup_location" sort={sort} onSort={toggleSort}>Pickup location</SortableHead><SortableHead field="status" sort={sort} onSort={toggleSort}>Status</SortableHead><SortableHead field="created_at" sort={sort} onSort={toggleSort}>Placed</SortableHead></tr>
                 </thead>
                 <tbody>
-                  {orders.map((order) => {
+                  {sortedOrders.map((order) => {
                     const buyer = order.buyer || {};
                     const seller = order.seller || {};
                     const items = Array.isArray(order.items) ? order.items : [];

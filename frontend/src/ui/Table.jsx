@@ -1,5 +1,18 @@
 import "./Table.css";
 
+export function SortableHead({ field, sort, onSort, children, className = "" }) {
+  const active = sort?.key === field;
+  const direction = active ? sort.direction : null;
+  return (
+    <th className={className} aria-sort={direction === "asc" ? "ascending" : direction === "desc" ? "descending" : "none"}>
+      <button type="button" className="table-sort-button" onClick={() => onSort(field)}>
+        <span>{children}</span>
+        <span className="table-sort-indicator" aria-hidden="true">{direction === "asc" ? "↑" : direction === "desc" ? "↓" : "↕"}</span>
+      </button>
+    </th>
+  );
+}
+
 function Table({ children, className = "", ...props }) {
   return (
     <div className={`tmc-table-wrap ${className}`.trim()} {...props}>

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { CheckCircle2, Edit3, Loader2, MapPin, Plus, RefreshCw, ShieldCheck, WalletCards, X } from "lucide-react";
+import { CheckCircle2, Edit3, Loader2, MapPin, Plus, SlidersHorizontal, WalletCards, X } from "lucide-react";
 
 import AdminLayout from "./components/AdminLayout";
+import AdminPageHero from "./components/AdminPageHero";
 import { API_URL, getAuthHeaders } from "./utils/api";
 
 import "./AdminOrderOptions.css";
@@ -218,18 +219,13 @@ export default function AdminOrderOptions() {
   return (
     <AdminLayout title="Payment & pickup setup" subtitle="Configure the manual order options students can choose.">
       <main className="order-options-page">
-        <header className="order-options-hero">
-          <div className="order-options-hero-icon"><ShieldCheck size={25} /></div>
-          <div>
-            <span className="order-options-eyebrow">ORDER AGREEMENTS</span>
-            <h1>Payment & pickup setup</h1>
-            <p>Only active options appear during student checkout. Saved orders keep the selected details as a snapshot.</p>
-          </div>
-          <button className="order-options-refresh" type="button" onClick={() => void loadOptions(true)} disabled={refreshing}>
-            {refreshing ? <Loader2 size={16} className="order-options-spin" /> : <RefreshCw size={16} />}
-            Refresh
-          </button>
-        </header>
+        <AdminPageHero
+          title="Payment & pickup setup"
+          description="Configure the manual order options students can choose. Saved orders keep their selected details as a snapshot."
+          icon={SlidersHorizontal}
+          onRefresh={() => loadOptions(true)}
+          refreshing={loading || refreshing}
+        />
 
         <div className="order-options-notice">
           <WalletCards size={19} />

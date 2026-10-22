@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Eye, Loader2, MessageSquareWarning, RefreshCw, Search, X } from "lucide-react";
+import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Eye, Loader2, MessageSquareWarning, Search, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import AdminLayout from "./components/AdminLayout";
+import AdminPageHero from "./components/AdminPageHero";
 import { API_URL } from "./utils/api";
 import "./StaffComplaints.css";
 
@@ -157,11 +158,13 @@ export default function StaffComplaints() {
   return (
     <AdminLayout title="Complaints" subtitle="Review reports submitted by students">
       <main className="staff-complaints-page">
-        <section className="staff-complaints-hero">
-          <div className="staff-complaints-hero-icon"><MessageSquareWarning size={24} /></div>
-          <div><span>STUDENT SUPPORT</span><h2>Complaint review</h2><p>Review the reported issue, keep private investigation notes, and send a response visible to the complainant.</p></div>
-          <button type="button" onClick={() => loadData()} disabled={refreshing}><RefreshCw size={16} />{refreshing ? "Refreshing…" : "Refresh"}</button>
-        </section>
+        <AdminPageHero
+          title="Complaint Review"
+          description="Review reported issues, keep private investigation notes, and send responses visible to complainants."
+          icon={MessageSquareWarning}
+          onRefresh={() => loadData()}
+          refreshing={loading || refreshing}
+        />
 
         {error && <div className="staff-complaints-error" role="alert"><AlertCircle size={17} />{error}<button type="button" onClick={() => setError("")} aria-label="Dismiss error"><X size={16} /></button></div>}
 

@@ -5,7 +5,6 @@ import {
   Loader2,
   Plus,
   Power,
-  RefreshCw,
   Search,
   Tags,
   Trash2,
@@ -14,7 +13,9 @@ import {
 } from "lucide-react";
 
 import AdminLayout from "./components/AdminLayout";
-import { API_URL } from "./utils/api";
+import AdminPageHero from "./components/AdminPageHero";
+import { SortableHead } from "./ui/Table";
+import { API_URL, sortRows } from "./utils/api";
 
 import "./AdminCategories.css";
 
@@ -33,6 +34,7 @@ function getToken() {
 
 export default function AdminCategories() {
   const [categories, setCategories] = useState([]);
+  const [sort, setSort] = useState({ key: "name", direction: "asc" });
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
@@ -51,6 +53,16 @@ export default function AdminCategories() {
 
   const [deletingId, setDeletingId] = useState(null);
   const [togglingId, setTogglingId] = useState(null);
+
+  const toggleSort = (key) => setSort((current) => ({ key, direction: current.key === key && current.direction === "asc" ? "desc" : "asc" }));
+  const sortedCategories = sortRows(categories, sort, (category, key) => ({
+    name: category.name,
+    description: category.description,
+    listings: category.listings_count ?? category.products_count,
+    archived: category.archived_count,
+    status: category.status,
+    updated_at: category.updated_at,
+  })[key]);
 
   const clearMessages = () => {
     setError("");
@@ -497,43 +509,19 @@ export default function AdminCategories() {
     >
       <div className="categories-page">
 
-        {/* HEADER */}
-        <section className="categories-hero">
-
-          <div className="categories-hero-content">
-
-            <div className="categories-icon">
-              <Tags size={26} />
-            </div>
-
-            <div>
-              <span className="categories-eyebrow">
-                MARKETPLACE MANAGEMENT
-              </span>
-
-              <h2>
-                Product Categories
-              </h2>
-
-              <p>
-                Organize products into clear
-                and manageable marketplace
-                categories.
-              </p>
-            </div>
-
-          </div>
-
-          <button
-            type="button"
-            className="category-primary-button"
-            onClick={openCreateModal}
-          >
-            <Plus size={18} />
-            <span>Add Category</span>
-          </button>
-
-        </section>
+        <AdminPageHero
+          title="Product Categories"
+          description="Organize products into clear and manageable marketplace categories."
+          icon={Tags}
+          onRefresh={() => loadCategories(true)}
+          refreshing={loading || refreshing}
+          actions={(
+            <button type="button" className="admin-page-hero-primary" onClick={openCreateModal}>
+              <Plus size={17} aria-hidden="true" />
+              Add Category
+            </button>
+          )}
+        />
 
         {/* ALERTS */}
         {error && (
@@ -704,32 +692,6 @@ export default function AdminCategories() {
                 </option>
               </select>
 
-              <button
-                type="button"
-                className="category-refresh-button"
-                onClick={() =>
-                  loadCategories(true)
-                }
-                disabled={
-                  loading ||
-                  refreshing
-                }
-                aria-label="Refresh categories"
-              >
-                <RefreshCw
-                  size={17}
-                  className={
-                    refreshing
-                      ? "spin"
-                      : ""
-                  }
-                />
-
-                <span>
-                  Refresh
-                </span>
-              </button>
-
             </div>
 
           </div>
@@ -778,29 +740,17 @@ export default function AdminCategories() {
 
                 <thead>
                   <tr>
-                    <th>
-                      Category
-                    </th>
+                    <SortableHead field="name" sort={sort} onSort={toggleSort}>Category</SortableHead>
 
-                    <th>
-                      Description
-                    </th>
+                    <SortableHead field="description" sort={sort} onSort={toggleSort}>Description</SortableHead>
 
-                    <th>
-                      Listings
-                    </th>
+                    <SortableHead field="listings" sort={sort} onSort={toggleSort}>Listings</SortableHead>
 
-                    <th>
-                      Archived
-                    </th>
+                    <SortableHead field="archived" sort={sort} onSort={toggleSort}>Archived</SortableHead>
 
-                    <th>
-                      Status
-                    </th>
+                    <SortableHead field="status" sort={sort} onSort={toggleSort}>Status</SortableHead>
 
-                    <th>
-                      Updated
-                    </th>
+                    <SortableHead field="updated_at" sort={sort} onSort={toggleSort}>Updated</SortableHead>
 
                     <th className="actions-column">
                       Actions
@@ -809,7 +759,7 @@ export default function AdminCategories() {
                 </thead>
 
                 <tbody>
-                  {categories.map(
+                  {sortedCategories.map(
                     (category) => (
                       <tr
                         key={

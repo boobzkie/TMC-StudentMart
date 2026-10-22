@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { Activity, AlertCircle, BarChart3, FileBarChart, RefreshCw } from "lucide-react";
+import { Activity, AlertCircle, BarChart3, FileBarChart } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import AdminLayout from "./components/AdminLayout";
+import AdminPageHero from "./components/AdminPageHero";
 import { API_URL } from "./utils/api";
 import "./StaffInsights.css";
 
@@ -84,11 +85,13 @@ export default function StaffInsights({ mode = "reports" }) {
   return (
     <AdminLayout title={isAnalytics ? "Staff Analytics" : "Staff Reports"} subtitle="Product review and student complaint activity">
       <main className="staff-insights-page">
-        <section className="staff-insights-hero">
-          <span className="staff-insights-icon">{isAnalytics ? <BarChart3 size={22} /> : <FileBarChart size={22} />}</span>
-          <div><span>{isAnalytics ? "WORKLOAD TRENDS" : "OPERATIONAL REPORTS"}</span><h2>{isAnalytics ? "Product and complaint analytics" : "Product and complaint report"}</h2><p>Totals use marketplace submissions, moderation history, and complaint records from the selected dates.</p></div>
-          <button type="button" onClick={load} disabled={loading}><RefreshCw size={16} />Refresh</button>
-        </section>
+        <AdminPageHero
+          title={isAnalytics ? "Product and complaint analytics" : "Product and complaint report"}
+          description="Review product and complaint activity from the selected date range."
+          icon={isAnalytics ? BarChart3 : FileBarChart}
+          onRefresh={load}
+          refreshing={loading}
+        />
 
         <form className="staff-insights-filters" onSubmit={(event) => { event.preventDefault(); load(); }}>
           <label>From<input type="date" value={from} max={to} onChange={(event) => setFrom(event.target.value)} required /></label>

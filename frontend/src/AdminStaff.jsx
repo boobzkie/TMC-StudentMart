@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, RefreshCw, UserRoundCog, Clock3, CheckCircle2, XCircle, ShieldCheck, Eye, FileText, ChevronLeft, ChevronRight, UserPlus, Archive, PauseCircle, RotateCcw } from "lucide-react";
+import { Search, UserRoundCog, Clock3, CheckCircle2, XCircle, ShieldCheck, Eye, FileText, ChevronLeft, ChevronRight, UserPlus, Archive, PauseCircle, RotateCcw } from "lucide-react";
 import AdminLayout from "./components/AdminLayout";
-import { API_URL, SERVER_URL } from "./utils/api";
+import AdminPageHero from "./components/AdminPageHero";
+import { SortableHead } from "./ui/Table";
+import { API_URL, SERVER_URL, sortRows } from "./utils/api";
 import "./AdminStaff.css";
 
 const DEPARTMENTS = ["BSIT", "BSOA", "BSCRIM", "BSED", "CAS"];
@@ -51,6 +53,7 @@ export default function AdminStaff() {
   const [status, setStatus] = useState(() => new URLSearchParams(window.location.search).get("status") || "");
   const [employmentStatus, setEmploymentStatus] = useState("");
   const [page, setPage] = useState(1);
+  const [sort, setSort] = useState({ key: "created_at", direction: "desc" });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
@@ -63,6 +66,21 @@ export default function AdminStaff() {
   const [rejectReason, setRejectReason] = useState("");
   const [showCreate, setShowCreate] = useState(false);
   const [createForm, setCreateForm] = useState(INITIAL_CREATE);
+
+  const toggleSort = (key) => setSort((current) => ({ key, direction: current.key === key && current.direction === "asc" ? "desc" : "asc" }));
+  const sortedStaff = sortRows(staff, sort, (item, key) => ({
+    employee_id: item.profile?.employee_id,
+    name: item.name,
+    department: item.profile?.department,
+    position: item.profile?.position,
+    employment_status: item.profile?.employment_status,
+    role: item.role,
+    approval_status: item.approval_status,
+    account_status: item.account_status,
+    presence: item.presence,
+    last_seen_at: item.last_seen_at,
+    created_at: item.created_at,
+  })[key]);
   const backgroundLoadRef = useRef(false);
 
   const loadStaff = useCallback(async (showRefresh = false, background = false) => {
@@ -185,7 +203,14 @@ export default function AdminStaff() {
 
   return <AdminLayout title="Manage Staff" subtitle="Review applications and manage approved Staff access">
     <section className="staff-management-page">
-      <div className="staff-page-header"><div><span className="staff-page-eyebrow">STAFF DIRECTORY</span><h2>Staff applications and accounts</h2><p>Review submitted employment details, grant specific access, and keep an audit trail.</p></div><div className="staff-header-actions"><button type="button" className="staff-refresh-button" onClick={() => loadStaff(true)} disabled={refreshing}><RefreshCw size={16} />{refreshing ? "Refreshing…" : "Refresh"}</button><button type="button" className="staff-create-button" onClick={() => setShowCreate(true)}><UserPlus size={16} />Create Staff account</button></div></div>
+      <AdminPageHero
+        title="Staff applications and accounts"
+        description="Review submitted employment details, grant specific access, and keep an audit trail."
+        icon={UserRoundCog}
+        onRefresh={() => loadStaff(true)}
+        refreshing={loading || refreshing}
+        actions={<button type="button" className="admin-page-hero-primary" onClick={() => setShowCreate(true)}><UserPlus size={17} aria-hidden="true" />Create Staff account</button>}
+      />
       {notice && <div className="staff-notice" role="status">{notice}<button type="button" onClick={() => setNotice("")} aria-label="Dismiss message">×</button></div>}
       {error && <div className="staff-error" role="alert">{error}<button type="button" onClick={() => setError("")} aria-label="Dismiss error">×</button></div>}
       <div className="staff-overview-grid">{cards.map((card) => { const Icon = card.icon; return <article className={"staff-overview-card " + card.tone} key={card.label}><span className="staff-overview-icon"><Icon size={19} /></span><span>{card.label}</span><strong>{card.value ?? 0}</strong></article>; })}</div>
@@ -197,7 +222,7 @@ export default function AdminStaff() {
         <button type="submit" className="staff-filter-button"><Search size={15} />Search</button>
       </form>
       <div className="staff-table-card">
-        {loading ? <div className="staff-table-state">Loading Staff records…</div> : staff.length === 0 ? <div className="staff-table-state"><UserRoundCog size={31} /><h3>No Staff records found</h3><p>Try changing your search or filters.</p></div> : <div className="staff-table-wrap"><table className="staff-table"><thead><tr><th>EMPLOYEE ID</th><th>STAFF MEMBER</th><th>DEPARTMENT</th><th>POSITION</th><th>EMPLOYMENT</th><th>ROLE</th><th>APPROVAL</th><th>ACCOUNT</th><th>PRESENCE</th><th>LAST SEEN</th><th>REGISTERED</th><th>ACTIONS</th></tr></thead><tbody>{staff.map((item) => <tr key={item.id}><td>{item.profile?.employee_id || "—"}</td><td><div className="staff-identity"><span className="staff-avatar" aria-hidden="true"><span>{userInitials(item.name)}</span>{item.profile_picture && <img src={profilePhotoUrl(item.profile_picture)} alt="" onError={(event) => { event.currentTarget.hidden = true; }} />}</span><div><strong>{item.name || "—"}</strong><small>{item.email}</small></div></div></td><td>{item.profile?.department || "—"}</td><td>{item.profile?.position || "—"}</td><td>{item.profile?.employment_status || "—"}</td><td>{statusLabel(item.role || "staff")}</td><td><span className={"staff-status-pill " + statusClass(item.approval_status)}>{statusLabel(item.approval_status)}</span></td><td><span className={"staff-status-pill account-status " + statusClass(item.account_status)}>{statusLabel(item.account_status)}</span></td><td><span className={"staff-presence-pill " + (item.presence === "online" ? "online" : "offline")} aria-label={"Presence: " + (item.presence === "online" ? "Online" : "Offline")}><span className="staff-presence-dot" aria-hidden="true" />{item.presence === "online" ? "Online" : "Offline"}</span></td><td><time dateTime={item.last_seen_at || undefined}>{formatLastSeen(item.last_seen_at)}</time></td><td>{formatDate(item.created_at)}</td><td><button type="button" className="staff-row-action" onClick={() => viewStaff(item)} aria-label={"View " + item.name}><Eye size={16} />Details</button></td></tr>)}</tbody></table></div>}
+        {loading ? <div className="staff-table-state">Loading Staff records…</div> : staff.length === 0 ? <div className="staff-table-state"><UserRoundCog size={31} /><h3>No Staff records found</h3><p>Try changing your search or filters.</p></div> : <div className="staff-table-wrap"><table className="staff-table"><thead><tr><SortableHead field="employee_id" sort={sort} onSort={toggleSort}>EMPLOYEE ID</SortableHead><SortableHead field="name" sort={sort} onSort={toggleSort}>STAFF MEMBER</SortableHead><SortableHead field="department" sort={sort} onSort={toggleSort}>DEPARTMENT</SortableHead><SortableHead field="position" sort={sort} onSort={toggleSort}>POSITION</SortableHead><SortableHead field="employment_status" sort={sort} onSort={toggleSort}>EMPLOYMENT</SortableHead><SortableHead field="role" sort={sort} onSort={toggleSort}>ROLE</SortableHead><SortableHead field="approval_status" sort={sort} onSort={toggleSort}>APPROVAL</SortableHead><SortableHead field="account_status" sort={sort} onSort={toggleSort}>ACCOUNT</SortableHead><SortableHead field="presence" sort={sort} onSort={toggleSort}>PRESENCE</SortableHead><SortableHead field="last_seen_at" sort={sort} onSort={toggleSort}>LAST SEEN</SortableHead><SortableHead field="created_at" sort={sort} onSort={toggleSort}>REGISTERED</SortableHead><th>ACTIONS</th></tr></thead><tbody>{sortedStaff.map((item) => <tr key={item.id}><td>{item.profile?.employee_id || "—"}</td><td><div className="staff-identity"><span className="staff-avatar" aria-hidden="true"><span>{userInitials(item.name)}</span>{item.profile_picture && <img src={profilePhotoUrl(item.profile_picture)} alt="" onError={(event) => { event.currentTarget.hidden = true; }} />}</span><div><strong>{item.name || "—"}</strong><small>{item.email}</small></div></div></td><td>{item.profile?.department || "—"}</td><td>{item.profile?.position || "—"}</td><td>{item.profile?.employment_status || "—"}</td><td>{statusLabel(item.role || "staff")}</td><td><span className={"staff-status-pill " + statusClass(item.approval_status)}>{statusLabel(item.approval_status)}</span></td><td><span className={"staff-status-pill account-status " + statusClass(item.account_status)}>{statusLabel(item.account_status)}</span></td><td><span className={"staff-presence-pill " + (item.presence === "online" ? "online" : "offline")} aria-label={"Presence: " + (item.presence === "online" ? "Online" : "Offline")}><span className="staff-presence-dot" aria-hidden="true" />{item.presence === "online" ? "Online" : "Offline"}</span></td><td><time dateTime={item.last_seen_at || undefined}>{formatLastSeen(item.last_seen_at)}</time></td><td>{formatDate(item.created_at)}</td><td><button type="button" className="staff-row-action" onClick={() => viewStaff(item)} aria-label={"View " + item.name}><Eye size={16} />Details</button></td></tr>)}</tbody></table></div>}
       </div>
       <div className="staff-pagination"><span>{pagination.total || 0} records · Page {pagination.current_page || 1} of {pagination.last_page || 1}</span><div><button type="button" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={page <= 1}><ChevronLeft size={16} />Previous</button><button type="button" onClick={() => setPage((current) => Math.min(pagination.last_page || 1, current + 1))} disabled={page >= (pagination.last_page || 1)}>Next<ChevronRight size={16} /></button></div></div>
     </section>

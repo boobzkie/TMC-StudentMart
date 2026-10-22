@@ -3,9 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { AlertCircle, Search, Eye, MessageSquareWarning, ShieldAlert, CheckCircle2, XCircle } from "lucide-react";
 
 import AdminLayout from "./components/AdminLayout";
-import { API_URL } from "./utils/api";
+import AdminPageHero from "./components/AdminPageHero";
+import { SortableHead } from "./ui/Table";
+import { API_URL, sortRows } from "./utils/api";
 
-import { Badge, Button, SectionHeader, EmptyState, LoadingSpinner, StatCard } from "./ui";
+import { Badge, Button, EmptyState, LoadingSpinner, StatCard } from "./ui";
 
 import "./AdminComplaints.css";
 
@@ -36,6 +38,7 @@ export default function AdminComplaints() {
   });
 
   const [complaints, setComplaints] = useState([]);
+  const [sort, setSort] = useState({ key: "created_at", direction: "desc" });
   const [pagination, setPagination] = useState({
     current_page: 1,
     last_page: 1,
@@ -58,6 +61,15 @@ export default function AdminComplaints() {
 
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  const toggleSort = (key) => setSort((current) => ({ key, direction: current.key === key && current.direction === "asc" ? "desc" : "asc" }));
+  const sortedComplaints = sortRows(complaints, sort, (complaint, key) => ({
+    id: complaint.id,
+    student: complaint.student_name || complaint.student?.name,
+    subject: complaint.subject,
+    status: complaint.status,
+    created_at: complaint.created_at,
+  })[key]);
 
   const getToken = () => {
     return localStorage.getItem("token");
@@ -287,12 +299,12 @@ export default function AdminComplaints() {
   return (
     <AdminLayout title="Complaints" subtitle="Review and manage marketplace complaints.">
       <div className="complaints-page">
-        <SectionHeader
+        <AdminPageHero
           title="Complaints"
-          subtitle="Complaints Management"
-          action={handleRefresh}
-          actionLabel={refreshing ? "Refreshing…" : "Refresh"}
-          actionVariant="outline"
+          description="Review student reports, manage investigations, and track complaint outcomes."
+          icon={MessageSquareWarning}
+          onRefresh={handleRefresh}
+          refreshing={loading || refreshing}
         />
 
         {error && (
@@ -367,16 +379,16 @@ export default function AdminComplaints() {
               <table className="complaints-table">
                 <thead>
                   <tr>
-                    <th>ID</th>
-                    <th>Student</th>
-                    <th>Subject</th>
-                    <th>Status</th>
-                    <th>Submitted</th>
+                    <SortableHead field="id" sort={sort} onSort={toggleSort}>ID</SortableHead>
+                    <SortableHead field="student" sort={sort} onSort={toggleSort}>Student</SortableHead>
+                    <SortableHead field="subject" sort={sort} onSort={toggleSort}>Subject</SortableHead>
+                    <SortableHead field="status" sort={sort} onSort={toggleSort}>Status</SortableHead>
+                    <SortableHead field="created_at" sort={sort} onSort={toggleSort}>Submitted</SortableHead>
                     <th className="actions-column">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {complaints.map((complaint) => (
+                  {sortedComplaints.map((complaint) => (
                     <tr key={complaint.id}>
                       <td>#{complaint.id}</td>
                       <td className="complaint-student-cell">

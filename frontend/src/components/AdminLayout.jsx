@@ -2,10 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   BarChart3,
+  Bell,
   ChevronDown,
   ChevronLeft,
   CreditCard,
-
   ChevronRight,
   FileBarChart,
   FileClock,
@@ -60,6 +60,7 @@ const insightLinks = [
   { to: "/admin/reports", label: "Reports", icon: FileBarChart },
   { to: "/admin/analytics", label: "Analytics", icon: BarChart3 },
   { to: "/admin/activity-logs", label: "Activity Logs", icon: FileClock },
+  { to: "/admin/notifications", label: "Notifications", icon: Bell },
   { to: "/admin/complaints", label: "Complaints", icon: MessageSquareWarning },
 ];
 
@@ -83,7 +84,6 @@ function userInitials(name) {
 export default function AdminLayout({
   children,
   title = "Dashboard",
-  subtitle = "TMC StudentMart Administration",
 }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -197,6 +197,84 @@ export default function AdminLayout({
   const avatarUrl = profilePhotoUrl(storedUser.profile_picture);
   const initials = userInitials(displayName);
 
+  const marketplaceItems = isStaff
+    ? (staffCanModerateProducts
+        ? [{ to: "/staff/product-moderation", label: "Product Moderation", icon: ShieldAlert }]
+        : [])
+    : marketplaceLinks;
+  const insightItems = isStaff
+    ? [
+        ...(staffCanViewReports ? [{ to: "/staff/reports", label: "Reports", icon: FileBarChart }] : []),
+        ...(staffCanViewAnalytics ? [{ to: "/staff/analytics", label: "Analytics", icon: BarChart3 }] : []),
+      ]
+    : insightLinks;
+  const accountItems = isStaff
+    ? (staffCanManageStudents
+        ? [{ to: "/staff/users", label: "Student Accounts", icon: Users }]
+        : [])
+    : [
+        { to: "/admin/users", label: "User Management", icon: Users },
+        { to: "/admin/staff", label: "Staff Management", icon: UserRoundCog },
+      ];
+
+  const navSections = [
+    {
+      id: "dashboard",
+      label: "Dashboard",
+      heading: "OVERVIEW",
+      icon: LayoutDashboard,
+      items: [{
+        to: dashboardPath,
+        matchPaths: [isStaff ? "/staff" : "/admin"],
+        label: "Dashboard",
+        icon: LayoutDashboard,
+      }],
+    },
+    ...(marketplaceItems.length
+      ? [{ id: "marketplace", label: "Marketplace", heading: "MARKETPLACE", icon: Store, items: marketplaceItems }]
+      : []),
+    ...(insightItems.length
+      ? [{ id: "insights", label: "Reports & Analytics", heading: "REPORTS & ANALYTICS", icon: BarChart3, items: insightItems }]
+      : []),
+    ...(isStaff && staffCanManageComplaints
+      ? [{
+          id: "support",
+          label: "Student Support",
+          heading: "STUDENT SUPPORT",
+          icon: MessageSquareWarning,
+          items: [{ to: "/staff/complaints", label: "Complaints", icon: MessageSquareWarning }],
+        }]
+      : []),
+    ...(accountItems.length
+      ? [{ id: "accounts", label: "Account Management", heading: "ACCOUNT MANAGEMENT", icon: UserRoundCog, items: accountItems }]
+      : []),
+    {
+      id: "settings",
+      label: "Settings",
+      heading: "SETTINGS",
+      icon: Settings,
+      items: [{ to: settingsPath, label: "My Profile", icon: Settings }],
+    },
+  ];
+  const routeMatchesItem = (item) => (
+    location.pathname === item.to ||
+    item.matchPaths?.includes(location.pathname) ||
+    location.pathname.startsWith(`${item.to}/`)
+  );
+  const routeSection = navSections.find((section) => section.items.some(routeMatchesItem));
+  const [sectionSelection, setSectionSelection] = useState(null);
+  const selectedSection = navSections.find((section) => (
+    section.id === sectionSelection?.id && sectionSelection.locationKey === location.key
+  ))
+    || routeSection
+    || navSections[0];
+
+  useEffect(() => {
+    const clearManualSectionOnHistoryNavigation = () => setSectionSelection(null);
+    window.addEventListener("popstate", clearManualSectionOnHistoryNavigation);
+    return () => window.removeEventListener("popstate", clearManualSectionOnHistoryNavigation);
+  }, []);
+
   const closeMobile = () => setMobileOpen(false);
 
   const handleLogout = async () => {
@@ -239,39 +317,26 @@ export default function AdminLayout({
 
   const renderLink = (item) => {
     const Icon = item.icon;
+    const isActive = routeMatchesItem(item);
     return (
       <NavLink
         key={item.to}
         to={item.to}
-        onClick={closeMobile}
+        end
+        onClick={() => {
+          setSectionSelection(null);
+          closeMobile();
+        }}
         title={item.label}
         aria-label={item.label}
-        className={({ isActive }) => {
-          const isCurrentDashboard = item.to === dashboardPath &&
-            location.pathname === (isStaff ? "/staff" : "/admin");
-          return "admin-nav-link" + (isActive || isCurrentDashboard ? " active" : "");
-        }}
+        aria-current={isActive ? "page" : undefined}
+        className={"admin-nav-link" + (isActive ? " active" : "")}
       >
         <Icon size={19} aria-hidden="true" />
         <span>{item.label}</span>
       </NavLink>
     );
   };
-
-  const railLinks = isStaff
-    ? [
-        { to: dashboardPath, label: "Dashboard", icon: LayoutDashboard },
-        ...(staffCanManageStudents ? [{ to: "/staff/users", label: "Manage Student Accounts", icon: Users }] : []),
-        ...(staffCanModerateProducts ? [{ to: "/staff/product-moderation", label: "Product Moderation", icon: ShieldAlert }] : []),
-        ...(staffCanManageComplaints ? [{ to: "/staff/complaints", label: "Complaints", icon: MessageSquareWarning }] : []),
-        ...(staffCanViewReports ? [{ to: "/staff/reports", label: "Reports", icon: FileBarChart }] : []),
-        ...(staffCanViewAnalytics ? [{ to: "/staff/analytics", label: "Analytics", icon: BarChart3 }] : []),
-      ]
-    : [
-        { to: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
-        { to: "/admin/analytics", label: "Analytics", icon: BarChart3 },
-        { to: "/admin/users", label: "User Management", icon: Users },
-      ];
 
   return (
     <div
@@ -299,37 +364,38 @@ export default function AdminLayout({
         >
           <img src="/assets/tmc-logo.png" alt="" />
         </Link>
-        <nav className="admin-icon-navigation" aria-label="Quick links">
-          {railLinks.map((item) => {
-            const Icon = item.icon;
+        <nav className="admin-icon-navigation" aria-label="Navigation sections">
+          {navSections.map((section) => {
+            const Icon = section.icon;
+            const isSelected = selectedSection?.id === section.id;
             return (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                title={item.label}
-                aria-label={item.label}
-                onClick={closeMobile}
-                className={({ isActive }) => {
-                  const isCurrentDashboard = item.to === dashboardPath &&
-                    location.pathname === (isStaff ? "/staff" : "/admin");
-                  return "admin-rail-link" + (isActive || isCurrentDashboard ? " active" : "");
-                }}
+              <button
+                key={section.id}
+                type="button"
+                className={"admin-rail-link" + (isSelected ? " active" : "")}
+                title={section.label}
+                aria-label={section.label}
+                aria-pressed={isSelected}
+                onClick={() => setSectionSelection({ locationKey: location.key, id: section.id })}
               >
                 <Icon size={20} aria-hidden="true" />
-              </NavLink>
+              </button>
             );
           })}
         </nav>
         <div className="admin-rail-footer">
-          <Link
-            to={settingsPath}
-            className="admin-rail-link"
-            title="Account settings"
-            aria-label="Account settings"
-            onClick={closeMobile}
+          <button
+            type="button"
+            className="admin-rail-link admin-rail-toggle"
+            onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
+            aria-label={sidebarCollapsed ? "Expand contextual sidebar" : "Collapse contextual sidebar"}
+            aria-expanded={!sidebarCollapsed}
+            title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
-            <Settings size={19} aria-hidden="true" />
-          </Link>
+            {sidebarCollapsed
+              ? <ChevronRight size={19} aria-hidden="true" />
+              : <ChevronLeft size={19} aria-hidden="true" />}
+          </button>
         </div>
       </aside>
 
@@ -346,17 +412,6 @@ export default function AdminLayout({
               <span>{isStaff ? "STAFF WORKSPACE" : "ADMIN PORTAL"}</span>
             </span>
           </Link>
-          <button
-            type="button"
-            className="admin-sidebar-collapse"
-            onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
-            aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            aria-controls="admin-navigation"
-            aria-expanded={!sidebarCollapsed}
-            title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          >
-            {sidebarCollapsed ? <ChevronRight size={18} aria-hidden="true" /> : <ChevronLeft size={18} aria-hidden="true" />}
-          </button>
           <button
             type="button"
             className="admin-mobile-close"
@@ -384,60 +439,31 @@ export default function AdminLayout({
           </div>
         </div>
 
-        <nav className="admin-navigation" id="admin-navigation" aria-label="Main navigation">
-          <div className="admin-nav-section">
-            <span className="admin-nav-label">OVERVIEW</span>
-            {renderLink({ to: dashboardPath, label: "Dashboard", icon: LayoutDashboard })}
-          </div>
+        <nav className="admin-mobile-sections" aria-label="Navigation sections">
+          {navSections.map((section) => {
+            const Icon = section.icon;
+            const isSelected = selectedSection?.id === section.id;
+            return (
+              <button
+                key={section.id}
+                type="button"
+                className={"admin-mobile-section-button" + (isSelected ? " active" : "")}
+                aria-pressed={isSelected}
+                onClick={() => setSectionSelection({ locationKey: location.key, id: section.id })}
+              >
+                <Icon size={15} aria-hidden="true" />
+                <span>{section.label}</span>
+              </button>
+            );
+          })}
+        </nav>
 
-          {isStaff ? (
-            <>
-              {staffCanManageStudents && (
-                <div className="admin-nav-section">
-                  <span className="admin-nav-label">STUDENT ACCOUNTS</span>
-                  {renderLink({ to: "/staff/users", label: "Student Accounts", icon: Users })}
-                </div>
-              )}
-              {staffCanModerateProducts && (
-                <div className="admin-nav-section">
-                  <span className="admin-nav-label">MARKETPLACE</span>
-                  {renderLink({ to: "/staff/product-moderation", label: "Product Moderation", icon: ShieldAlert })}
-                </div>
-              )}
-              {staffCanManageComplaints && (
-                <div className="admin-nav-section">
-                  <span className="admin-nav-label">STUDENT SUPPORT</span>
-                  {renderLink({ to: "/staff/complaints", label: "Complaints", icon: MessageSquareWarning })}
-                </div>
-              )}
-              {(staffCanViewReports || staffCanViewAnalytics) && (
-                <div className="admin-nav-section">
-                  <span className="admin-nav-label">REPORTS &amp; ANALYTICS</span>
-                  {staffCanViewReports && renderLink({ to: "/staff/reports", label: "Reports", icon: FileBarChart })}
-                  {staffCanViewAnalytics && renderLink({ to: "/staff/analytics", label: "Analytics", icon: BarChart3 })}
-                </div>
-              )}
-              <div className="admin-nav-section">
-                <span className="admin-nav-label">YOUR ACCOUNT</span>
-                {renderLink({ to: settingsPath, label: "My Profile", icon: Settings })}
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="admin-nav-section">
-                <span className="admin-nav-label">MARKETPLACE</span>
-                {marketplaceLinks.map(renderLink)}
-              </div>
-              <div className="admin-nav-section">
-                <span className="admin-nav-label">REPORTS &amp; ANALYTICS</span>
-                {insightLinks.map(renderLink)}</div>
-              <div className="admin-nav-section">
-                <span className="admin-nav-label">ACCOUNT MANAGEMENT</span>
-                {renderLink({ to: "/admin/users", label: "User Management", icon: Users })}
-                {renderLink({ to: "/admin/staff", label: "Staff Management", icon: UserRoundCog })}
-                {renderLink({ to: settingsPath, label: "My Profile", icon: Settings })}
-              </div>
-            </>
+        <nav className="admin-navigation" id="admin-navigation" aria-label="Main navigation">
+          {selectedSection && (
+            <div className="admin-nav-section">
+              <span className="admin-nav-label">{selectedSection.heading}</span>
+              {selectedSection.items.map(renderLink)}
+            </div>
           )}
         </nav>
 
@@ -459,7 +485,6 @@ export default function AdminLayout({
       <div className="admin-main">
         <header className="admin-header">
           <div className="admin-header-left">
-
             <button
               type="button"
               className="admin-mobile-menu"
@@ -470,7 +495,6 @@ export default function AdminLayout({
             >
               <Menu size={21} aria-hidden="true" />
             </button>
-            <img className="admin-header-logo" src="/assets/tmc-logo.png" alt="" aria-hidden="true" />
             <div className="admin-page-heading">
               <nav className="admin-breadcrumbs" aria-label="Breadcrumb">
                 <Link to={dashboardPath}>{isStaff ? "Staff workspace" : "TMC StudentMart"}</Link>
@@ -478,7 +502,6 @@ export default function AdminLayout({
                 <span aria-current="page">{title}</span>
               </nav>
               <h1>{title}</h1>
-              <p>{subtitle}</p>
             </div>
           </div>
 
@@ -499,6 +522,7 @@ export default function AdminLayout({
               <button
                 type="button"
                 className="admin-account"
+                aria-label={`${displayName} account menu`}
                 aria-haspopup="menu"
                 aria-expanded={profileMenuOpen}
                 aria-controls="admin-profile-menu"

@@ -11,7 +11,6 @@ import {
   CheckCircle2,
   Clock3,
   Package,
-  RefreshCw,
   ShieldCheck,
   TrendingUp,
   Users,
@@ -23,6 +22,7 @@ import {
 import { useNavigate } from "react-router-dom";
 
 import AdminLayout from "./components/AdminLayout";
+import AdminPageHero from "./components/AdminPageHero";
 import { API_URL } from "./utils/api";
 
 import "./AdminAnalytics.css";
@@ -452,66 +452,13 @@ function AdminAnalytics() {
     >
       <div className="analytics-page">
 
-        {/* =================================================
-            HERO
-        ================================================= */}
-
-        <section className="analytics-hero">
-
-          <div className="analytics-hero-decoration analytics-decoration-one" />
-
-          <div className="analytics-hero-decoration analytics-decoration-two" />
-
-          <div className="analytics-hero-content">
-
-            <div className="analytics-hero-icon">
-              <BarChart3
-                size={25}
-                strokeWidth={2}
-              />
-            </div>
-
-            <div>
-              <span className="analytics-eyebrow">
-                ADMIN ANALYTICS
-              </span>
-
-              <h1>
-                Marketplace Analytics
-              </h1>
-
-              <p>
-                Understand your current
-                users and product activity
-                using live marketplace data.
-              </p>
-            </div>
-
-          </div>
-
-          <button
-            type="button"
-            className="analytics-refresh-button"
-            onClick={() =>
-              loadAnalytics(true)
-            }
-            disabled={refreshing}
-          >
-            <RefreshCw
-              size={16}
-              className={
-                refreshing
-                  ? "analytics-spin"
-                  : ""
-              }
-            />
-
-            {refreshing
-              ? "Refreshing..."
-              : "Refresh Data"}
-          </button>
-
-        </section>
+        <AdminPageHero
+          title="Marketplace Analytics"
+          description="Understand user trends and marketplace activity with live operational data."
+          icon={BarChart3}
+          onRefresh={() => loadAnalytics(true)}
+          refreshing={refreshing}
+        />
 
         {/* =================================================
             ERROR

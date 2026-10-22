@@ -3,9 +3,10 @@ import { useNavigate } from "react-router-dom";
 import {
   Archive, BadgeCheck, BriefcaseBusiness, Camera, CheckCircle2, Eye, EyeOff,
   KeyRound, LockKeyhole, Mail, Package, Phone, RefreshCw, Save, ShieldCheck,
-  UserRound, UsersRound,
+  Settings, UserRound, UsersRound,
 } from "lucide-react";
 import AdminLayout from "./components/AdminLayout";
+import AdminPageHero from "./components/AdminPageHero";
 import { API_URL, SERVER_URL, getAuthHeaders } from "./utils/api";
 import "./AccountSettings.css";
 
@@ -186,6 +187,17 @@ export default function AccountSettings() {
     return () => window.clearTimeout(timer);
   }, [loadUser]);
 
+  const hasUnsavedChanges = JSON.stringify(form) !== JSON.stringify(makeProfileForm(user))
+    || Boolean(photo)
+    || Object.values(passwords).some(Boolean);
+  const refreshSettings = async () => {
+    if (section === "archives" && !isStaff) {
+      await loadArchives();
+      return;
+    }
+    await loadUser();
+  };
+
   const updateProfileField = (event) => {
     const { name, value } = event.target;
     setForm((current) => ({ ...current, [name]: value }));
@@ -272,14 +284,14 @@ export default function AccountSettings() {
   return (
     <AdminLayout title="Account Settings" subtitle="Manage your personal information and login security.">
       <section className="account-settings-page">
-        <div className="account-settings-intro">
-          <div className="account-settings-intro-icon"><UserRound size={22} aria-hidden="true" /></div>
-          <div>
-            <span className="account-settings-eyebrow">YOUR ACCOUNT</span>
-            <h2>Profile and security</h2>
-            <p>Update your personal details and keep your account secure.</p>
-          </div>
-        </div>
+        <AdminPageHero
+          title="Account Settings"
+          description="Manage your profile, sign-in security, and archived records available to your account."
+          icon={Settings}
+          onRefresh={refreshSettings}
+          refreshing={loading || archivesLoading || savingProfile || savingPassword || restoringProductId !== null}
+          refreshDisabled={hasUnsavedChanges}
+        />
 
         {loading && <div className="account-settings-notice" role="status">Loading account details…</div>}
 

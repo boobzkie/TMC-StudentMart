@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
+import { FileClock } from "lucide-react";
 import AdminLayout from "./components/AdminLayout";
+import AdminPageHero from "./components/AdminPageHero";
 import { API_URL } from "./utils/api";
 import "./AdminActivityLogs.css";
 
@@ -29,6 +31,7 @@ const toneLabel = (status) => {
 export default function AdminActivityLogs() {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
 
   const fetchLogs = useCallback(async () => {
@@ -48,6 +51,19 @@ export default function AdminActivityLogs() {
     return Array.isArray(data.stats && data.stats.recent_activity) ? data.stats.recent_activity : [];
   }, []);
 
+  const refreshLogs = async () => {
+    setRefreshing(true);
+    setError("");
+    try {
+      const nextLogs = await fetchLogs();
+      if (nextLogs !== null) setLogs(nextLogs);
+    } catch (err) {
+      setError(err.message || "We could not refresh activity logs. Please try again.");
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   useEffect(() => {
     let active = true;
     fetchLogs()
@@ -65,6 +81,13 @@ export default function AdminActivityLogs() {
   if (loading) {
     return (
       <AdminLayout title="Activity logs" subtitle="TMC StudentMart - administrator activity log">
+        <AdminPageHero
+          title="Activity Logs"
+          description="Review recent account, listing, order, and support activity across StudentMart."
+          icon={FileClock}
+          onRefresh={refreshLogs}
+          refreshing={loading || refreshing}
+        />
         <div style={{ padding: 40, textAlign: "center", color: "var(--tmc-text-muted)" }}>Loading activity logs...</div>
       </AdminLayout>
     );
@@ -72,6 +95,13 @@ export default function AdminActivityLogs() {
 
   return (
     <AdminLayout title="Activity logs" subtitle="TMC StudentMart - recent activity across users, listings, and orders">
+      <AdminPageHero
+        title="Activity Logs"
+        description="Review recent account, listing, order, and support activity across StudentMart."
+        icon={FileClock}
+        onRefresh={refreshLogs}
+        refreshing={refreshing}
+      />
       {error && (
         <div className="dashboard-error" role="alert" style={{ padding: 16, border: "1px solid var(--tmc-error-soft)", background: "var(--tmc-error-soft)", color: "var(--tmc-error)", borderRadius: "var(--tmc-radius-md)", marginBottom: 20, display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{ flex: 1 }}>

@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, RefreshCw, Users, UserRound, ShieldCheck, CheckCircle2, XCircle, UserX, Trash2, MoreHorizontal, ChevronLeft, ChevronRight, Pencil, BookOpen } from "lucide-react";
+import { Search, Users, UserRound, ShieldCheck, CheckCircle2, XCircle, UserX, Trash2, MoreHorizontal, ChevronLeft, ChevronRight, Pencil, BookOpen } from "lucide-react";
 import AdminLayout from "./components/AdminLayout";
-import { API_URL } from "./utils/api";
+import AdminPageHero from "./components/AdminPageHero";
+import { SortableHead } from "./ui/Table";
+import { API_URL, sortRows } from "./utils/api";
 import "./AdminUsers.css";
 
 const COURSES = [
@@ -29,6 +31,7 @@ export default function AdminUsers() {
   const [role, setRole] = useState("");
   const [status, setStatus] = useState("");
   const [course, setCourse] = useState("");
+  const [sort, setSort] = useState({ key: "created_at", direction: "desc" });
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({ current_page: 1, last_page: 1, total: 0 });
   const [loading, setLoading] = useState(true);
@@ -39,6 +42,18 @@ export default function AdminUsers() {
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState(EMPTY_EDIT);
+
+  const toggleSort = (key) => setSort((current) => ({ key, direction: current.key === key && current.direction === "asc" ? "desc" : "asc" }));
+  const sortedUsers = sortRows(users, sort, (user, key) => ({
+    name: user.name,
+    student_id: user.student_id,
+    email: user.email,
+    course: user.course,
+    contact_number: user.contact_number,
+    role: user.role,
+    status: user.status,
+    created_at: user.created_at,
+  })[key]);
 
   const loadUsers = useCallback(async (showRefresh = false) => {
     if (showRefresh) setRefreshing(true); else setLoading(true);
@@ -140,7 +155,13 @@ export default function AdminUsers() {
 
   return <AdminLayout title={isStaff ? "Student Accounts" : "User Management"} subtitle={isStaff ? "Search student records and update account status." : "Manage student accounts, courses, and administrator access."}>
     <section className={"users-page" + (isStaff ? " users-page-staff" : "") }>
-      <div className="users-toolbar-top"><div><div className="users-page-label">{isStaff ? "STUDENT DIRECTORY" : "USER DIRECTORY"}</div><h2>{isStaff ? "Students" : "Accounts"}</h2><p>{isStaff ? "View student details and update account status." : "Review student information and keep course records current."}</p></div><button className="users-refresh-button" type="button" onClick={refresh} disabled={refreshing}><RefreshCw size={16} className={refreshing ? "users-refresh-spin" : ""} />{refreshing ? "Refreshing…" : "Refresh"}</button></div>
+      <AdminPageHero
+        title={isStaff ? "Students" : "User Management"}
+        description={isStaff ? "View student details and update account status." : "Review student information and keep course records current."}
+        icon={Users}
+        onRefresh={refresh}
+        refreshing={loading || refreshing}
+      />
       <form className="users-filter-card" onSubmit={handleSearch}>
         <label className="users-search-box"><Search size={18} /><input type="search" placeholder="Search name, email, or student ID" value={searchInput} onChange={(event) => setSearchInput(event.target.value)} aria-label="Search by student name, email, or ID" /></label>
         {!isStaff && <select aria-label="Filter by role" value={role} onChange={(event) => { setRole(event.target.value); setPage(1); }}><option value="">All roles</option><option value="student">Students</option><option value="admin">Administrators</option></select>}
@@ -151,7 +172,7 @@ export default function AdminUsers() {
       {error && <div className="users-error" role="alert"><div className="users-error-icon"><XCircle size={19} /></div><div><strong>Unable to load or update users</strong><span>{error}</span></div><button type="button" onClick={refresh}>Try again</button></div>}
       <div className="users-summary"><div className="users-summary-left"><div className="users-summary-icon"><Users size={18} /></div><div><strong>{pagination.total || 0}</strong><span>{pagination.total === 1 ? "account found" : "accounts found"}</span></div></div><div className="users-summary-stats"><div><BookOpen size={15} /><span>{course ? course + " filter" : "All course records"}</span></div><div><CheckCircle2 size={15} /><span>Page {pagination.current_page || 1} of {pagination.last_page || 1}</span></div></div></div>
       <div className="users-table-card">
-        {loading ? <div className="users-loading"><div className="users-loading-row">Loading student accounts…</div></div> : users.length === 0 ? <div className="users-empty"><div className="users-empty-icon"><Users size={30} /></div><h3>No users found</h3><p>Try changing your search or filter settings.</p><button type="button" onClick={() => { setSearchInput(""); setSearch(""); setRole(""); setStatus(""); setCourse(""); setPage(1); }}>Clear filters</button></div> : <div className="users-table-wrapper"><table className="users-table"><thead><tr><th>USER</th><th>STUDENT ID</th><th>EMAIL</th><th>COURSE / PROGRAM</th><th>CONTACT</th>{!isStaff && <th>ROLE</th>}<th>STATUS</th><th>REGISTERED</th><th>ACTIONS</th></tr></thead><tbody>{users.map((user) => { const admin = isAdmin(user); return <tr key={user.id}>
+        {loading ? <div className="users-loading"><div className="users-loading-row">Loading student accounts…</div></div> : users.length === 0 ? <div className="users-empty"><div className="users-empty-icon"><Users size={30} /></div><h3>No users found</h3><p>Try changing your search or filter settings.</p><button type="button" onClick={() => { setSearchInput(""); setSearch(""); setRole(""); setStatus(""); setCourse(""); setPage(1); }}>Clear filters</button></div> : <div className="users-table-wrapper"><table className="users-table"><thead><tr><SortableHead field="name" sort={sort} onSort={toggleSort}>USER</SortableHead><SortableHead field="student_id" sort={sort} onSort={toggleSort}>STUDENT ID</SortableHead><SortableHead field="email" sort={sort} onSort={toggleSort}>EMAIL</SortableHead><SortableHead field="course" sort={sort} onSort={toggleSort}>COURSE / PROGRAM</SortableHead><SortableHead field="contact_number" sort={sort} onSort={toggleSort}>CONTACT</SortableHead>{!isStaff && <SortableHead field="role" sort={sort} onSort={toggleSort}>ROLE</SortableHead>}<SortableHead field="status" sort={sort} onSort={toggleSort}>STATUS</SortableHead><SortableHead field="created_at" sort={sort} onSort={toggleSort}>REGISTERED</SortableHead><th>ACTIONS</th></tr></thead><tbody>{sortedUsers.map((user) => { const admin = isAdmin(user); return <tr key={user.id}>
           <td><div className="user-cell"><div className="user-avatar">{String(user.name || "U").trim().charAt(0).toUpperCase()}</div><div className="user-info"><strong>{user.name || "Unknown User"}</strong>{isCurrentUser(user) && <span className="you-badge">You</span>}</div></div></td>
           <td><span className="student-id">{user.student_id || "—"}</span></td><td><span className="email-text">{user.email || "—"}</span></td>
           <td>{user.role === "student" ? <span className="course-badge" title={courseName(user.course)}>{user.course || "Unassigned"}</span> : <span className="course-empty">—</span>}</td>

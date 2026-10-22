@@ -258,7 +258,7 @@ Route::middleware('auth:sanctum')->group(function () {
         'throttle:30,1',
     ]);
 
-    Route::middleware('staff:manage_students')
+    Route::middleware('staff')
         ->prefix('staff')
         ->group(function () {
             Route::get('/stats', [

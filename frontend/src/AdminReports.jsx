@@ -9,11 +9,10 @@ import { useNavigate } from "react-router-dom";
 import {
   Activity,
   AlertCircle,
-  BarChart3,
   CheckCircle2,
   Clock3,
+  FileBarChart,
   Package,
-  RefreshCw,
   ShieldCheck,
   Users,
   UserPlus,
@@ -21,6 +20,7 @@ import {
 } from "lucide-react";
 
 import AdminLayout from "./components/AdminLayout";
+import AdminPageHero from "./components/AdminPageHero";
 import { API_URL } from "./utils/api";
 
 import "./AdminReports.css";
@@ -347,70 +347,13 @@ export default function AdminReports() {
     >
       <div className="reports-page">
 
-        {/* =================================================
-            HERO
-        ================================================= */}
-
-        <section className="reports-hero">
-
-          <div className="reports-hero-decoration reports-decoration-one" />
-
-          <div className="reports-hero-decoration reports-decoration-two" />
-
-          <div className="reports-hero-content">
-
-            <div className="reports-hero-icon">
-              <BarChart3
-                size={27}
-                strokeWidth={2.1}
-              />
-            </div>
-
-            <div>
-
-              <span className="reports-hero-label">
-                ADMINISTRATIVE REPORTS
-              </span>
-
-              <h2>
-                Marketplace Reports
-              </h2>
-
-              <p>
-                Review current users and
-                product activity using data
-                from your StudentMart system.
-              </p>
-
-            </div>
-
-          </div>
-
-          <button
-            type="button"
-            className="reports-refresh-button"
-            onClick={() =>
-              loadReports(true)
-            }
-            disabled={refreshing}
-          >
-            <RefreshCw
-              size={17}
-              className={
-                refreshing
-                  ? "reports-spin"
-                  : ""
-              }
-            />
-
-            <span>
-              {refreshing
-                ? "Refreshing..."
-                : "Refresh Reports"}
-            </span>
-          </button>
-
-        </section>
+        <AdminPageHero
+          title="Marketplace Reports"
+          description="Review marketplace activity and system statistics using current StudentMart data."
+          icon={FileBarChart}
+          onRefresh={() => loadReports(true)}
+          refreshing={refreshing}
+        />
 
 
         {/* =================================================

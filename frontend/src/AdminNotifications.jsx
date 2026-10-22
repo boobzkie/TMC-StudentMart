@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
+import { Bell } from "lucide-react";
 import AdminLayout from "./components/AdminLayout";
+import AdminPageHero from "./components/AdminPageHero";
 import { API_URL } from "./utils/api";
 import "./AdminNotifications.css";
 
@@ -28,6 +30,7 @@ const toneStyle = (tone) => {
 export default function AdminNotifications() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
 
   const fetchStats = useCallback(async () => {
@@ -46,6 +49,19 @@ export default function AdminNotifications() {
     if (!response.ok) throw new Error(data.message || "Unable to load notifications.");
     return data.stats || {};
   }, []);
+
+  const refreshNotifications = async () => {
+    setRefreshing(true);
+    setError("");
+    try {
+      const nextStats = await fetchStats();
+      if (nextStats !== null) setStats(nextStats);
+    } catch (err) {
+      setError(err.message || "We could not refresh notifications. Please try again.");
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -134,6 +150,13 @@ export default function AdminNotifications() {
   if (loading) {
     return (
       <AdminLayout title="Notifications" subtitle="TMC StudentMart - administrator notifications">
+        <AdminPageHero
+          title="Notifications"
+          description="See marketplace alerts that need review, including pending listings, orders, payments, and account checks."
+          icon={Bell}
+          onRefresh={refreshNotifications}
+          refreshing={loading || refreshing}
+        />
         <div style={{ padding: 40, textAlign: "center", color: "var(--tmc-text-muted)" }}>Loading notifications...</div>
       </AdminLayout>
     );
@@ -141,6 +164,13 @@ export default function AdminNotifications() {
 
   return (
     <AdminLayout title="Notifications" subtitle="TMC StudentMart - administrator notifications and alerts">
+      <AdminPageHero
+        title="Notifications"
+        description="See marketplace alerts that need review, including pending listings, orders, payments, and account checks."
+        icon={Bell}
+        onRefresh={refreshNotifications}
+        refreshing={refreshing}
+      />
       {error && (
         <div className="dashboard-error" role="alert" style={{ padding: 16, border: "1px solid var(--tmc-error-soft)", background: "var(--tmc-error-soft)", color: "var(--tmc-error)", borderRadius: "var(--tmc-radius-md)", marginBottom: 20, display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{ flex: 1 }}>
