@@ -85,6 +85,7 @@ function App() {
     <Route path="/staff/complaints" element={<StaffRoute><StaffComplaintsRoute /></StaffRoute>} />
     <Route path="/staff/reports" element={<StaffRoute><StaffReportsRoute /></StaffRoute>} />
     <Route path="/staff/analytics" element={<StaffRoute><StaffAnalyticsRoute /></StaffRoute>} />
+    <Route path="/staff/notifications" element={<StaffRoute><AdminNotifications /></StaffRoute>} />
     <Route path="/staff/settings" element={<StaffRoute><AccountSettings /></StaffRoute>} />
     <Route path="/" element={<Navigate to="/login" replace />} /><Route path="*" element={<Navigate to="/login" replace />} />
   </Routes>;

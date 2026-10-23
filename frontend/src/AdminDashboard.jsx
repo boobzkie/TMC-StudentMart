@@ -147,15 +147,6 @@ function formatShortDate(value) {
   return date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 
-function getAdminDisplayName() {
-  try {
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
-    return String(user.name || "Administrator").trim() || "Administrator";
-  } catch {
-    return "Administrator";
-  }
-}
-
 function getStatusMeta(status) {
   const key = String(status || "").toLowerCase();
   return STATUS_META[key] || {
@@ -611,7 +602,6 @@ function DashboardSkeleton() {
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
-  const adminDisplayName = getAdminDisplayName();
   const [stats, setStats] = useState(null);
   const [trendPeriod, setTrendPeriod] = useState("30d");
   const [trendView, setTrendView] = useState("sales");
@@ -1119,7 +1109,6 @@ export default function AdminDashboard() {
               <Link className="admin-page-hero-secondary" to="/admin/analytics">Open analytics</Link>
             </>
           )}
-          meta={adminDisplayName ? `Welcome, ${adminDisplayName}` : undefined}
         />
 
         <section className="dashboard-section" aria-labelledby="dashboard-kpi-title">

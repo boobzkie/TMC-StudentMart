@@ -3,7 +3,6 @@ import { RefreshCw } from "lucide-react";
 
 export default function AdminPageHero({
   title,
-  description,
   icon: Icon,
   onRefresh,
   refreshing = false,
@@ -32,7 +31,14 @@ export default function AdminPageHero({
   };
 
   return (
-    <section className={`admin-page-hero ${className}`.trim()} aria-label={`${title} page header`}>
+    <section
+      className={[
+        "admin-page-hero",
+        sideContent ? "admin-page-hero-with-side" : "",
+        className,
+      ].filter(Boolean).join(" ")}
+      aria-label={`${title} page header`}
+    >
       <div className="admin-page-hero-main">
         {Icon && (
           <span className="admin-page-hero-icon" aria-hidden="true">
@@ -41,7 +47,6 @@ export default function AdminPageHero({
         )}
         <div className="admin-page-hero-copy">
           <h2>{title}</h2>
-          <p>{description}</p>
           {meta && <div className="admin-page-hero-meta">{meta}</div>}
         </div>
       </div>

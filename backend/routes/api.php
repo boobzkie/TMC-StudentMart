@@ -91,6 +91,17 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('/logout', [AuthController::class, 'logout']);
 
+    // Notifications belong to the authenticated account across Student, Staff, and Admin roles.
+    Route::get('/notifications', [
+        NotificationController::class,
+        'index',
+    ]);
+
+    Route::put('/notifications/{notificationId}/read', [
+        NotificationController::class,
+        'markRead',
+    ]);
+
     /*
     |--------------------------------------------------------------------------
     | Student Routes
@@ -227,21 +238,6 @@ Route::middleware('auth:sanctum')->group(function () {
             'updateBySeller',
         ]);
 
-        /*
-        |--------------------------------------------------------------------------
-        | Notifications
-        |--------------------------------------------------------------------------
-        */
-
-        Route::get('/notifications', [
-            NotificationController::class,
-            'index',
-        ]);
-
-        Route::put('/notifications/{notificationId}/read', [
-            NotificationController::class,
-            'markRead',
-        ]);
     });
 
     /*

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -9,6 +10,10 @@ class NotificationController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
+        if ($denied = $this->notificationAccessDenial($request)) {
+            return $denied;
+        }
+
         $user = $request->user();
         $notifications = $user->notifications()
             ->latest()
@@ -42,6 +47,10 @@ class NotificationController extends Controller
 
     public function markRead(Request $request, string $notificationId): JsonResponse
     {
+        if ($denied = $this->notificationAccessDenial($request)) {
+            return $denied;
+        }
+
         $notification = $request->user()
             ->notifications()
             ->whereKey($notificationId)
@@ -58,5 +67,20 @@ class NotificationController extends Controller
                 'read_at' => $notification->fresh()->read_at,
             ],
         ]);
+    }
+
+    private function notificationAccessDenial(Request $request): ?JsonResponse
+    {
+        $user = $request->user();
+        $allowedRoles = ['student', 'staff', 'admin'];
+
+        if (! $user || $user->status !== 'active' || ! in_array($user->role, $allowedRoles, true)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'An active Student, Staff, or Administrator account is required.',
+            ], 403);
+        }
+
+        return null;
     }
 }

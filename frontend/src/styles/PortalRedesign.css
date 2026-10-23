@@ -112,25 +112,13 @@
 }
 
 .admin-brand:hover { transform: none; box-shadow: none; }
-.admin-brand-logo { width: 43px !important; height: 43px !important; flex: 0 0 43px !important; border-radius: 50%; object-fit: contain; background: transparent !important; box-shadow: none !important; }
+.admin-brand-logo { width: 48px !important; height: 48px !important; flex: 0 0 48px !important; border-radius: 50%; object-fit: contain; background: transparent !important; box-shadow: none !important; }
 .admin-brand-text { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
 .admin-brand-text strong { overflow: hidden; color: #ffffff !important; font-size: 13px; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
 .admin-brand-text span { color: #bdd8e9 !important; font-size: 9px; font-weight: 800; letter-spacing: 0.13em; }
 .admin-mobile-close { display: none; width: 36px; height: 36px; place-items: center; border: 1px solid rgba(189, 216, 233, 0.18); border-radius: 10px; color: var(--tmc-admin-sidebar-text); background: rgba(255, 255, 255, 0.07); }
 
-.admin-sidebar-profile {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: 10px;
-  margin: 13px 12px 5px;
-  padding: 10px;
-  border: 1px solid rgba(189, 216, 233, 0.14);
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.055);
-}
-
-.admin-sidebar-avatar,.admin-account-avatar {
+.admin-account-avatar {
   position: relative;
   display: grid;
   flex: 0 0 auto;
@@ -143,11 +131,7 @@
   font-weight: 800;
 }
 
-.admin-sidebar-avatar { width: 38px; height: 38px; }
-.admin-sidebar-avatar img,.admin-account-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-.admin-sidebar-profile-info { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
-.admin-sidebar-profile-info strong { overflow: hidden; color: var(--tmc-admin-sidebar-text); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
-.admin-sidebar-profile-info span { color: #bdd8e9; font-size: 10px; }
+.admin-account-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 
 .admin-navigation { min-height: 0; flex: 1 1 auto; overflow-y: auto; padding: 14px 11px 18px !important; scrollbar-color: rgba(189, 216, 233, 0.25) transparent; scrollbar-width: thin; }
 .admin-nav-section { margin: 0 0 17px; }
@@ -157,25 +141,16 @@
 .admin-layout[data-theme] .admin-sidebar .admin-nav-link:hover { color: #ffffff !important; background: rgba(123, 189, 232, 0.11) !important; transform: translateX(2px); }
 .admin-layout[data-theme] .admin-sidebar .admin-nav-link.active { color: #ffffff !important; border-color: rgba(123, 189, 232, 0.24) !important; background: linear-gradient(100deg, rgba(10, 65, 116, 0.94), rgba(78, 142, 162, 0.68)) !important; box-shadow: inset 3px 0 #7bbde8 !important; }
 .admin-nav-link svg { flex: 0 0 auto; }
-.admin-sidebar-footer { margin-top: auto; padding: 11px 12px 14px !important; border-top: 1px solid rgba(189, 216, 233, 0.14); }
-.admin-layout[data-theme] .admin-sidebar .admin-logout-button { display: flex; width: 100%; min-height: 42px; align-items: center; gap: 10px; padding: 0 11px; border: 1px solid transparent; border-radius: 11px; color: #c3d6e3 !important; background: transparent !important; box-shadow: none !important; font-size: 12px; font-weight: 700; text-align: left; }
-.admin-layout[data-theme] .admin-sidebar .admin-logout-button:hover:not(:disabled) { color: #ffffff !important; border-color: rgba(255, 154, 154, 0.22); background: rgba(180, 35, 50, 0.22) !important; }
-.admin-sidebar .admin-logout-button:disabled { opacity: 0.65; cursor: wait; }
 
 .admin-layout[data-sidebar-collapsed="true"] .admin-sidebar { width: 76px !important; }
 .admin-layout[data-sidebar-collapsed="true"] .admin-sidebar-header { justify-content: center; gap: 2px; padding-inline: 7px; }
 .admin-layout[data-sidebar-collapsed="true"] .admin-sidebar-collapse { width: 28px; min-width: 28px; height: 28px; flex: 0 0 28px; padding: 0; }
 .admin-layout[data-sidebar-collapsed="true"] .admin-brand { justify-content: center; }
 .admin-layout[data-sidebar-collapsed="true"] .admin-brand-text,
-.admin-layout[data-sidebar-collapsed="true"] .admin-sidebar-profile-info,
 .admin-layout[data-sidebar-collapsed="true"] .admin-nav-label,
-.admin-layout[data-sidebar-collapsed="true"] .admin-nav-link span,
-.admin-layout[data-sidebar-collapsed="true"] .admin-logout-button span { display: none !important; }
-.admin-layout[data-sidebar-collapsed="true"] .admin-sidebar-profile { justify-content: center; margin: 12px 8px 5px; padding: 8px 4px; }
+.admin-layout[data-sidebar-collapsed="true"] .admin-nav-link span { display: none !important; }
 .admin-layout[data-sidebar-collapsed="true"] .admin-navigation { padding-inline: 8px !important; }
-.admin-layout[data-sidebar-collapsed="true"] .admin-sidebar .admin-nav-link,
-.admin-layout[data-sidebar-collapsed="true"] .admin-sidebar .admin-logout-button { justify-content: center; padding-inline: 0; }
-.admin-layout[data-sidebar-collapsed="true"] .admin-sidebar-footer { padding-inline: 8px !important; }
+.admin-layout[data-sidebar-collapsed="true"] .admin-sidebar .admin-nav-link { justify-content: center; padding-inline: 0; }
 
 .admin-layout[data-theme] .admin-main {
   width: calc(100% - var(--portal-rail-width) - var(--portal-sidebar-width)) !important;
@@ -267,6 +242,10 @@
 .admin-profile-menu a:focus-visible,.admin-profile-menu button:focus-visible { outline: 3px solid var(--tmc-admin-accent-border); outline-offset: 1px; }
 
 .admin-layout[data-theme] .admin-content {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  flex-direction: column;
   min-height: calc(100vh - 102px);
   padding: clamp(18px, 2.1vw, 30px) clamp(16px, 2.1vw, 32px) 42px !important;
   color: var(--tmc-admin-text) !important;
@@ -403,16 +382,12 @@
   .admin-layout[data-theme] .admin-sidebar.mobile-open { transform: translateX(0) !important; }
   .admin-layout[data-theme] .admin-sidebar-collapse { display: none; }
   .admin-layout[data-theme] .admin-sidebar.mobile-open .admin-brand-text,
-  .admin-layout[data-theme] .admin-sidebar.mobile-open .admin-sidebar-profile-info,
   .admin-layout[data-theme] .admin-sidebar.mobile-open .admin-nav-label,
-  .admin-layout[data-theme] .admin-sidebar.mobile-open .admin-nav-link span,
-  .admin-layout[data-theme] .admin-sidebar.mobile-open .admin-logout-button span { display: initial !important; }
-  .admin-layout[data-theme] .admin-sidebar.mobile-open .admin-brand-text,
-  .admin-layout[data-theme] .admin-sidebar.mobile-open .admin-sidebar-profile-info { display: flex !important; }
+  .admin-layout[data-theme] .admin-sidebar.mobile-open .admin-nav-link span { display: initial !important; }
+  .admin-layout[data-theme] .admin-sidebar.mobile-open .admin-brand-text { display: flex !important; }
   .admin-layout[data-theme] .admin-sidebar.mobile-open .admin-nav-label { display: block !important; }
   .admin-layout[data-theme] .admin-sidebar.mobile-open .admin-navigation { padding-inline: 11px !important; }
-  .admin-layout[data-theme] .admin-sidebar.mobile-open .admin-nav-link,
-  .admin-layout[data-theme] .admin-sidebar.mobile-open .admin-logout-button { justify-content: flex-start; padding-inline: 11px; }
+  .admin-layout[data-theme] .admin-sidebar.mobile-open .admin-nav-link { justify-content: flex-start; padding-inline: 11px; }
   .admin-layout[data-theme] .admin-header { top: 8px; width: calc(100% - 28px); min-height: 96px !important; margin-top: 8px; padding: 14px 12px !important; gap: 8px; }
   .admin-layout[data-theme] .admin-header-left { gap: 8px; }
   .admin-layout[data-theme] .admin-page-heading h1 { display: -webkit-box; max-width: min(52vw, 640px); overflow: hidden; font-size: clamp(28px, 3.55vw, 32px) !important; white-space: normal; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
@@ -495,7 +470,7 @@
   --admin-hero-surface: #7A8CA6;
   --admin-hero-ink: #111827;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 22px;
   min-width: 0;
@@ -508,6 +483,10 @@
   background: var(--admin-hero-surface) !important;
   box-shadow: 7px 8px 18px rgba(48, 60, 78, 0.17), -5px -5px 14px rgba(255, 255, 255, 0.28), inset 1px 1px 0 rgba(255, 255, 255, 0.3) !important;
   transition: box-shadow 180ms ease, transform 180ms ease;
+}
+
+.admin-layout[data-theme] .admin-content .admin-page-hero-with-side {
+  grid-template-columns: minmax(0, 1fr) auto auto;
 }
 
 .admin-layout[data-theme="dark"] .admin-content .admin-page-hero {
@@ -937,7 +916,7 @@
 
   .admin-mobile-section-button {
     display: inline-flex;
-    min-height: 36px;
+    min-height: 40px;
     flex: 0 0 auto;
     align-items: center;
     gap: 7px;
@@ -1052,3 +1031,169 @@
 .admin-layout[data-theme="dark"] .admin-content .admin-page-hero-error {
   color: #ffe0e4;
 }
+
+/* Direct icon routes appear in the rail while the sidebar is collapsed. */
+.admin-icon-navigation {
+  min-height: 0;
+  flex: 1 1 auto;
+  align-content: start;
+  gap: 2px;
+  overflow: visible;
+  padding: 0 0 8px;
+}
+
+.admin-icon-navigation .admin-rail-route {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+}
+
+.admin-notification-badge {
+  position: absolute;
+  top: 3px;
+  right: 1px;
+  display: grid;
+  min-width: 16px;
+  height: 16px;
+  place-items: center;
+  padding: 0 3px;
+  border: 2px solid #0b2949;
+  border-radius: 999px;
+  color: #ffffff;
+  background: #df3545;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.32);
+  font-size: 8px;
+  font-weight: 850;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.admin-mobile-notifications {
+  position: relative;
+  display: inline-grid;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  place-items: center;
+  border: 1px solid rgba(189, 216, 233, 0.14);
+  border-radius: 10px;
+  color: #c3d6e3;
+  background: rgba(255, 255, 255, 0.045);
+  box-shadow: 3px 3px 8px rgba(0, 12, 28, 0.12), inset 1px 1px rgba(255, 255, 255, 0.025);
+  text-decoration: none;
+  transition: color 150ms ease, background 150ms ease, border-color 150ms ease;
+}
+
+.admin-mobile-notifications:hover,
+.admin-mobile-notifications.active {
+  border-color: rgba(123, 189, 232, 0.3);
+  color: #ffffff;
+  background: rgba(10, 65, 116, 0.62);
+}
+
+.admin-mobile-notifications:focus-visible {
+  outline: 3px solid #7bbde8;
+  outline-offset: 2px;
+}
+
+@media (min-width: 901px) and (max-height: 820px) {
+  .admin-icon-navigation .admin-rail-link { width: 34px; height: 34px; }
+  .admin-icon-navigation .admin-rail-route { flex-basis: 34px; }
+}
+
+@media (min-width: 901px) and (max-height: 680px) {
+  .admin-icon-navigation .admin-rail-link { width: 32px; height: 32px; }
+  .admin-icon-navigation .admin-rail-route { flex-basis: 32px; }
+}
+
+@media (min-width: 901px) and (max-height: 640px) {
+  .admin-icon-navigation .admin-rail-link { width: 30px; height: 30px; }
+  .admin-icon-navigation .admin-rail-route { flex-basis: 30px; }
+}
+
+@media (min-width: 901px) and (max-height: 560px) { .admin-icon-navigation { overflow-x: hidden; overflow-y: auto; } }
+
+/* Shared Admin and Staff page frame and rhythm. */
+.admin-layout[data-theme] .admin-content {
+  gap: clamp(18px, 1.5vw, 24px);
+}
+
+.admin-layout[data-theme] .admin-content .admin-page-hero {
+  min-width: 0;
+  margin-bottom: 0 !important;
+}
+
+/* Let Admin and Staff pages fill the available content area, with a wide-screen cap. */
+.admin-layout[data-theme] .admin-content > *:not([class*="overlay"]):not([class*="backdrop"]):not([class*="modal"]):not([role="presentation"]):not([role="dialog"]) {
+  box-sizing: border-box;
+  width: 100% !important;
+  max-width: 1600px !important;
+  min-width: 0;
+  margin-inline: auto !important;
+}
+
+/* Keep the primary dashboard charts wide and pair the secondary panels on desktop. */
+.admin-layout[data-theme] .admin-content .admin-dashboard-page {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  align-items: start;
+  gap: clamp(16px, 1.35vw, 24px);
+}
+
+.admin-layout[data-theme] .admin-content .admin-dashboard-page > :is(
+  .dashboard-error, .admin-page-hero,
+  .dashboard-section[aria-labelledby="dashboard-kpi-title"],
+  .dashboard-section[aria-labelledby="dashboard-sales-title"],
+  .dashboard-section[aria-labelledby="dashboard-recent-title"]
+) {
+  grid-column: 1 / -1;
+}
+
+.admin-layout[data-theme] .admin-content .admin-dashboard-page > .dashboard-section[aria-labelledby="dashboard-marketplace-title"] {
+  grid-column: span 7;
+}
+
+.admin-layout[data-theme] .admin-content .admin-dashboard-page > .dashboard-section[aria-labelledby="dashboard-audience-title"] {
+  grid-column: span 5;
+}
+
+/* Keep dashboard summary cards readable on wide screens and stack them as space narrows. */
+.admin-layout[data-theme] .admin-content .admin-dashboard-page :is(
+  .metrics-grid.dash-kpi-grid, .dash-skeleton-kpis
+) {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+@media (max-width: 1280px) {
+  .admin-layout[data-theme] .admin-content .admin-dashboard-page {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-layout[data-theme] .admin-content .admin-dashboard-page > .dashboard-section {
+    grid-column: 1 / -1;
+  }
+
+  .admin-layout[data-theme] .admin-content .admin-dashboard-page :is(
+    .metrics-grid.dash-kpi-grid, .dash-skeleton-kpis
+  ) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 840px) {
+  .admin-layout[data-theme] .admin-content .admin-dashboard-page :is(
+    .metrics-grid.dash-kpi-grid, .dash-skeleton-kpis
+  ) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 420px) {
+  .admin-layout[data-theme] .admin-content .admin-dashboard-page :is(
+    .metrics-grid.dash-kpi-grid, .dash-skeleton-kpis
+  ) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* End of shared portal navigation and page-frame overrides. */

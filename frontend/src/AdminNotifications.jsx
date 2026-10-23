@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import { Bell } from "lucide-react";
 import AdminLayout from "./components/AdminLayout";
 import AdminPageHero from "./components/AdminPageHero";
-import { API_URL } from "./utils/api";
+import { API_URL, getAuthHeaders } from "./utils/api";
+import { clearAuth, getStoredRole } from "./utils/auth";
 import "./AdminNotifications.css";
 
 const formatDate = (value) => {
@@ -28,10 +29,30 @@ const toneStyle = (tone) => {
 };
 
 export default function AdminNotifications() {
+  const isStaff = getStoredRole() === "staff";
   const [stats, setStats] = useState(null);
+  const [notificationItems, setNotificationItems] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [markingNotificationId, setMarkingNotificationId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
+  const [notificationLoadError, setNotificationLoadError] = useState("");
+
+  const fetchUserNotifications = useCallback(async () => {
+    const response = await fetch(`${API_URL}/notifications`, { headers: getAuthHeaders() });
+    if (response.status === 401) {
+      clearAuth();
+      window.location.replace("/login");
+      return null;
+    }
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.message || "Unable to load your notifications.");
+    return {
+      notifications: Array.isArray(data.notifications) ? data.notifications : [],
+      unreadCount: Math.max(0, Number(data.unread_count) || 0),
+    };
+  }, []);
 
   const fetchStats = useCallback(async () => {
     const token = localStorage.getItem("token");
@@ -53,30 +74,80 @@ export default function AdminNotifications() {
   const refreshNotifications = async () => {
     setRefreshing(true);
     setError("");
-    try {
-      const nextStats = await fetchStats();
-      if (nextStats !== null) setStats(nextStats);
-    } catch (err) {
-      setError(err.message || "We could not refresh notifications. Please try again.");
-    } finally {
-      setRefreshing(false);
+    const requests = [fetchUserNotifications()];
+    if (!isStaff) requests.push(fetchStats());
+    const results = await Promise.allSettled(requests);
+    const [notificationsResult, statsResult] = results;
+
+    if (notificationsResult.status === "fulfilled" && notificationsResult.value) {
+      setNotificationItems(notificationsResult.value.notifications);
+      setUnreadCount(notificationsResult.value.unreadCount);
+      setNotificationLoadError("");
+    } else if (notificationsResult.status === "rejected") {
+      const message = notificationsResult.reason?.message || "We could not refresh your notifications. Please try again.";
+      setNotificationLoadError(message);
+      setError(message);
     }
+    if (!isStaff && statsResult?.status === "fulfilled" && statsResult.value !== null) setStats(statsResult.value);
+    if (!isStaff && statsResult?.status === "rejected") {
+      setError(statsResult.reason?.message || "We could not refresh priority notifications. Please try again.");
+    }
+    setRefreshing(false);
   };
 
   useEffect(() => {
     let active = true;
-    fetchStats()
-      .then((nextStats) => {
-        if (active && nextStats !== null) setStats(nextStats);
-      })
-      .catch((err) => {
-        if (active) setError(err.message || "We could not load notifications. Please try again.");
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
+    const requests = [
+      fetchUserNotifications()
+        .then((data) => {
+          if (!active || !data) return;
+          setNotificationItems(data.notifications);
+          setUnreadCount(data.unreadCount);
+          setNotificationLoadError("");
+        })
+        .catch((err) => {
+          if (active) {
+            const message = err.message || "We could not load notifications. Please try again.";
+            setNotificationLoadError(message);
+            setError(message);
+          }
+        }),
+    ];
+    if (!isStaff) {
+      requests.push(
+        fetchStats()
+          .then((nextStats) => { if (active && nextStats !== null) setStats(nextStats); })
+          .catch((err) => {
+            if (active) setError(err.message || "We could not load priority notifications. Please try again.");
+          }),
+      );
+    }
+    Promise.all(requests).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [fetchStats]);
+  }, [fetchStats, fetchUserNotifications, isStaff]);
+
+  const markNotificationRead = async (notification) => {
+    if (!notification?.id || notification.read_at || markingNotificationId) return;
+    setMarkingNotificationId(notification.id);
+    setError("");
+    try {
+      const response = await fetch(`${API_URL}/notifications/${encodeURIComponent(notification.id)}/read`, {
+        method: "PUT",
+        headers: getAuthHeaders(),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.message || "Unable to mark this notification as read.");
+      setNotificationItems((items) => items.map((item) => (
+        item.id === notification.id ? { ...item, read_at: data.notification?.read_at || new Date().toISOString() } : item
+      )));
+      setUnreadCount((count) => Math.max(0, count - 1));
+      window.dispatchEvent(new Event("tmc-notifications-updated"));
+    } catch (err) {
+      setError(err.message || "We could not update this notification. Please try again.");
+    } finally {
+      setMarkingNotificationId(null);
+    }
+  };
   const stat = (key, fallback = 0) => {
     if (!stats) return fallback;
     const value = stats[key];
@@ -179,7 +250,58 @@ export default function AdminNotifications() {
           </div>
         </div>
       )}
-      <section className="dashboard-section">
+      <section className="notifications-section" aria-labelledby="your-notifications-title">
+        <header className="notifications-header">
+          <div>
+            <span className="notifications-eyebrow">YOUR INBOX</span>
+            <h2 id="your-notifications-title">Notifications</h2>
+            <p>{notificationLoadError ? "Notification status is unavailable." : unreadCount === 0 ? "You are all caught up." : `${unreadCount} unread notification${unreadCount === 1 ? "" : "s"}`}</p>
+          </div>
+          <span className="notification-badge" aria-live="polite">{unreadCount} unread</span>
+        </header>
+        <div className="notifications-list" aria-live="polite">
+          {notificationItems.length === 0 && notificationLoadError ? (
+            <p className="notification-load-error" role="alert">{notificationLoadError}</p>
+          ) : notificationItems.length === 0 ? (
+            <div className="notifications-empty">
+              <Bell size={28} aria-hidden="true" />
+              <strong>No notifications yet</strong>
+              <p>New account and marketplace updates will appear here.</p>
+            </div>
+          ) : notificationItems.map((item) => {
+            const isUnread = !item.read_at;
+            const isMarking = markingNotificationId === item.id;
+            return (
+              <article className={`notification-item${isUnread ? " is-unread" : ""}`} key={item.id}>
+                <span className="notification-icon"><Bell size={17} aria-hidden="true" /></span>
+                <div className="notification-content">
+                  <h3 className="notification-title">{item.title || "Notification"}</h3>
+                  <p className="notification-body">{item.message || "There is an update to review."}</p>
+                  <div className="notification-meta">
+                    <time className="notification-time" dateTime={item.created_at || undefined}>{formatDate(item.created_at)}</time>
+                    <span className={`notification-badge${isUnread ? " unread" : ""}`}>{isUnread ? "Unread" : "Read"}</span>
+                  </div>
+                </div>
+                {isUnread && (
+                  <div className="notification-actions">
+                    <button
+                      type="button"
+                      className="notification-mark-read"
+                      onClick={() => markNotificationRead(item)}
+                      disabled={Boolean(markingNotificationId)}
+                      aria-label={`Mark ${item.title || "notification"} as read`}
+                    >
+                      {isMarking ? "Saving…" : "Mark as read"}
+                    </button>
+                  </div>
+                )}
+              </article>
+            );
+          })}
+        </div>
+      </section>
+
+      {!isStaff && <section className="dashboard-section">
         <div className="dashboard-section-header">
           <h2 style={{ margin: 0, fontSize: 15, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--tmc-ink)" }}>Priority notifications</h2>
           <p style={{ margin: 4, fontSize: 12.5, color: "var(--tmc-text-muted)" }}>Action items that require your attention.</p>
@@ -206,9 +328,9 @@ export default function AdminNotifications() {
             ))
           )}
         </div>
-      </section>
+      </section>}
 
-      {recent.length > 0 && (
+      {!isStaff && recent.length > 0 && (
         <section className="dashboard-section" style={{ marginTop: 24 }}>
           <div className="dashboard-section-header">
             <h2 style={{ margin: 0, fontSize: 15, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--tmc-ink)" }}>Recent activity</h2>

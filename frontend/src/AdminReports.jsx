@@ -7,9 +7,7 @@ import {
 import { useNavigate } from "react-router-dom";
 
 import {
-  Activity,
   AlertCircle,
-  CheckCircle2,
   Clock3,
   FileBarChart,
   Package,
@@ -42,7 +40,7 @@ const DEFAULT_STATS = {
 function ReportsSkeleton() {
   return (
     <div className="reports-stats-grid">
-      {[1, 2, 3, 4, 5, 6].map((item) => (
+      {[1, 2, 3, 4, 5, 6, 7].map((item) => (
         <div
           className="reports-stat-card reports-skeleton-card"
           key={item}
@@ -734,139 +732,6 @@ export default function AdminReports() {
                       </strong>
 
                     </div>
-
-                  </div>
-
-                </div>
-
-              </div>
-
-            </section>
-
-
-            {/* =============================================
-                REPORT SUMMARY
-            ============================================= */}
-
-            <section className="reports-panel reports-summary-panel">
-
-              <div className="reports-panel-header">
-
-                <div className="reports-panel-icon purple">
-                  <Activity size={20} />
-                </div>
-
-                <div>
-
-                  <span>
-                    REPORT SUMMARY
-                  </span>
-
-                  <h3>
-                    Marketplace Health Overview
-                  </h3>
-
-                </div>
-
-              </div>
-
-
-              <div className="reports-summary-grid">
-
-                <div className="reports-summary-item">
-
-                  <div className="reports-summary-item-icon blue">
-                    <Users size={18} />
-                  </div>
-
-                  <div>
-
-                    <span>
-                      User Accounts
-                    </span>
-
-                    <strong>
-                      {stats.total_users.toLocaleString()}
-                    </strong>
-
-                    <small>
-                      Total registered accounts
-                    </small>
-
-                  </div>
-
-                </div>
-
-
-                <div className="reports-summary-item">
-
-                  <div className="reports-summary-item-icon green">
-                    <CheckCircle2 size={18} />
-                  </div>
-
-                  <div>
-
-                    <span>
-                      Active Products
-                    </span>
-
-                    <strong>
-                      {stats.active_products.toLocaleString()}
-                    </strong>
-
-                    <small>
-                      Currently active listings
-                    </small>
-
-                  </div>
-
-                </div>
-
-
-                <div className="reports-summary-item">
-
-                  <div className="reports-summary-item-icon yellow">
-                    <Clock3 size={18} />
-                  </div>
-
-                  <div>
-
-                    <span>
-                      Pending Review
-                    </span>
-
-                    <strong>
-                      {stats.pending_products.toLocaleString()}
-                    </strong>
-
-                    <small>
-                      Listings awaiting moderation
-                    </small>
-
-                  </div>
-
-                </div>
-
-
-                <div className="reports-summary-item">
-
-                  <div className="reports-summary-item-icon red">
-                    <XCircle size={18} />
-                  </div>
-
-                  <div>
-
-                    <span>
-                      Rejected Products
-                    </span>
-
-                    <strong>
-                      {stats.rejected_products.toLocaleString()}
-                    </strong>
-
-                    <small>
-                      Listings rejected by admin
-                    </small>
 
                   </div>
 

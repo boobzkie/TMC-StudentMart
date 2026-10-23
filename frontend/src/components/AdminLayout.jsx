@@ -60,7 +60,6 @@ const insightLinks = [
   { to: "/admin/reports", label: "Reports", icon: FileBarChart },
   { to: "/admin/analytics", label: "Analytics", icon: BarChart3 },
   { to: "/admin/activity-logs", label: "Activity Logs", icon: FileClock },
-  { to: "/admin/notifications", label: "Notifications", icon: Bell },
   { to: "/admin/complaints", label: "Complaints", icon: MessageSquareWarning },
 ];
 
@@ -89,6 +88,7 @@ export default function AdminLayout({
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(readSidebarCollapsed);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
 
   const [storedUser, setStoredUser] = useState(readStoredUser);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
@@ -98,6 +98,43 @@ export default function AdminLayout({
   const { theme, toggleTheme } = usePortalTheme();
   const role = String(storedUser.role || localStorage.getItem("role") || "").toLowerCase();
   const isStaff = role === "staff";
+
+  useEffect(() => {
+    let active = true;
+    let requestInFlight = false;
+    const refreshUnreadCount = async () => {
+      if (requestInFlight || !localStorage.getItem("token")) return;
+      requestInFlight = true;
+      try {
+        const response = await fetch(`${API_URL}/notifications`, { headers: getAuthHeaders() });
+        if (!response.ok) return;
+        const data = await response.json();
+        if (active) {
+          const count = Number(data.unread_count);
+          setUnreadNotificationCount(Number.isFinite(count) ? Math.max(0, count) : 0);
+        }
+      } catch {
+        // A notification count refresh should never interrupt navigation.
+      } finally {
+        requestInFlight = false;
+      }
+    };
+    const refreshOnVisibility = () => {
+      if (document.visibilityState === "visible") void refreshUnreadCount();
+    };
+    void refreshUnreadCount();
+    const interval = window.setInterval(refreshUnreadCount, 60_000);
+    window.addEventListener("focus", refreshUnreadCount);
+    window.addEventListener("tmc-notifications-updated", refreshUnreadCount);
+    document.addEventListener("visibilitychange", refreshOnVisibility);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+      window.removeEventListener("focus", refreshUnreadCount);
+      window.removeEventListener("tmc-notifications-updated", refreshUnreadCount);
+      document.removeEventListener("visibilitychange", refreshOnVisibility);
+    };
+  }, []);
 
   useEffect(() => {
     try {
@@ -261,13 +298,19 @@ export default function AdminLayout({
     item.matchPaths?.includes(location.pathname) ||
     location.pathname.startsWith(`${item.to}/`)
   );
+  const notificationItem = {
+    to: isStaff ? "/staff/notifications" : "/admin/notifications",
+    label: "Notifications",
+    icon: Bell,
+  };
+  const directNavigationItems = [...navSections.flatMap((section) => section.items), notificationItem];
   const routeSection = navSections.find((section) => section.items.some(routeMatchesItem));
   const [sectionSelection, setSectionSelection] = useState(null);
   const selectedSection = navSections.find((section) => (
     section.id === sectionSelection?.id && sectionSelection.locationKey === location.key
   ))
     || routeSection
-    || navSections[0];
+    || (routeMatchesItem(notificationItem) ? null : navSections[0]);
 
   useEffect(() => {
     const clearManualSectionOnHistoryNavigation = () => setSectionSelection(null);
@@ -338,6 +381,36 @@ export default function AdminLayout({
     );
   };
 
+  const renderRailLink = (item) => {
+    const Icon = item.icon;
+    const isActive = routeMatchesItem(item);
+    const accessibleLabel = item.label === "Notifications" && unreadNotificationCount > 0
+      ? `Notifications, ${unreadNotificationCount} unread`
+      : item.label;
+    return (
+      <NavLink
+        key={item.to}
+        to={item.to}
+        end
+        onClick={() => {
+          setSectionSelection(null);
+          closeMobile();
+        }}
+        className={`admin-rail-link admin-rail-route${isActive ? " active" : ""}`}
+        title={accessibleLabel}
+        aria-label={accessibleLabel}
+        aria-current={isActive ? "page" : undefined}
+      >
+        <Icon size={20} aria-hidden="true" />
+        {item.label === "Notifications" && unreadNotificationCount > 0 && (
+          <span className="admin-notification-badge" aria-hidden="true">
+            {unreadNotificationCount > 9 ? "9+" : unreadNotificationCount}
+          </span>
+        )}
+      </NavLink>
+    );
+  };
+
   return (
     <div
       className="admin-layout"
@@ -364,8 +437,10 @@ export default function AdminLayout({
         >
           <img src="/assets/tmc-logo.png" alt="" />
         </Link>
-        <nav className="admin-icon-navigation" aria-label="Navigation sections">
-          {navSections.map((section) => {
+        <nav className="admin-icon-navigation" aria-label={sidebarCollapsed ? "Quick links" : "Navigation sections"}>
+          {sidebarCollapsed
+            ? directNavigationItems.map(renderRailLink)
+            : navSections.map((section) => {
             const Icon = section.icon;
             const isSelected = selectedSection?.id === section.id;
             return (
@@ -382,13 +457,14 @@ export default function AdminLayout({
               </button>
             );
           })}
+          {!sidebarCollapsed && renderRailLink(notificationItem)}
         </nav>
         <div className="admin-rail-footer">
           <button
             type="button"
             className="admin-rail-link admin-rail-toggle"
             onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
-            aria-label={sidebarCollapsed ? "Expand contextual sidebar" : "Collapse contextual sidebar"}
+            aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
             aria-expanded={!sidebarCollapsed}
             title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
@@ -422,23 +498,6 @@ export default function AdminLayout({
           </button>
         </div>
 
-        <div className="admin-sidebar-profile">
-          <div className="admin-sidebar-avatar">
-            <span>{initials}</span>
-            {avatarUrl && (
-              <img
-                src={avatarUrl}
-                alt=""
-                onError={(event) => { event.currentTarget.style.display = "none"; }}
-              />
-            )}
-          </div>
-          <div className="admin-sidebar-profile-info">
-            <strong>{displayName}</strong>
-            <span>{displayRole}</span>
-          </div>
-        </div>
-
         <nav className="admin-mobile-sections" aria-label="Navigation sections">
           {navSections.map((section) => {
             const Icon = section.icon;
@@ -456,6 +515,22 @@ export default function AdminLayout({
               </button>
             );
           })}
+          <NavLink
+            to={notificationItem.to}
+            end
+            onClick={closeMobile}
+            className={`admin-mobile-notifications${routeMatchesItem(notificationItem) ? " active" : ""}`}
+            aria-label={unreadNotificationCount > 0 ? `Notifications, ${unreadNotificationCount} unread` : "Notifications"}
+            title={unreadNotificationCount > 0 ? `Notifications, ${unreadNotificationCount} unread` : "Notifications"}
+            aria-current={routeMatchesItem(notificationItem) ? "page" : undefined}
+          >
+            <Bell size={17} aria-hidden="true" />
+            {unreadNotificationCount > 0 && (
+              <span className="admin-notification-badge" aria-hidden="true">
+                {unreadNotificationCount > 9 ? "9+" : unreadNotificationCount}
+              </span>
+            )}
+          </NavLink>
         </nav>
 
         <nav className="admin-navigation" id="admin-navigation" aria-label="Main navigation">
@@ -466,20 +541,6 @@ export default function AdminLayout({
             </div>
           )}
         </nav>
-
-        <div className="admin-sidebar-footer">
-          <button
-            type="button"
-            className="admin-logout-button"
-            title="Sign out"
-            aria-label={loggingOut ? "Signing out" : "Sign out"}
-            onClick={handleLogout}
-            disabled={loggingOut}
-          >
-            <LogOut size={18} aria-hidden="true" />
-            <span>{loggingOut ? "Signing out…" : "Sign Out"}</span>
-          </button>
-        </div>
       </aside>
 
       <div className="admin-main">
