@@ -7,7 +7,6 @@ import {
   ChevronLeft,
   CreditCard,
   ChevronRight,
-  FileBarChart,
   FileClock,
   LayoutDashboard,
   LogOut,
@@ -57,8 +56,7 @@ const marketplaceLinks = [
 ];
 
 const insightLinks = [
-  { to: "/admin/reports", label: "Reports", icon: FileBarChart },
-  { to: "/admin/analytics", label: "Analytics", icon: BarChart3 },
+  { to: "/admin/reports", label: "Reports & Analytics", icon: BarChart3 },
   { to: "/admin/activity-logs", label: "Activity Logs", icon: FileClock },
   { to: "/admin/complaints", label: "Complaints", icon: MessageSquareWarning },
 ];

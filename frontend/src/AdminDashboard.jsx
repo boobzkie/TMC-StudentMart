@@ -829,7 +829,7 @@ export default function AdminDashboard() {
       subtitle: `Average order ${formatMoney(stats?.average_order_value)}`,
       icon: Wallet,
       tone: "primary",
-      to: "/admin/analytics",
+      to: "/admin/reports",
     },
     {
       label: "Open complaints",
@@ -1106,7 +1106,7 @@ export default function AdminDashboard() {
                 {nextAction ? `Review ${nextAction.label}` : "Browse listings"}
                 <ArrowRight size={16} aria-hidden="true" />
               </Link>
-              <Link className="admin-page-hero-secondary" to="/admin/analytics">Open analytics</Link>
+              <Link className="admin-page-hero-secondary" to="/admin/reports">Open reports & analytics</Link>
             </>
           )}
         />

@@ -12,7 +12,6 @@ import AdminTransactions from "./AdminTransactions";
 import AdminOrderOptions from "./AdminOrderOptions";
 import AdminCommission from "./AdminCommission";
 import AdminReports from "./AdminReports";
-import AdminAnalytics from "./AdminAnalytics";
 import AdminActivityLogs from "./AdminActivityLogs";
 import AdminNotifications from "./AdminNotifications";
 import AdminComplaints from "./AdminComplaints";
@@ -76,7 +75,7 @@ function App() {
     <Route path="/admin/products" element={<AdminRoute><AdminProducts /></AdminRoute>} /><Route path="/admin/categories" element={<AdminRoute><AdminCategories /></AdminRoute>} />
     <Route path="/admin/product-moderation" element={<AdminRoute><AdminProductModeration /></AdminRoute>} /><Route path="/admin/sellers" element={<AdminRoute><AdminSellers /></AdminRoute>} />
     <Route path="/admin/transactions" element={<AdminRoute><AdminTransactions /></AdminRoute>} /><Route path="/admin/order-options" element={<AdminRoute><AdminOrderOptions /></AdminRoute>} /><Route path="/admin/commission" element={<AdminRoute><AdminCommission /></AdminRoute>} />
-    <Route path="/admin/reports" element={<AdminRoute><AdminReports /></AdminRoute>} /><Route path="/admin/analytics" element={<AdminRoute><AdminAnalytics /></AdminRoute>} /><Route path="/admin/activity-logs" element={<AdminRoute><AdminActivityLogs /></AdminRoute>} /><Route path="/admin/notifications" element={<AdminRoute><AdminNotifications /></AdminRoute>} />
+    <Route path="/admin/reports" element={<AdminRoute><AdminReports /></AdminRoute>} /><Route path="/admin/analytics" element={<AdminRoute><Navigate to="/admin/reports" replace /></AdminRoute>} /><Route path="/admin/activity-logs" element={<AdminRoute><AdminActivityLogs /></AdminRoute>} /><Route path="/admin/notifications" element={<AdminRoute><AdminNotifications /></AdminRoute>} />
     <Route path="/admin/complaints" element={<AdminRoute><AdminComplaints /></AdminRoute>} />
     <Route path="/admin/settings" element={<AdminRoute><AccountSettings /></AdminRoute>} />
     <Route path="/staff" element={<StaffRoute><StaffDashboard /></StaffRoute>} /><Route path="/staff/dashboard" element={<StaffRoute><StaffDashboard /></StaffRoute>} />
