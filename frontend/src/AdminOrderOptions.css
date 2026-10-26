@@ -63,8 +63,8 @@
 
 .order-options-eyebrow {
   color: var(--tmc-admin-primary);
-  font-size: 9px;
-  font-weight: 850;
+  font-size: 12px;
+  font-weight: 800;
   letter-spacing: 0.16em;
   text-transform: uppercase;
 }
@@ -210,7 +210,7 @@
 .order-option-copy p {
   margin: 4px 0 0;
   color: var(--tmc-admin-secondary);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.4;
   overflow-wrap: anywhere;
 }
@@ -219,14 +219,14 @@
   display: block;
   margin-top: 4px;
   color: #8FA8C2;
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .order-option-status {
   padding: 3px 7px;
   border-radius: 999px;
-  font-size: 9px;
-  font-weight: 850;
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .order-option-status.active {
@@ -259,8 +259,8 @@
   color: var(--tmc-admin-primary);
   background: var(--tmc-admin-surface);
   font: inherit;
-  font-size: 10px;
-  font-weight: 750;
+  font-size: 12px;
+  font-weight: 700;
   text-decoration: none;
   cursor: pointer;
   transition: all 190ms ease;
@@ -296,7 +296,7 @@
 .order-options-empty span {
   max-width: 300px;
   color: var(--tmc-admin-secondary);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.45;
 }
 

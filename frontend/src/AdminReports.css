@@ -95,8 +95,8 @@
 
   color: #2563eb;
 
-  font-size: 10px;
-  font-weight: 850;
+  font-size: 12px;
+  font-weight: 800;
 
   letter-spacing: 1.6px;
 }
@@ -109,7 +109,7 @@
   font-size: 30px;
   line-height: 1.15;
 
-  font-weight: 850;
+  font-weight: 800;
 
   letter-spacing: -0.8px;
 }
@@ -124,7 +124,7 @@
   font-size: 13px;
   line-height: 1.6;
 
-  font-weight: 550;
+  font-weight: 500;
 }
 
 .reports-hero-decoration {
@@ -186,7 +186,7 @@
 
   font-family: inherit;
   font-size: 13px;
-  font-weight: 750;
+  font-weight: 700;
 
   cursor: pointer;
 
@@ -290,7 +290,7 @@
 
   color: #b45353;
 
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.5;
 }
 
@@ -307,8 +307,8 @@
   background: #dc2626;
 
   font-family: inherit;
-  font-size: 11px;
-  font-weight: 750;
+  font-size: 12px;
+  font-weight: 700;
 
   cursor: pointer;
 
@@ -353,8 +353,8 @@
 
   color: #7185a3;
 
-  font-size: 10px;
-  font-weight: 850;
+  font-size: 12px;
+  font-weight: 800;
 
   letter-spacing: 1.45px;
 }
@@ -365,7 +365,7 @@
   color: #102a56;
 
   font-size: 20px;
-  font-weight: 850;
+  font-weight: 800;
 
   letter-spacing: -0.35px;
 }
@@ -489,7 +489,7 @@
 .reports-stat-label {
   color: #657995;
 
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -501,7 +501,7 @@
   font-size: 28px;
   line-height: 1;
 
-  font-weight: 850;
+  font-weight: 800;
 
   letter-spacing: -1px;
 }
@@ -511,7 +511,7 @@
 
   color: #8a9ab0;
 
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.35;
 
   font-weight: 600;
@@ -596,7 +596,7 @@
   color: #102a56;
 
   font-size: 18px;
-  font-weight: 850;
+  font-weight: 800;
 }
 
 
@@ -633,7 +633,7 @@
   color: #102a56;
 
   font-size: 20px;
-  font-weight: 850;
+  font-weight: 800;
 }
 
 .reports-product-summary span {
@@ -643,8 +643,8 @@
 
   color: #7b8da5;
 
-  font-size: 9px;
-  font-weight: 650;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 
@@ -674,14 +674,14 @@
 .reports-progress-label {
   color: #4f6585;
 
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
 }
 
 .reports-progress-heading strong {
   color: #102a56;
 
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 800;
 }
 
@@ -731,7 +731,7 @@
 
   color: #94a3b8;
 
-  font-size: 9px;
+  font-size: 12px;
 }
 
 
@@ -759,7 +759,7 @@
 .reports-user-total span {
   color: #7185a3;
 
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -771,7 +771,7 @@
   font-size: 38px;
   line-height: 1;
 
-  font-weight: 850;
+  font-weight: 800;
 
   letter-spacing: -1.5px;
 }
@@ -818,7 +818,7 @@
   color: #102a56;
 
   font-size: 19px;
-  font-weight: 850;
+  font-weight: 800;
 }
 
 .reports-ring-inner span {
@@ -826,7 +826,7 @@
 
   color: #8091a8;
 
-  font-size: 8px;
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -874,8 +874,8 @@
 .reports-breakdown-item span {
   color: #657995;
 
-  font-size: 11px;
-  font-weight: 650;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .reports-breakdown-item strong {
@@ -935,7 +935,7 @@
 
   color: #102a56;
 
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 800;
 }
 
@@ -946,7 +946,7 @@
 
   color: #7185a3;
 
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.55;
 }
 
@@ -1164,11 +1164,11 @@
   }
 
   .reports-hero-label {
-    font-size: 9px;
+    font-size: 12px;
   }
 
   .reports-hero p {
-    font-size: 11px;
+    font-size: 12px;
   }
 
   .reports-stat-card {
@@ -1221,7 +1221,7 @@
   }
 
   .reports-note p {
-    font-size: 9px;
+    font-size: 12px;
   }
 }
 

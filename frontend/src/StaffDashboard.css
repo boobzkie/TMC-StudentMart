@@ -130,7 +130,7 @@
 
 .staff-action-copy span {
   color: var(--tmc-admin-secondary);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.4;
 }
 
@@ -192,7 +192,7 @@
 
 .staff-chart-eyebrow {
   display: block;
-  font-size: 10.5px;
+  font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -221,7 +221,7 @@
 }
 
 .chart-total-label {
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--tmc-admin-secondary);
 }
 
@@ -277,7 +277,7 @@
 .chart-fill--warning { background: #92400E; }
 
 .chart-percent {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   color: var(--tmc-admin-secondary);
   min-width: 40px;
@@ -329,7 +329,7 @@
 .staff-recent-table th {
   text-align: left;
   padding: 12px 16px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -370,7 +370,7 @@
 }
 
 .user-cell-main span {
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--tmc-admin-secondary);
   overflow: hidden;
   white-space: nowrap;
@@ -398,7 +398,7 @@
 }
 
 .staff-eyebrow {
-  font-size: 10.5px;
+  font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -460,13 +460,13 @@
 
 .staff-tool-description {
   margin: 0;
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--tmc-admin-secondary);
   line-height: 1.4;
 }
 
 .staff-tool-open {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   color: var(--tmc-admin-primary);
   white-space: nowrap;
@@ -523,14 +523,14 @@
   gap: 8px;
   margin-bottom: 13px;
   color: var(--tmc-admin-primary);
-  font-size: 10px;
-  font-weight: 850;
+  font-size: 12px;
+  font-weight: 800;
   letter-spacing: .13em;
   text-transform: uppercase;
 }
 .staff-welcome-eyebrow::before { width: 8px; height: 8px; border-radius: 50%; background: #4386e8; box-shadow: 0 0 0 4px rgba(67,134,232,.12); content: ""; }
 .staff-welcome-eyebrow span { color: #8ba9c1; }
-.staff-welcome-copy h2 { max-width: 570px; margin: 0; color: var(--tmc-admin-text); font-size: clamp(26px, 3vw, 37px); font-weight: 850; letter-spacing: -.045em; line-height: 1.08; }
+.staff-welcome-copy h2 { max-width: 570px; margin: 0; color: var(--tmc-admin-text); font-size: clamp(26px, 3vw, 37px); font-weight: 800; letter-spacing: -.045em; line-height: 1.08; }
 .staff-welcome-copy > p { max-width: 480px; margin: 12px 0 0; color: var(--tmc-admin-secondary); font-size: 13.5px; line-height: 1.6; }
 .staff-welcome-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 11px; margin-top: 20px; }
 .staff-welcome-primary,
@@ -542,7 +542,7 @@
   gap: 9px;
   border-radius: 999px;
   font-size: 12px;
-  font-weight: 750;
+  font-weight: 700;
   text-decoration: none;
   transition: transform 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
 }
@@ -557,17 +557,17 @@
 .staff-pulse-icon { display: grid; width: 34px; height: 34px; flex: 0 0 34px; place-items: center; border-radius: 12px; color: #1e69c3; background: #e5f1ff; box-shadow: inset 2px 2px 5px rgba(90,137,186,.12), inset -2px -2px 5px white; }
 .staff-pulse-heading > span:nth-child(2) { display: grid; gap: 2px; }
 .staff-pulse-heading strong { color: #12395e; font-size: 12px; }
-.staff-pulse-heading small { color: #718da7; font-size: 10px; }
+.staff-pulse-heading small { color: #718da7; font-size: 12px; }
 .staff-pulse-metrics { display: grid; gap: 8px; margin-top: 12px; }
 .staff-pulse-metric { display: grid; grid-template-columns: 28px minmax(0,1fr) auto; align-items: center; gap: 9px; min-height: 36px; padding: 4px 9px; border-radius: 11px; background: rgba(238,246,252,.9); }
 .staff-pulse-metric-icon { display: grid; width: 26px; height: 26px; place-items: center; border-radius: 9px; color: #3d75ac; background: #e3eef8; }
 .staff-pulse-metric--warning .staff-pulse-metric-icon { color: #946a2b; background: #f3eadb; }
 .staff-pulse-metric--danger .staff-pulse-metric-icon { color: #9a4a50; background: #f4e5e7; }
-.staff-pulse-metric-label { color: #58738c; font-size: 10.5px; }
+.staff-pulse-metric-label { color: #58738c; font-size: 12px; }
 .staff-pulse-metric strong { color: #103a63; font-size: 16px; font-variant-numeric: tabular-nums; }
 .staff-pulse-access { display: flex; align-items: center; gap: 11px; min-height: 55px; padding: 6px 10px; }
 .staff-pulse-access > span { color: #175da7; font-size: 28px; font-weight: 800; }
-.staff-pulse-access p { margin: 0; color: #58738c; font-size: 11px; }
+.staff-pulse-access p { margin: 0; color: #58738c; font-size: 12px; }
 
 .admin-layout .admin-content .staff-dashboard-page .metrics-grid { gap: 18px; margin: 0; }
 .admin-layout .admin-content .staff-dashboard-page .tmc-stat-card {
@@ -608,7 +608,7 @@
 .staff-status-ring { display: grid; width: 132px; aspect-ratio: 1; place-items: center; border-radius: 50%; background: conic-gradient(var(--tmc-admin-success) var(--staff-active-rate), var(--tmc-admin-warning) 0); box-shadow: 5px 6px 12px rgba(48,83,116,.12), -4px -4px 10px rgba(255,255,255,.82); }
 .staff-status-ring > span { display: grid; width: 96px; aspect-ratio: 1; place-content: center; justify-items: center; border-radius: 50%; background: var(--tmc-admin-surface); box-shadow: inset 4px 4px 9px rgba(60,98,130,.1), inset -4px -4px 9px rgba(255,255,255,.82); }
 .staff-status-ring strong { color: var(--tmc-admin-text); font-size: 23px; line-height: 1.1; }
-.staff-status-ring small { color: var(--tmc-admin-secondary); font-size: 10px; }
+.staff-status-ring small { color: var(--tmc-admin-secondary); font-size: 12px; }
 .staff-status-details .chart-total { margin-bottom: 13px; }
 .staff-status-details .chart-track { background: var(--tmc-admin-bg-muted); box-shadow: var(--staff-dashboard-inset); }
 .admin-layout .admin-content .staff-dashboard-page .recent-table-wrap { border-color: rgba(255,255,255,.9); border-radius: 15px; box-shadow: var(--staff-dashboard-inset); }
@@ -657,7 +657,7 @@
 @media (max-width: 480px) {
   .admin-layout .admin-content .staff-dashboard-page .staff-welcome { padding: 20px 17px; border-radius: 20px; }
   .staff-welcome-copy h2 { font-size: 27px; }
-  .staff-welcome-primary { min-height: 40px; padding: 0 13px; font-size: 11px; }
+  .staff-welcome-primary { min-height: 40px; padding: 0 13px; font-size: 12px; }
   .staff-pulse-card { padding: 13px; }
   .staff-status-summary { grid-template-columns: 1fr; justify-items: center; }
   .staff-status-details { width: 100%; }

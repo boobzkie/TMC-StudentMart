@@ -3,6 +3,7 @@ import { RefreshCw } from "lucide-react";
 
 export default function AdminPageHero({
   title,
+  description,
   icon: Icon,
   onRefresh,
   refreshing = false,
@@ -47,6 +48,7 @@ export default function AdminPageHero({
         )}
         <div className="admin-page-hero-copy">
           <h2>{title}</h2>
+          {description && <p>{description}</p>}
           {meta && <div className="admin-page-hero-meta">{meta}</div>}
         </div>
       </div>

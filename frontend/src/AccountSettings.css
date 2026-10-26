@@ -30,7 +30,7 @@
   display: inline-block;
   margin-bottom: 7px;
   color: var(--portal-primary-strong);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.17em;
   text-transform: uppercase;
@@ -173,7 +173,7 @@
   border-radius: 999px;
   color: var(--portal-muted);
   background: var(--portal-surface-soft);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   text-transform: capitalize;
 }
@@ -232,7 +232,7 @@
 .account-settings-security-note p {
   margin: 4px 0 0;
   color: var(--portal-muted);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.5;
 }
 
@@ -356,7 +356,7 @@
   box-shadow: var(--portal-shadow-sm);
   font: inherit;
   font-size: 12px;
-  font-weight: 750;
+  font-weight: 700;
   cursor: pointer;
   transition: transform 180ms ease, box-shadow 180ms ease, filter 180ms ease;
 }
@@ -420,7 +420,7 @@
 .account-photo-copy p {
   margin: 4px 0 0;
   color: var(--portal-muted);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.5;
 }
 
@@ -429,7 +429,7 @@
   margin-top: 4px;
   overflow-wrap: anywhere;
   color: var(--portal-ink);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .account-settings-panel .account-photo-button {

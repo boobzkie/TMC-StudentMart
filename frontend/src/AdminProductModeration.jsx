@@ -129,6 +129,7 @@ export default function AdminProductModeration() {
   const productsEndpoint = isStaff ? "staff/products" : "admin/products";
 
   const [products, setProducts] = useState([]);
+  const [queueCounts, setQueueCounts] = useState({ pending: 0, approved: 0, rejected: 0, suspended: 0 });
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("pending");
   const [categoryFilter, setCategoryFilter] = useState("");
@@ -223,11 +224,19 @@ export default function AdminProductModeration() {
           );
         }
 
-        setProducts(
-          Array.isArray(data.products)
-            ? data.products
-            : []
-        );
+        const productRecords = Array.isArray(data.products) ? data.products : [];
+        setProducts(productRecords);
+        const counts = data.status_counts;
+        setQueueCounts(counts ? {
+          pending: Number(counts.pending) || 0,
+          approved: Number(counts.approved) || 0,
+          rejected: Number(counts.rejected) || 0,
+          suspended: Number(counts.suspended) || 0,
+        } : productRecords.reduce((summary, product) => {
+          const status = product.status === "active" ? "approved" : product.status;
+          if (Object.hasOwn(summary, status)) summary[status] += 1;
+          return summary;
+        }, { pending: 0, approved: 0, rejected: 0, suspended: 0 }));
       } catch (err) {
         setError(
           err.message ||
@@ -477,6 +486,25 @@ export default function AdminProductModeration() {
           meta={`${products.length} products shown`}
         />
 
+        <section className="moderation-queue-summary" aria-label="Listing status counts" aria-live="polite">
+          <article className="moderation-queue-card pending">
+            <span className="moderation-queue-icon"><ShieldAlert size={19} aria-hidden="true" /></span>
+            <div><span>Pending review</span><strong>{queueCounts.pending}</strong><small>Waiting for a decision</small></div>
+          </article>
+          <article className="moderation-queue-card approved">
+            <span className="moderation-queue-icon"><CheckCircle2 size={19} aria-hidden="true" /></span>
+            <div><span>Approved</span><strong>{queueCounts.approved}</strong><small>Available listings</small></div>
+          </article>
+          <article className="moderation-queue-card rejected">
+            <span className="moderation-queue-icon"><XCircle size={19} aria-hidden="true" /></span>
+            <div><span>Rejected</span><strong>{queueCounts.rejected}</strong><small>Returned to sellers</small></div>
+          </article>
+          <article className="moderation-queue-card suspended">
+            <span className="moderation-queue-icon"><AlertTriangle size={19} aria-hidden="true" /></span>
+            <div><span>Suspended</span><strong>{queueCounts.suspended}</strong><small>Not visible in marketplace</small></div>
+          </article>
+        </section>
+
         {/* ALERTS */}
         {error && (
           <div className="moderation-alert moderation-alert-error">
@@ -602,7 +630,11 @@ export default function AdminProductModeration() {
               </h3>
 
               <p>
-                {statusFilter === "pending" ? "There are currently no products waiting for moderation." : "No products match the selected search and filters."}
+                {statusFilter === "pending"
+                  ? queueCounts.pending > 0
+                    ? `${queueCounts.pending} pending ${queueCounts.pending === 1 ? "listing is" : "listings are"} in the queue, but none match the current filters.`
+                    : "There are no new listings waiting for moderation."
+                  : "No products match the selected search and filters."}
               </p>
 
             </div>
@@ -686,6 +718,14 @@ export default function AdminProductModeration() {
                           {seller}
                         </strong>
 
+                        {product.user?.student_id && <small>Student ID {product.user.student_id}</small>}
+
+                      </div>
+
+                      <div className="moderation-stock">
+                        <Package size={14} aria-hidden="true" />
+                        <span>Stock</span>
+                        <strong>{Number(product.stock_quantity) || 0}</strong>
                       </div>
 
                       <div className="moderation-date">

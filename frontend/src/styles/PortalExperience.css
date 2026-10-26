@@ -1,75 +1,75 @@
 /* TMC StudentMart Admin and Staff experience — shared visual layer */
 :root {
-  --portal-page: #ECEEFA;
-  --portal-surface: #F6F7FE;
-  --portal-surface-soft: #E5E8F5;
-  --portal-surface-raised: #FAFAFF;
-  --portal-ink: #17233E;
-  --portal-muted: #63718F;
-  --portal-border: #D8DDF0;
-  --portal-primary: #4F5DE2;
-  --portal-primary-strong: #4F5DE2;
-  --portal-accent: #8475E9;
-  --portal-gold: #5F8FE1;
-  --portal-focus: #8B80EF;
-  --portal-shadow-sm: 7px 8px 18px rgba(59, 68, 112, 0.11), -6px -6px 16px rgba(255, 255, 255, 0.92);
-  --portal-shadow-md: 9px 10px 21px rgba(59, 68, 112, 0.14), -7px -7px 17px rgba(255, 255, 255, 0.96);
-  --portal-radius-sm: 8px;
-  --portal-radius-md: 12px;
-  --portal-radius-lg: 16px;
-  --portal-radius-xl: 22px;
+  --portal-page: #F8FAFC;
+  --portal-surface: #FFFFFF;
+  --portal-surface-soft: #F1F5F9;
+  --portal-surface-raised: #FFFFFF;
+  --portal-ink: #0F2540;
+  --portal-muted: #52657A;
+  --portal-border: #DCE4EC;
+  --portal-primary: #0A4174;
+  --portal-primary-strong: #0A4174;
+  --portal-accent: #4E8EA2;
+  --portal-gold: #7BBDE8;
+  --portal-focus: #0A68A8;
+  --portal-shadow-sm: 0 1px 2px rgba(15, 37, 64, 0.05);
+  --portal-shadow-md: 0 4px 12px rgba(15, 37, 64, 0.09);
+  --portal-radius-sm: 6px;
+  --portal-radius-md: 8px;
+  --portal-radius-lg: 12px;
+  --portal-radius-xl: 16px;
   --portal-motion: 200ms cubic-bezier(0.2, 0, 0, 1);
-  --primary: #4F5DE2;
-  --primary-hover: #6877F0;
-  --primary-light: #E7E9FC;
-  --primary-soft: #D9DDFB;
+  --primary: #0A4174;
+  --primary-hover: #0D4F8A;
+  --primary-light: #E7F1F7;
+  --primary-soft: #D6E6F0;
   --success: #45664F;
   --success-light: #E7EFE8;
   --warning: #8B5E1A;
   --warning-light: #F7EEDB;
   --danger: #A34147;
   --danger-light: #F8E8E8;
-  --info: #586CCF;
-  --info-light: #E8EBFC;
+  --info: #49769F;
+  --info-light: #E7F1F7;
   --background: var(--portal-page);
   --surface: var(--portal-surface);
-  --surface-hover: #EDF0FC;
+  --surface-hover: #F1F5F9;
   --border: var(--portal-border);
-  --border-light: #E1E4F2;
-  --tmc-ui-white: #F6F7FE;
-  --tmc-ui-light-gray: #E5E8F5;
-  --tmc-ui-medium-gray: #63718F;
-  --tmc-ui-dark-gray: #17233E;
+  --border-light: #E2E8F0;
+  --tmc-ui-white: #FFFFFF;
+  --tmc-ui-light-gray: #F1F5F9;
+  --tmc-ui-medium-gray: #52657A;
+  --tmc-ui-dark-gray: #0F2540;
   --tmc-ui-deep-navy-black: #001D39;
   --tmc-ui-primary-navy: #0A4174;
   --tmc-ui-deep-navy: #001D39;
-  --tmc-ui-secondary-blue: #586CCF;
-  --tmc-ui-muted-blue: #63718F;
-  --tmc-ui-teal: #49AEB7;
-  --tmc-ui-light-teal: #78C9C9;
-  --tmc-ui-blue-accent: #829AF1;
-  --tmc-ui-light-blue: #D1D8FB;
-  --tmc-ui-surface: #F6F7FE;
-  --tmc-ui-border: #D8DDF0;
+  --tmc-ui-secondary-blue: #49769F;
+  --tmc-ui-muted-blue: #52657A;
+  --tmc-ui-teal: #4E8EA2;
+  --tmc-ui-light-teal: #6EA2B3;
+  --tmc-ui-blue-accent: #7BBDE8;
+  --tmc-ui-light-blue: #D6E6F0;
+  --tmc-ui-surface: #FFFFFF;
+  --tmc-ui-border: #DCE4EC;
   color-scheme: light;
   font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
 }
 
 :root[data-theme="dark"] {
-  --portal-page: #001D39;
-  --portal-surface: #0A4174;
-  --portal-surface-soft: #0D365D;
-  --portal-surface-raised: #124A78;
-  --portal-ink: #F9FCFE;
-  --portal-muted: #BDD8E9;
-  --portal-border: rgba(189, 216, 233, 0.22);
+  --portal-page: #0B1728;
+  --portal-surface: #14263D;
+  --portal-surface-soft: #182C45;
+  --portal-surface-raised: #1A304A;
+  --portal-ink: #F4F7FB;
+  --portal-muted: #B5C3D3;
+  --portal-border: rgba(181, 195, 211, 0.18);
   --portal-primary: #7BBDE8;
   --portal-primary-strong: #7BBDE8;
   --portal-accent: #6EA2B3;
-  --portal-gold: #6EA2B3;
-  --portal-focus: #7BBDE8;
-  --portal-shadow-sm: 4px 4px 12px rgba(0, 0, 0, 0.22), -3px -3px 9px rgba(255, 255, 255, 0.035);
-  --portal-shadow-md: 7px 7px 18px rgba(0, 0, 0, 0.26), -5px -5px 13px rgba(255, 255, 255, 0.04);
+  --portal-gold: #7BBDE8;
+  --portal-focus: #9CCFF0;
+  --portal-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.16);
+  --portal-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.24);
   --primary: #7BBDE8;
   --primary-hover: #BDD8E9;
   --primary-light: #0D365D;
@@ -87,21 +87,21 @@
   --surface-hover: #124A78;
   --border: var(--portal-border);
   --border-light: rgba(189, 216, 233, 0.18);
-  --tmc-ui-white: #0A4174;
-  --tmc-ui-light-gray: #0D365D;
-  --tmc-ui-medium-gray: #9ABBD1;
-  --tmc-ui-dark-gray: #BDD8E9;
+  --tmc-ui-white: #14263D;
+  --tmc-ui-light-gray: #182C45;
+  --tmc-ui-medium-gray: #B5C3D3;
+  --tmc-ui-dark-gray: #F4F7FB;
   --tmc-ui-deep-navy-black: #001D39;
   --tmc-ui-primary-navy: #0A4174;
   --tmc-ui-deep-navy: #001D39;
   --tmc-ui-secondary-blue: #BDD8E9;
-  --tmc-ui-muted-blue: #49769F;
+  --tmc-ui-muted-blue: #B5C3D3;
   --tmc-ui-teal: #6EA2B3;
   --tmc-ui-light-teal: #6EA2B3;
   --tmc-ui-blue-accent: #7BBDE8;
-  --tmc-ui-light-blue: #0D365D;
-  --tmc-ui-surface: #0A4174;
-  --tmc-ui-border: rgba(189, 216, 233, 0.22);
+  --tmc-ui-light-blue: #182C45;
+  --tmc-ui-surface: #14263D;
+  --tmc-ui-border: rgba(181, 195, 211, 0.18);
   color-scheme: dark;
 }
 
@@ -115,10 +115,10 @@
   --tmc-admin-muted: #53677A;
   --tmc-admin-border: var(--portal-border);
   --tmc-admin-primary: var(--portal-primary-strong);
-  --tmc-admin-primary-hover: #6877F0;
+  --tmc-admin-primary-hover: #0D4F8A;
   --tmc-admin-on-primary: #FFFFFF;
   --tmc-admin-accent: var(--portal-accent);
-  --tmc-admin-accent-soft: rgba(132, 117, 233, 0.14);
+  --tmc-admin-accent-soft: rgba(78, 142, 162, 0.12);
   --tmc-admin-accent-border: var(--portal-accent);
   --tmc-admin-sky: var(--portal-gold);
   --tmc-admin-sidebar: #001D39;
@@ -126,7 +126,7 @@
   --tmc-admin-sidebar-muted: #D8D9D0;
   --tmc-admin-card-shadow: var(--portal-shadow-sm);
   --tmc-admin-card-hover: var(--portal-shadow-md);
-  --tmc-admin-input-shadow: inset 2px 2px 5px rgba(74, 83, 131, 0.11), inset -2px -2px 5px rgba(255, 255, 255, 0.82);
+  --tmc-admin-input-shadow: none;
   --tmc-admin-overlay: rgba(0, 29, 57, 0.62);
   --tmc-admin-success: #45664F;
   --tmc-admin-success-soft: rgba(69, 102, 79, 0.12);
@@ -159,7 +159,7 @@
   --tmc-admin-sidebar-muted: #C7CEC7;
   --tmc-admin-card-shadow: var(--portal-shadow-sm);
   --tmc-admin-card-hover: var(--portal-shadow-md);
-  --tmc-admin-input-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  --tmc-admin-input-shadow: none;
   --tmc-admin-overlay: rgba(3, 10, 18, 0.78);
   --tmc-admin-success: #8EBB91;
   --tmc-admin-success-soft: rgba(69, 102, 79, 0.2);
@@ -573,7 +573,7 @@ button, input, select, textarea { font-family: inherit; }
   align-items: center;
   padding: 5px 11px;
   border: 1px solid transparent;
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.06em;
 }
 .staff-status-pill.pending,
@@ -599,7 +599,7 @@ button, input, select, textarea { font-family: inherit; }
 .staff-status-meta dt {
   margin-bottom: 4px;
   color: var(--auth-muted);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -702,7 +702,7 @@ button, input, select, textarea { font-family: inherit; }
 @media (max-width: 620px) {
   .admin-header { padding-inline: 12px; }
   .admin-header-logo { display: none; }
-  .admin-page-eyebrow { font-size: 9px; letter-spacing: 0.1em; }
+  .admin-page-eyebrow { font-size: 12px; letter-spacing: 0.1em; }
   .admin-page-heading h1 { font-size: 18px; }
   .admin-header-actions { gap: 6px; }
   .admin-theme-toggle { min-width: 38px; width: 38px; height: 38px; padding: 0; }
@@ -715,7 +715,7 @@ button, input, select, textarea { font-family: inherit; }
   .login-page .auth-promo-copy h2,
   .staff-registration-page .auth-promo-copy h2 { font-size: 21px; }
   .login-page .auth-promo-note span,
-  .staff-registration-page .auth-promo-note span { font-size: 11px; }
+  .staff-registration-page .auth-promo-note span { font-size: 12px; }
   .login-page .auth-form-panel,
   .staff-auth-shell .auth-form-panel { padding: 22px 18px; }
   .staff-auth-shell .staff-registration-card { padding: 18px 0; }

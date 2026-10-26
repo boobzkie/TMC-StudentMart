@@ -74,7 +74,7 @@
 
   color: #2563eb;
 
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.12em;
 }
@@ -120,7 +120,7 @@
 
   font-family: inherit;
   font-size: 12px;
-  font-weight: 750;
+  font-weight: 700;
 
   cursor: pointer;
 
@@ -224,8 +224,8 @@
 
   color: #7185a3;
 
-  font-size: 11px;
-  font-weight: 650;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .transactions-status-card strong {
@@ -290,7 +290,7 @@
 
   color: #2563eb;
 
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.14em;
 }
@@ -338,8 +338,8 @@
 
   border-radius: 13px;
 
-  font-size: 11px;
-  font-weight: 650;
+  font-size: 12px;
+  font-weight: 600;
   line-height: 1.5;
 
   box-shadow:
@@ -375,7 +375,7 @@
 
   font-family: inherit;
   font-size: 12px;
-  font-weight: 750;
+  font-weight: 700;
 
   cursor: pointer;
 
@@ -483,7 +483,7 @@
   }
 
   .transactions-info-box {
-    font-size: 10px;
+    font-size: 12px;
   }
 }
 
@@ -545,8 +545,8 @@
   gap: 4px;
   min-width: 160px;
   color: var(--tmc-admin-secondary, #64748b);
-  font-size: 10px;
-  font-weight: 750;
+  font-size: 12px;
+  font-weight: 700;
 }
 .transactions-status-filter select,
 .transactions-pickup-filter select {
@@ -578,21 +578,21 @@
 .transactions-table th {
   color: var(--tmc-admin-secondary, #64748b);
   background: var(--tmc-admin-bg-muted, #edf3f8);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 800;
   white-space: nowrap;
 }
-.transactions-table td strong { font-size: 11px; }
+.transactions-table td strong { font-size: 12px; }
 .transactions-table td small,
 .transactions-table td > span:not(.transactions-order-status) {
   display: block;
   margin-top: 3px;
 }
-.transactions-table td small { color: var(--tmc-admin-secondary, #64748b); font-size: 10px; }
+.transactions-table td small { color: var(--tmc-admin-secondary, #64748b); font-size: 12px; }
 .transactions-table tbody tr:last-child td { border-bottom: 0; }
 .transactions-table tbody tr:hover { background: var(--tmc-admin-bg-muted, rgba(10,65,116,.04)); }
 .transactions-item-list { display: grid; gap: 4px; min-width: 130px; }
-.transactions-item-list span { font-size: 11px; }
+.transactions-item-list span { font-size: 12px; }
 .transactions-amount { font-weight: 800; white-space: nowrap; }
 .transactions-order-status {
   display: inline-flex;
@@ -600,7 +600,7 @@
   border-radius: 999px;
   color: #854d0e;
   background: #fef3c7;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 800;
   text-transform: capitalize;
   white-space: nowrap;
@@ -647,7 +647,7 @@
   font-weight: 800;
   cursor: pointer;
 }
-.transactions-limit-note { padding: 0 14px 12px; color: var(--tmc-admin-secondary, #64748b); font-size: 11px; }
+.transactions-limit-note { padding: 0 14px 12px; color: var(--tmc-admin-secondary, #64748b); font-size: 12px; }
 .is-spinning { animation: transactionsSpin .75s linear infinite; }
 .visually-hidden {
   position: absolute;
@@ -686,8 +686,8 @@
   gap: 4px;
   min-width: 145px;
   color: var(--tmc-admin-secondary, #64748b);
-  font-size: 10px;
-  font-weight: 750;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .transactions-date-filter input {
@@ -714,8 +714,8 @@
   color: var(--tmc-admin-text, #102a56);
   background: var(--tmc-admin-bg-muted, #fff);
   font: inherit;
-  font-size: 11px;
-  font-weight: 750;
+  font-size: 12px;
+  font-weight: 700;
   cursor: pointer;
 }
 
@@ -730,8 +730,8 @@
   gap: 12px;
   padding: 11px 15px;
   color: var(--tmc-admin-secondary, #64748b);
-  font-size: 11px;
-  font-weight: 650;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .transactions-order-status.status-ready_for_pickup {

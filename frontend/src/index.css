@@ -1468,7 +1468,7 @@ table {
   width: 32px;
   height: 32px;
 
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .avatar-lg {
@@ -1903,7 +1903,7 @@ table {
 
   color: var(--gray-400);
 
-  font-size: 11px;
+  font-size: 12px;
 }
 
 
@@ -1946,7 +1946,7 @@ table {
 
   color: var(--gray-400);
 
-  font-size: 11px;
+  font-size: 12px;
 
   text-overflow: ellipsis;
   white-space: nowrap;

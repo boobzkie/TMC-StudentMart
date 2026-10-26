@@ -22,8 +22,8 @@
   object-fit: cover;
 }
 
-.tmc-avatar--sm { width: 28px; height: 28px; font-size: 10px; }
-.tmc-avatar--md { width: 36px; height: 36px; font-size: 11px; }
+.tmc-avatar--sm { width: 28px; height: 28px; font-size: 12px; }
+.tmc-avatar--md { width: 36px; height: 36px; font-size: 12px; }
 .tmc-avatar--lg { width: 44px; height: 44px; font-size: 13px; }
 
 .tmc-avatar.status {

@@ -189,7 +189,7 @@
   background: #e4edf8;
   font: inherit;
   font-size: 12px;
-  font-weight: 750;
+  font-weight: 700;
   cursor: pointer;
   transition: transform 160ms ease, background 160ms ease;
 }
@@ -249,7 +249,7 @@
   border-radius: 999px;
   color: #194f9c;
   background: #deebff;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 800;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -309,14 +309,14 @@
 .student-details-modal dt {
   margin-bottom: 4px;
   color: #6c819c;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .student-details-modal dd {
   margin: 0;
   color: #243e62;
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 600;
   overflow-wrap: anywhere;
 }
 
@@ -324,7 +324,7 @@
   display: block;
   margin-top: 4px;
   color: #7185a0;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 400;
 }
 
@@ -506,15 +506,15 @@
 
 .users-page-staff .users-page-label {
   color: var(--staff-teal) !important;
-  font-size: 10px !important;
-  font-weight: 850 !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
   letter-spacing: 0.18em !important;
 }
 
 .users-page-staff .users-toolbar-top h2 {
   color: var(--staff-navy) !important;
   font-size: 28px !important;
-  font-weight: 850 !important;
+  font-weight: 800 !important;
   letter-spacing: -0.035em !important;
 }
 
@@ -746,8 +746,8 @@
 /* Keep the complete account record readable at desktop widths; scroll the table on smaller screens. */
 .admin-layout[data-theme] .admin-content .users-page-label {
   color: var(--tmc-admin-primary) !important;
-  font-size: 10px;
-  font-weight: 850;
+  font-size: 12px;
+  font-weight: 800;
   letter-spacing: 0.13em;
 }
 

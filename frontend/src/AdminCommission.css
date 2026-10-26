@@ -41,8 +41,8 @@
 
 .commission-eyebrow {
   color: var(--tmc-admin-primary);
-  font-size: 9px;
-  font-weight: 850;
+  font-size: 12px;
+  font-weight: 800;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   display: block;
@@ -94,7 +94,7 @@
 }
 
 .commission-card-value {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   padding: 3px 8px;
   border-radius: 999px;

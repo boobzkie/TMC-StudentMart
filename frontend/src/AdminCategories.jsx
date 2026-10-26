@@ -3,6 +3,7 @@ import {
   CheckCircle2,
   Edit3,
   Loader2,
+  Package,
   Plus,
   Power,
   Search,
@@ -14,8 +15,7 @@ import {
 
 import AdminLayout from "./components/AdminLayout";
 import AdminPageHero from "./components/AdminPageHero";
-import { SortableHead } from "./ui/Table";
-import { API_URL, sortRows } from "./utils/api";
+import { API_URL } from "./utils/api";
 
 import "./AdminCategories.css";
 
@@ -34,8 +34,8 @@ function getToken() {
 
 export default function AdminCategories() {
   const [categories, setCategories] = useState([]);
-  const [sort, setSort] = useState({ key: "name", direction: "asc" });
   const [search, setSearch] = useState("");
+  const [searchInput, setSearchInput] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
   const [loading, setLoading] = useState(true);
@@ -53,16 +53,6 @@ export default function AdminCategories() {
 
   const [deletingId, setDeletingId] = useState(null);
   const [togglingId, setTogglingId] = useState(null);
-
-  const toggleSort = (key) => setSort((current) => ({ key, direction: current.key === key && current.direction === "asc" ? "desc" : "asc" }));
-  const sortedCategories = sortRows(categories, sort, (category, key) => ({
-    name: category.name,
-    description: category.description,
-    listings: category.listings_count ?? category.products_count,
-    archived: category.archived_count,
-    status: category.status,
-    updated_at: category.updated_at,
-  })[key]);
 
   const clearMessages = () => {
     setError("");
@@ -145,11 +135,13 @@ export default function AdminCategories() {
           );
         }
 
-        setCategories(
-          Array.isArray(data.categories)
-            ? data.categories
-            : []
+        const categoryRecords = Array.isArray(data.categories)
+          ? data.categories
+          : [];
+        const uniqueCategories = Array.from(
+          new Map(categoryRecords.map((category) => [String(category.id), category])).values()
         );
+        setCategories(uniqueCategories);
       } catch (err) {
         setError(
           err.message ||
@@ -501,6 +493,9 @@ export default function AdminCategories() {
       ) || 0),
     0
   );
+  const categoriesWithListings = categories.filter((category) => Number(category.listings_count) > 0).length;
+  const categoriesWithoutListings = Math.max(0, categories.length - categoriesWithListings);
+  const activeShare = categories.length ? activeCount / categories.length * 100 : 0;
 
   return (
     <AdminLayout
@@ -580,6 +575,7 @@ export default function AdminCategories() {
               <strong>
                 {categories.length}
               </strong>
+              <small>Marketplace categories</small>
             </div>
           </div>
 
@@ -596,6 +592,7 @@ export default function AdminCategories() {
               <strong>
                 {activeCount}
               </strong>
+              <small>Available to organize listings</small>
             </div>
           </div>
 
@@ -612,6 +609,7 @@ export default function AdminCategories() {
               <strong>
                 {inactiveCount}
               </strong>
+              <small>Not available for listings</small>
             </div>
           </div>
 
@@ -628,73 +626,43 @@ export default function AdminCategories() {
               <strong>
                 {totalListings}
               </strong>
+              <small>Across active categories</small>
             </div>
           </div>
 
         </section>
 
-        {/* TOOLBAR */}
+        {/* CATEGORY OVERVIEW AND MANAGEMENT TABLE */}
+        <div className="category-workspace">
+          <aside className="category-overview" aria-labelledby="category-overview-title">
+            <div className="category-overview-heading"><span className="category-overview-icon"><Tags size={16} /></span><div><h3 id="category-overview-title">Category Overview</h3><p>Distribution and listing status</p></div></div>
+            <div className="category-overview-donut" style={{ background: categories.length ? `conic-gradient(#1f4f80 0 ${activeShare}%, #24bfd0 ${activeShare}% 100%)` : "var(--tmc-admin-border)" }} role="img" aria-label={`${categories.length} total categories, ${activeCount} active, ${inactiveCount} inactive`}><span><strong>{categories.length}</strong><small>Total categories</small></span></div>
+            <ul className="category-overview-legend">
+              <li><i className="active" /><span>Active</span><b>{categories.length ? Math.round(activeCount / categories.length * 100) : 0}%</b><strong>{activeCount}</strong></li>
+              <li><i className="inactive" /><span>Inactive</span><b>{categories.length ? Math.round(inactiveCount / categories.length * 100) : 0}%</b><strong>{inactiveCount}</strong></li>
+              <li><i className="listed" /><span>With listings</span><b>{categories.length ? Math.round(categoriesWithListings / categories.length * 100) : 0}%</b><strong>{categoriesWithListings}</strong></li>
+              <li><i className="empty" /><span>Without listings</span><b>{categories.length ? Math.round(categoriesWithoutListings / categories.length * 100) : 0}%</b><strong>{categoriesWithoutListings}</strong></li>
+            </ul>
+            <div className="category-overview-total"><Package size={15} /><span>Active listings across categories</span><strong>{totalListings}</strong></div>
+          </aside>
+
         <section className="categories-panel">
 
-          <div className="categories-toolbar">
+          <form className="categories-toolbar" onSubmit={(event) => { event.preventDefault(); setSearch(searchInput.trim()); }}>
 
             <div className="category-search">
-
-              <Search size={18} />
-
-              <input
-                type="search"
-                placeholder="Search categories..."
-                value={search}
-                onChange={(event) =>
-                  setSearch(
-                    event.target.value
-                  )
-                }
-              />
-
-              {search && (
-                <button
-                  type="button"
-                  className="clear-search"
-                  onClick={() =>
-                    setSearch("")
-                  }
-                  aria-label="Clear search"
-                >
-                  <X size={16} />
-                </button>
-              )}
-
+              <Search size={17} aria-hidden="true" />
+              <input type="search" placeholder="Search categories..." value={searchInput} onChange={(event) => setSearchInput(event.target.value)} aria-label="Search categories" />
+              <button type="submit" className="category-search-submit">Search</button>
             </div>
 
-            <div className="category-toolbar-actions">
+            <select className="category-toolbar-select" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Filter categories by status">
+              <option value="all">All statuses</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
 
-              <select
-                value={statusFilter}
-                onChange={(event) =>
-                  setStatusFilter(
-                    event.target.value
-                  )
-                }
-                aria-label="Filter by status"
-              >
-                <option value="all">
-                  All Status
-                </option>
-
-                <option value="active">
-                  Active
-                </option>
-
-                <option value="inactive">
-                  Inactive
-                </option>
-              </select>
-
-            </div>
-
-          </div>
+          </form>
 
           {/* TABLE */}
           <div className="categories-table-wrapper">
@@ -708,31 +676,14 @@ export default function AdminCategories() {
                   <Tags size={30} />
                 </div>
 
-                <h3>
-                  No categories found
-                </h3>
+                <h3>No categories found</h3>
+                <p>{search || statusFilter !== "all" ? "Try changing your search or filter." : "Create your first marketplace category."}</p>
 
-                <p>
-                  {search ||
-                  statusFilter !== "all"
-                    ? "Try changing your search or filter."
-                    : "Create your first marketplace category."}
-                </p>
-
-                {!search &&
-                  statusFilter ===
-                    "all" && (
-                    <button
-                      type="button"
-                      className="category-primary-button"
-                      onClick={
-                        openCreateModal
-                      }
-                    >
-                      <Plus size={18} />
-                      Add Category
-                    </button>
-                  )}
+                {!search && statusFilter === "all" && (
+                  <button type="button" className="category-primary-button" onClick={openCreateModal}>
+                    <Plus size={18} /> Add Category
+                  </button>
+                )}
 
               </div>
             ) : (
@@ -740,26 +691,18 @@ export default function AdminCategories() {
 
                 <thead>
                   <tr>
-                    <SortableHead field="name" sort={sort} onSort={toggleSort}>Category</SortableHead>
-
-                    <SortableHead field="description" sort={sort} onSort={toggleSort}>Description</SortableHead>
-
-                    <SortableHead field="listings" sort={sort} onSort={toggleSort}>Listings</SortableHead>
-
-                    <SortableHead field="archived" sort={sort} onSort={toggleSort}>Archived</SortableHead>
-
-                    <SortableHead field="status" sort={sort} onSort={toggleSort}>Status</SortableHead>
-
-                    <SortableHead field="updated_at" sort={sort} onSort={toggleSort}>Updated</SortableHead>
-
-                    <th className="actions-column">
-                      Actions
-                    </th>
+                    <th scope="col">Category</th>
+                    <th scope="col">Description</th>
+                    <th scope="col">Active listings</th>
+                    <th scope="col">Archived products</th>
+                    <th scope="col">Availability</th>
+                    <th scope="col">Last updated</th>
+                    <th className="actions-column">Actions</th>
                   </tr>
                 </thead>
 
                 <tbody>
-                  {sortedCategories.map(
+                  {categories.map(
                     (category) => (
                       <tr
                         key={
@@ -768,195 +711,32 @@ export default function AdminCategories() {
                       >
                         <td>
                           <div className="category-name-cell">
-
-                            <div className="category-table-icon">
-                              <Tags
-                                size={17}
-                              />
-                            </div>
-
-                            <div>
-                              <strong>
-                                {
-                                  category.name
-                                }
-                              </strong>
-
-                              <small>
-                                ID #
-                                {
-                                  category.id
-                                }
-                              </small>
-                            </div>
-
+                            <div className="category-table-icon"><Tags size={17} /></div>
+                            <div><strong>{category.name}</strong><small>ID #{category.id}</small></div>
                           </div>
                         </td>
-
-                        <td>
-                          <div className="category-description">
-                            {category.description ||
-                              "No description"}
-                          </div>
-                        </td>
-
-                        <td>
-                          <span className="product-count-badge">
-                            {
-                              category.listings_count ??
-                              0
-                            }
-                          </span>
-                        </td>
-
-                        <td>
-                          <span className="product-count-badge product-count-badge-archived">
-                            {
-                              category.archived_count ??
-                              0
-                            }
-                          </span>
-                        </td>
-
-                        <td>
-                          <span
-                            className={`category-status ${
-                              category.status ===
-                              "active"
-                                ? "active"
-                                : "inactive"
-                            }`}
-                          >
-                            {category.status ===
-                            "active" ? (
-                              <CheckCircle2
-                                size={15}
-                              />
-                            ) : (
-                              <XCircle
-                                size={15}
-                              />
-                            )}
-
-                            {category.status ===
-                            "active"
-                              ? "Active"
-                              : "Inactive"}
-                          </span>
-                        </td>
-
-                        <td>
-                          <span className="category-date">
-                            {formatDate(
-                              category.updated_at
-                            )}
-                          </span>
-                        </td>
-
+                        <td><div className="category-description">{category.description || "No description"}</div></td>
+                        <td><span className="product-count-badge">{category.listings_count ?? 0}</span></td>
+                        <td><span className="product-count-badge product-count-badge-archived">{category.archived_count ?? 0}</span></td>
+                        <td><span className={`category-status ${category.status === "active" ? "active" : "inactive"}`}>{category.status === "active" ? <CheckCircle2 size={15} /> : <XCircle size={15} />}{category.status === "active" ? "Active" : "Inactive"}</span></td>
+                        <td><span className="category-date">{formatDate(category.updated_at)}</span></td>
                         <td>
                           <div className="category-actions">
-
-                            <button
-                              type="button"
-                              className="category-action edit"
-                              onClick={() =>
-                                openEditModal(
-                                  category
-                                )
-                              }
-                              title="Edit category"
-                            >
-                              <Edit3
-                                size={16}
-                              />
-                            </button>
-
-                            <button
-                              type="button"
-                              className={`category-action toggle ${
-                                category.status ===
-                                "active"
-                                  ? "deactivate"
-                                  : "activate"
-                              }`}
-                              onClick={() =>
-                                handleToggleStatus(
-                                  category
-                                )
-                              }
-                              disabled={
-                                togglingId ===
-                                category.id
-                              }
-                              title={
-                                category.status ===
-                                "active"
-                                  ? "Deactivate category"
-                                  : "Activate category"
-                              }
-                            >
-                              {togglingId ===
-                              category.id ? (
-                                <Loader2
-                                  size={16}
-                                  className="spin"
-                                />
-                              ) : (
-                                <Power
-                                  size={16}
-                                />
-                              )}
-                            </button>
-
-                            <button
-                              type="button"
-                              className="category-action delete"
-                              onClick={() =>
-                                handleDelete(
-                                  category
-                                )
-                              }
-                              disabled={
-                                deletingId ===
-                                category.id ||
-                                Number(
-                                  category.products_count
-                                ) > 0
-                              }
-                              title={
-                                Number(
-                                  category.products_count
-                                ) > 0
-                                  ? "Cannot delete a category with products"
-                                  : "Delete category"
-                              }
-                            >
-                              {deletingId ===
-                              category.id ? (
-                                <Loader2
-                                  size={16}
-                                  className="spin"
-                                />
-                              ) : (
-                                <Trash2
-                                  size={16}
-                                />
-                              )}
-                            </button>
-
+                            <button type="button" className="category-action edit" onClick={() => openEditModal(category)} title="Edit category"><Edit3 size={16} /></button>
+                            <button type="button" className={`category-action toggle ${category.status === "active" ? "deactivate" : "activate"}`} onClick={() => handleToggleStatus(category)} disabled={togglingId === category.id} title={category.status === "active" ? "Deactivate category" : "Activate category"}>{togglingId === category.id ? <Loader2 size={16} className="spin" /> : <Power size={16} />}</button>
+                            <button type="button" className="category-action delete" onClick={() => handleDelete(category)} disabled={deletingId === category.id || Number(category.products_count) > 0} title={Number(category.products_count) > 0 ? "Cannot delete a category with products" : "Delete category"}>{deletingId === category.id ? <Loader2 size={16} className="spin" /> : <Trash2 size={16} />}</button>
                           </div>
                         </td>
                       </tr>
                     )
                   )}
                 </tbody>
-
               </table>
             )}
-
           </div>
 
         </section>
+        </div>
 
       </div>
 

@@ -102,8 +102,8 @@
 
   color: #2563eb;
 
-  font-size: 10px;
-  font-weight: 850;
+  font-size: 12px;
+  font-weight: 800;
 
   letter-spacing: 2.2px;
 }
@@ -121,7 +121,7 @@
 
   line-height: 1.05;
 
-  font-weight: 900;
+  font-weight: 800;
 
   letter-spacing: -1.5px;
 }
@@ -137,7 +137,7 @@
 
   line-height: 1.6;
 
-  font-weight: 550;
+  font-weight: 500;
 }
 
 .sellers-refresh-button {
@@ -252,7 +252,7 @@
 
   color: #a93440;
 
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 800;
 
   cursor: pointer;
@@ -338,8 +338,8 @@
 
   color: #6880aa;
 
-  font-size: 10px;
-  font-weight: 750;
+  font-size: 12px;
+  font-weight: 700;
 
   letter-spacing: .5px;
 
@@ -353,7 +353,7 @@
 
   line-height: 1;
 
-  font-weight: 900;
+  font-weight: 800;
 }
 
 /* ============================================================
@@ -493,7 +493,7 @@
 .sellers-status-filter label {
   color: #6880aa;
 
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 800;
 
   letter-spacing: .7px;
@@ -560,8 +560,8 @@
 
   color: #8ca0c0;
 
-  font-size: 9px;
-  font-weight: 850;
+  font-size: 12px;
+  font-weight: 800;
 
   letter-spacing: 1.5px;
 }
@@ -572,7 +572,7 @@
   color: #07143d;
 
   font-size: 22px;
-  font-weight: 900;
+  font-weight: 800;
 }
 
 .sellers-count {
@@ -584,7 +584,7 @@
 
   color: #2563eb;
 
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 800;
 }
 
@@ -672,7 +672,7 @@
   color: #ffffff;
 
   font-size: 16px;
-  font-weight: 900;
+  font-weight: 800;
 
   box-shadow:
     5px 5px 12px rgba(126, 151, 181, .20),
@@ -703,7 +703,7 @@
   color: #07143d;
 
   font-size: 14px;
-  font-weight: 850;
+  font-weight: 800;
 
   text-overflow: ellipsis;
 
@@ -720,8 +720,8 @@
 
   color: #6880aa;
 
-  font-size: 10px;
-  font-weight: 650;
+  font-size: 12px;
+  font-weight: 600;
 
   text-overflow: ellipsis;
 
@@ -745,8 +745,8 @@
 .seller-product-stats > span {
   color: #8ca0c0;
 
-  font-size: 8px;
-  font-weight: 850;
+  font-size: 12px;
+  font-weight: 800;
 
   letter-spacing: 1px;
 }
@@ -763,8 +763,8 @@
 
   border-radius: 999px;
 
-  font-size: 9px;
-  font-weight: 850;
+  font-size: 12px;
+  font-weight: 800;
 
   text-transform: uppercase;
 }
@@ -795,7 +795,7 @@
 
   line-height: 1;
 
-  font-weight: 900;
+  font-weight: 800;
 }
 
 /* ============================================================
@@ -835,12 +835,12 @@
 
 .seller-product-stat strong {
   font-size: 13px;
-  font-weight: 900;
+  font-weight: 800;
 }
 
 .seller-product-stat span {
-  font-size: 8px;
-  font-weight: 750;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .seller-product-stat.active {
@@ -902,7 +902,7 @@
   color: #07143d;
 
   font-size: 18px;
-  font-weight: 900;
+  font-weight: 800;
 }
 
 .sellers-empty p {
@@ -928,7 +928,7 @@
 
   color: #2563eb;
 
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 800;
 
   cursor: pointer;

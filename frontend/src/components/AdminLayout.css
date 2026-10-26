@@ -58,7 +58,7 @@
 
   border-radius: 11px;
 
-  background: #2563eb;
+  background: #0A4174;
 
   color: #ffffff;
 
@@ -91,10 +91,10 @@
 
   color: #94a3b8;
 
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 800;
 
-  letter-spacing: 1.5px;
+  letter-spacing: 1.6px;
 }
 
 /* =========================
@@ -137,10 +137,10 @@
 
   color: #64748b;
 
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 800;
 
-  letter-spacing: 1.5px;
+  letter-spacing: 1.6px;
 }
 
 .admin-nav-link {
@@ -182,11 +182,11 @@
 .admin-nav-link.active {
   color: #ffffff;
 
-  background: #2563eb;
+  background: #0A4174;
 
   box-shadow:
     0 8px 18px
-    rgba(37, 99, 235, 0.22);
+    rgba(10, 65, 116, 0.22);
 }
 
 .admin-nav-link.active svg {
@@ -257,7 +257,7 @@
 
   color: #f8fafc;
 
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -266,7 +266,7 @@
 
   color: #64748b;
 
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .sidebar-logout {
@@ -340,12 +340,12 @@
 .admin-heading-label {
   margin-bottom: 5px;
 
-  color: #2563eb;
+  color: #0A4174;
 
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 800;
 
-  letter-spacing: 1.5px;
+  letter-spacing: 1.6px;
 }
 
 .admin-heading h1 {
@@ -382,9 +382,9 @@
 
   background: #eff6ff;
 
-  color: #2563eb;
+  color: #0A4174;
 
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -484,7 +484,7 @@
   }
 
   .admin-heading p {
-    font-size: 11px;
+    font-size: 12px;
   }
 
   .admin-header-security {

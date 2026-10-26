@@ -95,11 +95,22 @@ class AdminProductController extends Controller
         }
 
         $products = $query->get();
+        $groupedStatusCounts = Product::query()
+            ->selectRaw('LOWER(status) as status, COUNT(*) as total')
+            ->groupByRaw('LOWER(status)')
+            ->pluck('total', 'status');
+        $statusCounts = [
+            'pending' => (int) ($groupedStatusCounts['pending'] ?? 0),
+            'approved' => (int) ($groupedStatusCounts['active'] ?? 0) + (int) ($groupedStatusCounts['approved'] ?? 0),
+            'rejected' => (int) ($groupedStatusCounts['rejected'] ?? 0),
+            'suspended' => (int) ($groupedStatusCounts['suspended'] ?? 0),
+        ];
 
         return response()->json([
             'success' => true,
             'products' => $products,
             'total' => $products->count(),
+            'status_counts' => $statusCounts,
         ]);
     }
 

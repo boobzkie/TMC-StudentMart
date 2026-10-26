@@ -145,7 +145,7 @@
 .complaints-table th {
   text-align: left;
   padding: 12px 16px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -187,7 +187,7 @@
 }
 
 .complaint-student-cell span {
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--tmc-admin-secondary);
   overflow: hidden;
   white-space: nowrap;
@@ -211,7 +211,7 @@
 }
 
 .complaint-subject span {
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--tmc-admin-secondary);
   overflow: hidden;
   white-space: nowrap;
@@ -296,7 +296,7 @@
 }
 
 .complaint-modal-eyebrow {
-  font-size: 10.5px;
+  font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -364,7 +364,7 @@
 }
 
 .complaint-detail-grid div span {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -458,7 +458,7 @@
 }
 
 .complaint-reject-note {
-  font-size: 11.5px;
+  font-size: 12px;
   color: #B42326;
   margin-top: -8px;
   margin-bottom: 12px;
