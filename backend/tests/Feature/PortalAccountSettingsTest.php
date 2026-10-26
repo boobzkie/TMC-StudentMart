@@ -1,9 +1,12 @@
 <?php
 
+use App\Models\Complaint;
 use App\Models\User;
+use App\Notifications\ComplaintStatusNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 
@@ -190,4 +193,66 @@ test('staff can update their own password without changing access grants', funct
         ->and($staff->role)->toBe('staff')
         ->and($staff->status)->toBe('active')
         ->and($staff->staffProfile->permissions)->toBe(['manage_students']);
+});
+test('admin can save notification preferences and read them from the account payload', function () {
+    $admin = makePortalSettingsUser('admin');
+    Sanctum::actingAs($admin);
+
+    $this->postJson('/api/user/profile', [
+        'email_notifications_enabled' => true,
+        'in_app_notifications_enabled' => false,
+    ])->assertOk()
+        ->assertJsonPath('user.email_notifications_enabled', true)
+        ->assertJsonPath('user.in_app_notifications_enabled', false);
+
+    $admin->refresh();
+    expect($admin->email_notifications_enabled)->toBeTrue()
+        ->and($admin->in_app_notifications_enabled)->toBeFalse();
+
+    $this->getJson('/api/user')
+        ->assertOk()
+        ->assertJsonPath('user.email_notifications_enabled', true)
+        ->assertJsonPath('user.in_app_notifications_enabled', false);
+});
+
+test('marketplace notification channels follow saved preferences', function () {
+    Notification::fake();
+
+    $admin = makePortalSettingsUser('admin');
+    $admin->email_notifications_enabled = false;
+    $admin->in_app_notifications_enabled = true;
+    $admin->save();
+
+    $admin->notify(new ComplaintStatusNotification(new Complaint([
+        'subject' => 'Order issue',
+        'status' => 'resolved',
+    ])));
+
+    Notification::assertSentTo(
+        $admin,
+        ComplaintStatusNotification::class,
+        fn ($notification, $channels) => $channels === ['database']
+    );
+
+    $admin->email_notifications_enabled = true;
+    $admin->in_app_notifications_enabled = false;
+    $admin->save();
+
+    $admin->notify(new ComplaintStatusNotification(new Complaint([
+        'subject' => 'Order issue',
+        'status' => 'resolved',
+    ])));
+
+    Notification::assertSentTo(
+        $admin,
+        ComplaintStatusNotification::class,
+        fn ($notification, $channels) => $channels === ['mail']
+    );
+});
+
+test('existing accounts keep in-app notifications enabled and email notifications opt in', function () {
+    $user = makePortalSettingsUser('staff');
+
+    expect($user->in_app_notifications_enabled)->toBeTrue()
+        ->and($user->email_notifications_enabled)->toBeFalse();
 });

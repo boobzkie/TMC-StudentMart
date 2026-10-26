@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use App\Models\Product;
 use App\Models\ProductWarning;
+use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
 class ProductModerationNotification extends Notification
@@ -17,7 +18,28 @@ class ProductModerationNotification extends Notification
 
     public function via(object $notifiable): array
     {
-        return ['database'];
+        $channels = [];
+
+        if ($notifiable->in_app_notifications_enabled ?? true) {
+            $channels[] = 'database';
+        }
+
+        if ($notifiable->email_notifications_enabled ?? false) {
+            $channels[] = 'mail';
+        }
+
+        return $channels;
+    }
+
+    public function toMail(object $notifiable): MailMessage
+    {
+        $notification = $this->toDatabase($notifiable);
+
+        return (new MailMessage)
+            ->subject($notification['title'])
+            ->greeting('Hello '.$notifiable->name.',')
+            ->line($notification['message'])
+            ->line('Sign in to TMC StudentMart to view more details.');
     }
 
     public function toDatabase(object $notifiable): array

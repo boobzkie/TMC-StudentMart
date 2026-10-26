@@ -18,6 +18,11 @@ class User extends Authenticatable
         $this->notify(new ResetPasswordNotification($token));
     }
 
+    protected $attributes = [
+        'email_notifications_enabled' => false,
+        'in_app_notifications_enabled' => true,
+    ];
+
     protected $fillable = [
         'name',
         'student_id',
@@ -45,6 +50,8 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'share_contact_info' => 'boolean',
+            'email_notifications_enabled' => 'boolean',
+            'in_app_notifications_enabled' => 'boolean',
         ];
     }
 

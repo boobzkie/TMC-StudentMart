@@ -56,7 +56,7 @@ const marketplaceLinks = [
 ];
 
 const insightLinks = [
-  { to: "/admin/reports", label: "Reports & Analytics", icon: BarChart3 },
+  { to: "/admin/reports", label: "Marketplace Insights", icon: BarChart3 },
   { to: "/admin/activity-logs", label: "Activity Logs", icon: FileClock },
   { to: "/admin/complaints", label: "Complaints", icon: MessageSquareWarning },
 ];
@@ -269,7 +269,7 @@ export default function AdminLayout({
       ? [{ id: "marketplace", label: "Marketplace", heading: "MARKETPLACE", icon: Store, items: marketplaceItems }]
       : []),
     ...(insightItems.length
-      ? [{ id: "insights", label: "Reports & Analytics", heading: "REPORTS & ANALYTICS", icon: BarChart3, items: insightItems }]
+      ? [{ id: "insights", label: "Marketplace Insights", heading: "INSIGHTS & OVERSIGHT", icon: BarChart3, items: insightItems }]
       : []),
     ...(isStaff && staffCanManageComplaints
       ? [{
@@ -301,7 +301,7 @@ export default function AdminLayout({
     label: "Notifications",
     icon: Bell,
   };
-  const directNavigationItems = [...navSections.flatMap((section) => section.items), notificationItem];
+  const directNavigationItems = navSections.flatMap((section) => section.items);
   const routeSection = navSections.find((section) => section.items.some(routeMatchesItem));
   const [sectionSelection, setSectionSelection] = useState(null);
   const selectedSection = navSections.find((section) => (
@@ -382,9 +382,7 @@ export default function AdminLayout({
   const renderRailLink = (item) => {
     const Icon = item.icon;
     const isActive = routeMatchesItem(item);
-    const accessibleLabel = item.label === "Notifications" && unreadNotificationCount > 0
-      ? `Notifications, ${unreadNotificationCount} unread`
-      : item.label;
+
     return (
       <NavLink
         key={item.to}
@@ -395,16 +393,11 @@ export default function AdminLayout({
           closeMobile();
         }}
         className={`admin-rail-link admin-rail-route${isActive ? " active" : ""}`}
-        title={accessibleLabel}
-        aria-label={accessibleLabel}
+        title={item.label}
+        aria-label={item.label}
         aria-current={isActive ? "page" : undefined}
       >
         <Icon size={20} aria-hidden="true" />
-        {item.label === "Notifications" && unreadNotificationCount > 0 && (
-          <span className="admin-notification-badge" aria-hidden="true">
-            {unreadNotificationCount > 9 ? "9+" : unreadNotificationCount}
-          </span>
-        )}
       </NavLink>
     );
   };
@@ -455,7 +448,6 @@ export default function AdminLayout({
               </button>
             );
           })}
-          {!sidebarCollapsed && renderRailLink(notificationItem)}
         </nav>
         <div className="admin-rail-footer">
           <button
@@ -513,22 +505,6 @@ export default function AdminLayout({
               </button>
             );
           })}
-          <NavLink
-            to={notificationItem.to}
-            end
-            onClick={closeMobile}
-            className={`admin-mobile-notifications${routeMatchesItem(notificationItem) ? " active" : ""}`}
-            aria-label={unreadNotificationCount > 0 ? `Notifications, ${unreadNotificationCount} unread` : "Notifications"}
-            title={unreadNotificationCount > 0 ? `Notifications, ${unreadNotificationCount} unread` : "Notifications"}
-            aria-current={routeMatchesItem(notificationItem) ? "page" : undefined}
-          >
-            <Bell size={17} aria-hidden="true" />
-            {unreadNotificationCount > 0 && (
-              <span className="admin-notification-badge" aria-hidden="true">
-                {unreadNotificationCount > 9 ? "9+" : unreadNotificationCount}
-              </span>
-            )}
-          </NavLink>
         </nav>
 
         <nav className="admin-navigation" id="admin-navigation" aria-label="Main navigation">
@@ -576,6 +552,22 @@ export default function AdminLayout({
               {theme === "light" ? <Moon size={18} aria-hidden="true" /> : <Sun size={18} aria-hidden="true" />}
               <span>{theme === "light" ? "Dark" : "Light"}</span>
             </button>
+
+            <NavLink
+              to={notificationItem.to}
+              end
+              className="admin-header-notifications"
+              aria-label={unreadNotificationCount > 0 ? `Notifications, ${unreadNotificationCount} unread` : "Notifications"}
+              title={unreadNotificationCount > 0 ? `Notifications, ${unreadNotificationCount} unread` : "Notifications"}
+              aria-current={routeMatchesItem(notificationItem) ? "page" : undefined}
+            >
+              <Bell size={18} aria-hidden="true" />
+              {unreadNotificationCount > 0 && (
+                <span className="admin-notification-badge" aria-hidden="true">
+                  {unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}
+                </span>
+              )}
+            </NavLink>
 
             <div className="admin-profile-control" ref={profileMenuRef}>
               <button

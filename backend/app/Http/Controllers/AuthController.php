@@ -19,7 +19,7 @@ class AuthController extends Controller
             'student_id' => ['required', 'string', 'max:50', 'unique:users,student_id'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'contact_number' => ['required', 'string', 'max:30'],
-            'course' => ['nullable', 'string', 'in:' . implode(',', self::COURSES)],
+            'course' => ['nullable', 'string', 'in:'.implode(',', self::COURSES)],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
             'profile_picture' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
         ]);
@@ -130,11 +130,15 @@ class AuthController extends Controller
                 'date_of_birth',
                 'contact_number',
                 'profile_picture',
+                'email_notifications_enabled',
+                'in_app_notifications_enabled',
             ]
             : [
                 'name',
                 'contact_number',
                 'profile_picture',
+                'email_notifications_enabled',
+                'in_app_notifications_enabled',
             ];
 
         $submittedFields = array_unique(array_merge(
@@ -152,6 +156,8 @@ class AuthController extends Controller
 
         $rules = [
             'contact_number' => ['sometimes', 'nullable', 'string', 'max:30'],
+            'email_notifications_enabled' => ['sometimes', 'boolean'],
+            'in_app_notifications_enabled' => ['sometimes', 'boolean'],
             'profile_picture' => [
                 'sometimes',
                 'image',
@@ -215,6 +221,14 @@ class AuthController extends Controller
 
         if (array_key_exists('contact_number', $validated)) {
             $user->contact_number = $validated['contact_number'];
+        }
+
+        if (array_key_exists('email_notifications_enabled', $validated)) {
+            $user->email_notifications_enabled = $validated['email_notifications_enabled'];
+        }
+
+        if (array_key_exists('in_app_notifications_enabled', $validated)) {
+            $user->in_app_notifications_enabled = $validated['in_app_notifications_enabled'];
         }
 
         if ($profilePicture) {
@@ -299,7 +313,7 @@ class AuthController extends Controller
         $validated = $request->validate([
             'name' => ['sometimes', 'required', 'string', 'max:255'],
             'contact_number' => ['sometimes', 'nullable', 'string', 'max:30'],
-            'course' => ['sometimes', 'nullable', 'string', 'in:' . implode(',', self::COURSES)],
+            'course' => ['sometimes', 'nullable', 'string', 'in:'.implode(',', self::COURSES)],
             'facebook_url' => ['sometimes', 'nullable', 'url', 'max:2048'],
             'instagram_url' => ['sometimes', 'nullable', 'url', 'max:2048'],
             'tiktok_url' => ['sometimes', 'nullable', 'url', 'max:2048'],
@@ -412,6 +426,8 @@ class AuthController extends Controller
             'instagram_url' => $user->instagram_url,
             'tiktok_url' => $user->tiktok_url,
             'share_contact_info' => (bool) $user->share_contact_info,
+            'email_notifications_enabled' => (bool) $user->email_notifications_enabled,
+            'in_app_notifications_enabled' => (bool) $user->in_app_notifications_enabled,
 
             'created_at' => $user->created_at,
 

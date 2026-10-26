@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Archive, BadgeCheck, BriefcaseBusiness, Camera, CheckCircle2, Eye, EyeOff,
+  Archive, BadgeCheck, Bell, BriefcaseBusiness, Camera, CheckCircle2, Eye, EyeOff,
   KeyRound, LockKeyhole, Mail, Package, Phone, RefreshCw, Save, ShieldCheck,
   Settings, UserRound, UsersRound,
 } from "lucide-react";
@@ -29,6 +29,8 @@ function makeProfileForm(user) {
     suffix: staff.suffix || "",
     date_of_birth: staff.date_of_birth || "",
     contact_number: user.contact_number || "",
+    email_notifications_enabled: user.email_notifications_enabled === true,
+    in_app_notifications_enabled: user.in_app_notifications_enabled !== false,
   };
 }
 
@@ -60,10 +62,12 @@ export default function AccountSettings() {
   const [form, setForm] = useState(() => makeProfileForm(readStoredUser()));
   const [section, setSection] = useState("account");
   const [photo, setPhoto] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState("");
   const [loading, setLoading] = useState(true);
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
   const [profileError, setProfileError] = useState("");
+  const [profileFieldErrors, setProfileFieldErrors] = useState({});
   const [profileSuccess, setProfileSuccess] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [passwordSuccess, setPasswordSuccess] = useState("");
@@ -76,6 +80,10 @@ export default function AccountSettings() {
   const [passwords, setPasswords] = useState({
     current_password: "", password: "", password_confirmation: "",
   });
+
+  useEffect(() => () => {
+    if (photoPreview.startsWith("blob:")) URL.revokeObjectURL(photoPreview);
+  }, [photoPreview]);
   const isStaff = String(user.role || localStorage.getItem("role") || "").toLowerCase() === "staff";
 
   const signOut = useCallback(() => {
@@ -187,9 +195,8 @@ export default function AccountSettings() {
     return () => window.clearTimeout(timer);
   }, [loadUser]);
 
-  const hasUnsavedChanges = JSON.stringify(form) !== JSON.stringify(makeProfileForm(user))
-    || Boolean(photo)
-    || Object.values(passwords).some(Boolean);
+  const hasProfileChanges = JSON.stringify(form) !== JSON.stringify(makeProfileForm(user)) || Boolean(photo);
+  const hasUnsavedChanges = hasProfileChanges || Object.values(passwords).some(Boolean);
   const refreshSettings = async () => {
     if (section === "archives" && !isStaff) {
       await loadArchives();
@@ -199,14 +206,82 @@ export default function AccountSettings() {
   };
 
   const updateProfileField = (event) => {
-    const { name, value } = event.target;
-    setForm((current) => ({ ...current, [name]: value }));
+    const { name, type, value, checked } = event.target;
+    setForm((current) => ({ ...current, [name]: type === "checkbox" ? checked : value }));
+    setProfileError("");
+    setProfileSuccess("");
+    setProfileFieldErrors((current) => {
+      const next = { ...current };
+      delete next[name];
+      return next;
+    });
+  };
+
+  const handlePhotoChange = (event) => {
+    const selectedFile = event.target.files?.[0];
+    event.target.value = "";
+    if (!selectedFile) return;
+
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+    const hasSupportedFormat = allowedTypes.includes(selectedFile.type)
+      || (!selectedFile.type && /\.(jpe?g|png|webp)$/i.test(selectedFile.name));
+    const validationMessage = !hasSupportedFormat
+      ? "Choose a JPG, PNG, or WEBP image."
+      : selectedFile.size > 2 * 1024 * 1024
+        ? "Choose an image that is 2 MB or smaller."
+        : "";
+
+    setProfileSuccess("");
+    if (validationMessage) {
+      setPhoto(null);
+      setPhotoPreview("");
+      setProfileError(validationMessage);
+      setProfileFieldErrors((current) => ({ ...current, profile_picture: [validationMessage] }));
+      return;
+    }
+
+    setPhoto(selectedFile);
+    setPhotoPreview(URL.createObjectURL(selectedFile));
+    setProfileError("");
+    setProfileFieldErrors((current) => {
+      const next = { ...current };
+      delete next.profile_picture;
+      return next;
+    });
+  };
+
+  const cancelProfileChanges = () => {
+    setForm(makeProfileForm(user));
+    setPhoto(null);
+    setPhotoPreview("");
+    setProfileError("");
+    setProfileSuccess("");
+    setProfileFieldErrors({});
+  };
+
+  const getProfileFieldError = (fieldName) => {
+    const messages = profileFieldErrors[fieldName];
+    return Array.isArray(messages) ? (messages[0] || "") : (messages || "");
+  };
+
+  const profileFieldAccessibility = (fieldName) => {
+    const hasError = Boolean(getProfileFieldError(fieldName));
+    return {
+      "aria-invalid": hasError,
+      "aria-describedby": hasError ? "account-field-error-" + fieldName : undefined,
+    };
+  };
+
+  const renderProfileFieldError = (fieldName) => {
+    const message = getProfileFieldError(fieldName);
+    return message ? <small className="account-field-error" id={"account-field-error-" + fieldName}>{message}</small> : null;
   };
 
   const saveProfile = async (event) => {
     event.preventDefault();
     setProfileError("");
     setProfileSuccess("");
+    setProfileFieldErrors({});
     setSavingProfile(true);
     const payload = new FormData();
     if (isStaff) {
@@ -219,6 +294,8 @@ export default function AccountSettings() {
       payload.append("name", form.name.trim());
     }
     payload.append("contact_number", form.contact_number.trim());
+    payload.append("email_notifications_enabled", form.email_notifications_enabled ? "1" : "0");
+    payload.append("in_app_notifications_enabled", form.in_app_notifications_enabled ? "1" : "0");
     if (photo) payload.append("profile_picture", photo);
 
     try {
@@ -230,10 +307,15 @@ export default function AccountSettings() {
         return;
       }
       const data = await response.json();
-      if (!response.ok || !data.user) throw new Error(errorMessage(data, "Unable to save your profile."));
+      if (!response.ok || !data.user) {
+        setProfileFieldErrors(data.errors || {});
+        throw new Error(errorMessage(data, "Unable to save your profile."));
+      }
       setUser(data.user);
       setForm(makeProfileForm(data.user));
       setPhoto(null);
+      setPhotoPreview("");
+      setProfileFieldErrors({});
       localStorage.setItem("user", JSON.stringify(data.user));
       window.dispatchEvent(new Event("tmc-user-updated"));
       setProfileSuccess("Your profile information has been saved.");
@@ -279,6 +361,9 @@ export default function AccountSettings() {
   const displayName = user.name || (isStaff ? "Staff Member" : "Administrator");
   const initials = displayName.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
   const image = photoUrl(user.profile_picture);
+  const previewImage = photoPreview || image;
+  const roleLabel = user.role === "admin" ? "Administrator" : user.role === "staff" ? "Staff" : String(user.role || "Unknown");
+  const statusLabel = status === "unknown" ? "Unknown" : status.charAt(0).toUpperCase() + status.slice(1);
   const staff = user.staff_profile || {};
 
   return (
@@ -299,7 +384,7 @@ export default function AccountSettings() {
           <aside className="account-settings-sidebar">
             <section className="account-profile-card" aria-label="Account summary">
               <div className="account-profile-avatar">
-                {image && <img src={image} alt="" onError={(event) => { event.currentTarget.style.display = "none"; }} />}
+                {previewImage && <img src={previewImage} alt="" onError={(event) => { event.currentTarget.style.display = "none"; }} />}
                 <span>{initials || "TM"}</span>
               </div>
               <h3>{displayName}</h3>
@@ -312,7 +397,7 @@ export default function AccountSettings() {
 
             <nav className="account-settings-tabs" aria-label="Account settings sections" role="tablist">
               <button type="button" role="tab" aria-selected={section === "account"} className={section === "account" ? "active" : ""} onClick={() => selectSection("account")}>
-                <UserRound size={18} aria-hidden="true" /><span>Account</span>
+                <UserRound size={18} aria-hidden="true" /><span>Profile</span>
               </button>
               <button type="button" role="tab" aria-selected={section === "security"} className={section === "security" ? "active" : ""} onClick={() => selectSection("security")}>
                 <LockKeyhole size={18} aria-hidden="true" /><span>Security</span>
@@ -330,36 +415,64 @@ export default function AccountSettings() {
 
           <section className="account-settings-panel" role="tabpanel">
             {section === "account" ? (
-              <form className="account-settings-form" onSubmit={saveProfile}>
+              <form className="account-settings-form" onSubmit={saveProfile} aria-busy={savingProfile}>
                 <div className="account-panel-heading">
-                  <div><span className="account-settings-eyebrow">PROFILE DETAILS</span><h3>Personal information</h3><p>Update the information associated with your portal account.</p></div>
+                  <div className="account-panel-heading-main"><UserRound size={20} aria-hidden="true" /><div><h3>Personal information</h3><p>Update the information associated with your portal account.</p></div></div>
                 </div>
                 {profileError && <div className="account-settings-feedback error" role="alert">{profileError}</div>}
                 {profileSuccess && <div className="account-settings-feedback success" role="status"><CheckCircle2 size={17} aria-hidden="true" />{profileSuccess}</div>}
 
                 <div className="account-photo-row">
                   <div className="account-photo-current">
-                    {image ? <img src={image} alt="" onError={(event) => { event.currentTarget.style.display = "none"; }} /> : <span>{initials || "TM"}</span>}
+                    {previewImage ? <img src={previewImage} alt="" onError={(event) => { event.currentTarget.style.display = "none"; }} /> : <Camera size={21} aria-hidden="true" />}
                   </div>
-                  <div className="account-photo-copy"><strong>Profile photo</strong><p>JPG, PNG, or WEBP. Maximum file size: 2 MB.</p>{photo && <span className="account-photo-selected">{photo.name}</span>}</div>
-                  <label className="account-photo-button"><Camera size={16} aria-hidden="true" /><span>Choose photo</span><input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => setPhoto(event.target.files?.[0] || null)} /></label>
+                  <div className="account-photo-copy"><strong>Profile photo</strong><p id="account-profile-photo-help">JPG, PNG, or WEBP. Maximum file size: 2 MB.</p>{photo && <span className="account-photo-selected">{photo.name}</span>}</div>
+                  <label className="account-photo-button"><Camera size={16} aria-hidden="true" /><span>Choose photo</span><input type="file" accept="image/jpeg,image/png,image/webp" onChange={handlePhotoChange} disabled={savingProfile} aria-invalid={Boolean(getProfileFieldError("profile_picture"))} aria-describedby={getProfileFieldError("profile_picture") ? "account-field-error-profile_picture" : "account-profile-photo-help"} /></label>
                 </div>
+                {renderProfileFieldError("profile_picture")}
 
                 <div className="account-form-grid">
                   {isStaff ? (
                     <>
-                      <label className="account-field"><span>First name</span><input name="first_name" value={form.first_name} onChange={updateProfileField} autoComplete="given-name" maxLength={100} required /></label>
-                      <label className="account-field"><span>Middle name</span><input name="middle_name" value={form.middle_name} onChange={updateProfileField} autoComplete="additional-name" maxLength={100} /></label>
-                      <label className="account-field"><span>Last name</span><input name="last_name" value={form.last_name} onChange={updateProfileField} autoComplete="family-name" maxLength={100} required /></label>
-                      <label className="account-field"><span>Suffix <small>Optional</small></span><input name="suffix" value={form.suffix} onChange={updateProfileField} maxLength={30} placeholder="Jr., Sr., III" /></label>
-                      <label className="account-field"><span>Date of birth</span><input type="date" name="date_of_birth" value={form.date_of_birth} onChange={updateProfileField} max={new Date().toISOString().slice(0, 10)} /></label>
+                      <label className="account-field"><span>First name <strong className="account-required-mark" aria-hidden="true">*</strong></span><input name="first_name" value={form.first_name} onChange={updateProfileField} autoComplete="given-name" maxLength={100} required {...profileFieldAccessibility("first_name")} />{renderProfileFieldError("first_name")}</label>
+                      <label className="account-field"><span>Middle name</span><input name="middle_name" value={form.middle_name} onChange={updateProfileField} autoComplete="additional-name" maxLength={100} {...profileFieldAccessibility("middle_name")} />{renderProfileFieldError("middle_name")}</label>
+                      <label className="account-field"><span>Last name <strong className="account-required-mark" aria-hidden="true">*</strong></span><input name="last_name" value={form.last_name} onChange={updateProfileField} autoComplete="family-name" maxLength={100} required {...profileFieldAccessibility("last_name")} />{renderProfileFieldError("last_name")}</label>
+                      <label className="account-field"><span>Suffix <small>Optional</small></span><input name="suffix" value={form.suffix} onChange={updateProfileField} maxLength={30} placeholder="Jr., Sr., III" {...profileFieldAccessibility("suffix")} />{renderProfileFieldError("suffix")}</label>
+                      <label className="account-field"><span>Date of birth</span><input type="date" name="date_of_birth" value={form.date_of_birth} onChange={updateProfileField} max={new Date().toISOString().slice(0, 10)} {...profileFieldAccessibility("date_of_birth")} />{renderProfileFieldError("date_of_birth")}</label>
                     </>
                   ) : (
-                    <label className="account-field account-field-wide"><span>Full name</span><input name="name" value={form.name} onChange={updateProfileField} autoComplete="name" maxLength={255} required /></label>
+                    <label className="account-field"><span>Full name <strong className="account-required-mark" aria-hidden="true">*</strong></span><input name="name" value={form.name} onChange={updateProfileField} autoComplete="name" maxLength={255} required {...profileFieldAccessibility("name")} />{renderProfileFieldError("name")}</label>
                   )}
-                  <label className="account-field"><span><Phone size={15} aria-hidden="true" />Contact number</span><input name="contact_number" type="tel" value={form.contact_number} onChange={updateProfileField} autoComplete="tel" maxLength={30} /></label>
-                  <label className="account-field account-field-readonly"><span><Mail size={15} aria-hidden="true" />Email address</span><input type="email" value={user.email || ""} readOnly /><small>Email changes require a verified account-change flow.</small></label>
+                  <label className="account-field"><span><Phone size={15} aria-hidden="true" />Contact number</span><input name="contact_number" type="tel" value={form.contact_number} onChange={updateProfileField} autoComplete="tel" maxLength={30} {...profileFieldAccessibility("contact_number")} />{renderProfileFieldError("contact_number")}</label>
+                  <label className="account-field account-field-readonly account-field-wide"><span><Mail size={15} aria-hidden="true" />Email address</span><input type="email" value={user.email || ""} readOnly aria-readonly="true" /><small>Email changes require a verified account-change flow.</small></label>
+                  <label className="account-field account-field-readonly"><span>Role</span><input value={roleLabel} readOnly aria-readonly="true" /></label>
+                  <label className="account-field account-field-readonly"><span>Status</span><input value={statusLabel} readOnly aria-readonly="true" /></label>
                 </div>
+
+                <section className="account-preferences" aria-labelledby="account-preferences-title">
+                  <div className="account-preferences-heading">
+                    <Bell size={18} aria-hidden="true" />
+                    <div><h4 id="account-preferences-title">Account preferences</h4><p>Manage your notification and communication preferences.</p></div>
+                  </div>
+                  <div className="account-preferences-grid">
+                    <label className="account-preference-item">
+                      <Mail size={19} aria-hidden="true" />
+                      <span className="account-preference-copy"><strong>Email notifications</strong><small>Receive marketplace activity updates by email.</small></span>
+                      <span className="account-preference-switch">
+                        <input type="checkbox" role="switch" name="email_notifications_enabled" checked={form.email_notifications_enabled} onChange={updateProfileField} disabled={savingProfile || loading} />
+                        <span aria-hidden="true" />
+                      </span>
+                    </label>
+                    <label className="account-preference-item">
+                      <Bell size={19} aria-hidden="true" />
+                      <span className="account-preference-copy"><strong>In-app notifications</strong><small>Get notified about activities in the portal.</small></span>
+                      <span className="account-preference-switch">
+                        <input type="checkbox" role="switch" name="in_app_notifications_enabled" checked={form.in_app_notifications_enabled} onChange={updateProfileField} disabled={savingProfile || loading} />
+                        <span aria-hidden="true" />
+                      </span>
+                    </label>
+                  </div>
+                </section>
 
                 {isStaff && (
                   <section className="account-readonly-section">
@@ -376,8 +489,11 @@ export default function AccountSettings() {
                 )}
 
                 <div className="account-form-footer">
-                  <p><ShieldCheck size={15} aria-hidden="true" />Only your personal details can be changed here.</p>
-                  <button className="account-primary-button" type="submit" disabled={savingProfile}><Save size={16} aria-hidden="true" />{savingProfile ? "Saving…" : "Save changes"}</button>
+                  <p><ShieldCheck size={15} aria-hidden="true" />Only your personal details and notification preferences can be changed here.</p>
+                  <div className="account-form-actions">
+                    <button className="account-secondary-button" type="button" onClick={cancelProfileChanges} disabled={savingProfile || loading}>Cancel</button>
+                    <button className="account-primary-button" type="submit" disabled={savingProfile || loading}><Save size={16} aria-hidden="true" />{savingProfile ? "Saving…" : "Save changes"}</button>
+                  </div>
                 </div>
               </form>
             ) : section === "security" ? (
