@@ -757,3 +757,161 @@
 .transactions-search {
   flex: 1 1 300px;
 }
+
+.transactions-insights-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr);
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.transactions-insight-card {
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid var(--tmc-admin-border, #dce6f0);
+  border-radius: 16px;
+  color: var(--tmc-admin-text, #102a56);
+  background: var(--tmc-admin-surface, #f3f8fd);
+  box-shadow: var(--tmc-admin-card-shadow, 7px 7px 16px rgba(163,177,198,.2), -7px -7px 16px rgba(255,255,255,.8));
+}
+
+.transactions-insight-heading {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin-bottom: 14px;
+}
+
+.transactions-insight-icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  place-items: center;
+  border-radius: 12px;
+  color: var(--tmc-admin-primary, #1d4ed8);
+  background: var(--tmc-admin-accent-soft, #eaf2ff);
+}
+
+.transactions-insight-heading h2 {
+  margin: 0;
+  color: var(--tmc-admin-text, #102a56);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.transactions-insight-heading p {
+  margin: 3px 0 0;
+  color: var(--tmc-admin-secondary, #64748b);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.transactions-volume-chart {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  align-items: end;
+  gap: 10px;
+  min-height: 175px;
+  padding: 4px 4px 0;
+}
+
+.transactions-volume-day {
+  display: grid;
+  grid-template-rows: 18px minmax(80px, 1fr) 18px;
+  align-items: end;
+  justify-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.transactions-volume-day strong {
+  color: var(--tmc-admin-text, #102a56);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.transactions-volume-track {
+  display: flex;
+  width: min(28px, 70%);
+  height: 100%;
+  align-items: end;
+  overflow: hidden;
+  border-radius: 8px 8px 3px 3px;
+  background: var(--tmc-admin-bg-muted, #edf3f8);
+}
+
+.transactions-volume-track span {
+  width: 100%;
+  min-height: 0;
+  border-radius: 8px 8px 3px 3px;
+  background: var(--tmc-admin-primary, #2563eb);
+  transition: height 180ms ease;
+}
+
+.transactions-volume-day small {
+  color: var(--tmc-admin-secondary, #64748b);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.transactions-chart-note {
+  margin: 10px 0 0;
+  color: var(--tmc-admin-secondary, #64748b);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.transactions-distribution-list {
+  display: grid;
+  gap: 16px;
+  padding: 7px 0;
+}
+
+.transactions-distribution-row {
+  display: grid;
+  grid-template-columns: minmax(95px, 1fr) minmax(90px, 2.6fr) 38px 35px;
+  align-items: center;
+  gap: 10px;
+  color: var(--tmc-admin-text, #102a56);
+  font-size: 12px;
+}
+
+.transactions-distribution-row > span {
+  color: var(--tmc-admin-secondary, #64748b);
+}
+
+.transactions-distribution-track {
+  height: 13px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--tmc-admin-bg-muted, #edf3f8);
+}
+
+.transactions-distribution-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+}
+
+.transactions-distribution-track .amber { background: var(--tmc-admin-warning, #e6a11a); }
+.transactions-distribution-track .green { background: var(--tmc-admin-success, #23a779); }
+.transactions-distribution-track .purple { background: #8b5cf6; }
+.transactions-distribution-track .teal { background: var(--tmc-admin-info, #2ca8b3); }
+.transactions-distribution-track .red { background: var(--tmc-admin-danger, #e25267); }
+.transactions-distribution-row strong { text-align: right; font-variant-numeric: tabular-nums; }
+.transactions-distribution-row small { color: var(--tmc-admin-secondary, #64748b); text-align: right; font-size: 12px; }
+
+@media (max-width: 900px) {
+  .transactions-insights-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 620px) {
+  .transactions-insight-card { padding: 15px; }
+  .transactions-volume-chart { gap: 5px; }
+  .transactions-distribution-row { grid-template-columns: minmax(88px, 1fr) minmax(70px, 2fr) 30px 30px; gap: 7px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .transactions-volume-track span { transition: none; }
+}

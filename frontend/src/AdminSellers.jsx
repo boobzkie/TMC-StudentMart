@@ -158,6 +158,10 @@ export default function AdminSellers() {
       (result, seller) => {
         result.total += 1;
 
+        if (String(seller.status || "").toLowerCase() === "active") {
+          result.activeSellers += 1;
+        }
+
         result.products += Number(
           seller.total_products || 0
         );
@@ -174,17 +178,62 @@ export default function AdminSellers() {
           seller.rejected_products || 0
         );
 
+        result.inactive += Number(
+          seller.inactive_products || 0
+        );
+
+        result.other += Math.max(
+          0,
+          Number(seller.total_products || 0)
+            - Number(seller.active_products || 0)
+            - Number(seller.pending_products || 0)
+            - Number(seller.rejected_products || 0)
+            - Number(seller.inactive_products || 0)
+        );
+
         return result;
       },
       {
         total: 0,
+        activeSellers: 0,
         products: 0,
         active: 0,
         pending: 0,
         rejected: 0,
+        inactive: 0,
+        other: 0,
       }
     );
   }, [sellers]);
+
+  const sellerGrowth = useMemo(() => {
+    const today = new Date();
+    const firstMonth = new Date(today.getFullYear(), today.getMonth() - 5, 1);
+    return Array.from({ length: 6 }, (_, index) => {
+      const month = new Date(firstMonth.getFullYear(), firstMonth.getMonth() + index, 1);
+      const count = sellers.filter((seller) => {
+        const joined = new Date(seller.created_at);
+        return !Number.isNaN(joined.getTime())
+          && joined.getFullYear() === month.getFullYear()
+          && joined.getMonth() === month.getMonth();
+      }).length;
+      return {
+        key: `${month.getFullYear()}-${month.getMonth()}`,
+        label: month.toLocaleDateString(undefined, { month: "short" }),
+        count,
+      };
+    });
+  }, [sellers]);
+
+  const sellerGrowthMax = Math.max(1, ...sellerGrowth.map((month) => month.count));
+  const listingDistribution = [
+    { label: "Active", value: statistics.active, tone: "active" },
+    { label: "Pending", value: statistics.pending, tone: "pending" },
+    { label: "Rejected", value: statistics.rejected, tone: "rejected" },
+    { label: "Inactive", value: statistics.inactive, tone: "inactive" },
+    { label: "Other statuses", value: statistics.other, tone: "other" },
+  ];
+  const listingTotal = listingDistribution.reduce((total, item) => total + item.value, 0);
 
   const getInitial = (name) => {
     const value = String(
@@ -298,8 +347,52 @@ export default function AdminSellers() {
 
           </div>
 
+          <div className="seller-stat-card">
+            <div className="seller-stat-icon green"><CheckCircle2 size={20} aria-hidden="true" /></div>
+            <div><span>Active Sellers</span><strong>{statistics.activeSellers}</strong></div>
+          </div>
 
+          <div className="seller-stat-card">
+            <div className="seller-stat-icon orange"><Clock3 size={20} aria-hidden="true" /></div>
+            <div><span>Pending Listings</span><strong>{statistics.pending}</strong></div>
+          </div>
 
+        </section>
+
+        <section className="sellers-insights-grid" aria-label="Seller growth and listing status">
+          <article className="sellers-insight-card sellers-growth-card">
+            <div className="sellers-insight-heading">
+              <span className="sellers-insight-icon"><Store size={18} aria-hidden="true" /></span>
+              <div><h2>Seller Growth</h2><p>Seller accounts joined over the last 6 months</p></div>
+            </div>
+            <div className="sellers-growth-chart" role="img" aria-label={`Seller accounts joined by month: ${sellerGrowth.map((month) => `${month.label}: ${month.count}`).join(", ")}`}>
+              {sellerGrowth.map((month) => (
+                <div className="sellers-growth-month" key={month.key}>
+                  <strong>{month.count}</strong>
+                  <div className="sellers-growth-track"><span style={{ height: `${month.count ? Math.max(8, (month.count / sellerGrowthMax) * 100) : 0}%` }} /></div>
+                  <small>{month.label}</small>
+                </div>
+              ))}
+            </div>
+            <p className="sellers-chart-note">Based on the current seller results.</p>
+          </article>
+
+          <article className="sellers-insight-card sellers-distribution-card">
+            <div className="sellers-insight-heading">
+              <span className="sellers-insight-icon"><Package size={18} aria-hidden="true" /></span>
+              <div><h2>Listing Status Distribution</h2><p>Current listing totals for these sellers</p></div>
+            </div>
+            <div className="sellers-distribution-list">
+              {listingDistribution.map((item) => (
+                <div className="sellers-distribution-row" key={item.label}>
+                  <span>{item.label}</span>
+                  <div className="sellers-distribution-track" aria-hidden="true"><span className={item.tone} style={{ width: `${listingTotal ? (item.value / listingTotal) * 100 : 0}%` }} /></div>
+                  <strong>{item.value}</strong>
+                  <small>{listingTotal ? Math.round((item.value / listingTotal) * 100) : 0}%</small>
+                </div>
+              ))}
+            </div>
+          </article>
         </section>
 
         {/* =====================================================

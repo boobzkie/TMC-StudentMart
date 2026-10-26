@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   CheckCircle2,
@@ -33,8 +33,7 @@ const STATUS_CARDS = [
   { key: "confirmed", label: "Accepted", icon: CheckCircle2, tone: "green" },
   { key: "ready_for_pickup", label: "Ready for pickup", icon: ShoppingBag, tone: "purple" },
   { key: "completed", label: "Completed", icon: CheckCircle2, tone: "green" },
-  { key: "declined", label: "Declined", icon: XCircle, tone: "red" },
-  { key: "cancelled", label: "Cancelled", icon: XCircle, tone: "red" },
+  { key: "closed", label: "Cancelled / declined", icon: XCircle, tone: "red" },
 ];
 
 function formatCurrency(value) {
@@ -185,6 +184,38 @@ function AdminTransactions() {
   };
 
   const hasFilters = Boolean(search || status || fromDate || toDate || pickupLocationId);
+  const orderTrend = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const days = Array.from({ length: 7 }, (_, index) => {
+      const date = new Date(today);
+      date.setDate(today.getDate() - (6 - index));
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+      return { key, label: date.toLocaleDateString(undefined, { month: "short", day: "numeric" }), count: 0 };
+    });
+    const byDay = new Map(days.map((day) => [day.key, day]));
+
+    orders.forEach((order) => {
+      const date = new Date(order.created_at);
+      if (Number.isNaN(date.getTime())) return;
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+      const day = byDay.get(key);
+      if (day) day.count += 1;
+    });
+
+    return days;
+  }, [orders]);
+
+  const orderDistribution = useMemo(() => [
+    { label: "Placed", value: Number(summary.pending) || 0, tone: "amber" },
+    { label: "Accepted", value: Number(summary.confirmed) || 0, tone: "green" },
+    { label: "Ready for pickup", value: Number(summary.ready_for_pickup) || 0, tone: "purple" },
+    { label: "Completed", value: Number(summary.completed) || 0, tone: "teal" },
+    { label: "Cancelled / declined", value: (Number(summary.cancelled) || 0) + (Number(summary.declined) || 0), tone: "red" },
+  ], [summary]);
+
+  const orderTrendMax = Math.max(1, ...orderTrend.map((day) => day.count));
+  const orderDistributionTotal = orderDistribution.reduce((total, item) => total + item.value, 0);
 
   return (
     <AdminLayout title="Order Requests">
@@ -204,9 +235,45 @@ function AdminTransactions() {
               icon={icon}
               tone={tone}
               label={label}
-              value={summary[key] ?? 0}
+              value={key === "closed" ? (Number(summary.declined) || 0) + (Number(summary.cancelled) || 0) : summary[key] ?? 0}
             />
           ))}
+        </section>
+
+        <section className="transactions-insights-grid" aria-label="Order trends and status distribution">
+          <article className="transactions-insight-card transactions-volume-card">
+            <div className="transactions-insight-heading">
+              <span className="transactions-insight-icon"><Package size={18} aria-hidden="true" /></span>
+              <div><h2>Order Volume Trend</h2><p>Orders placed over the last 7 days</p></div>
+            </div>
+            <div className="transactions-volume-chart" role="img" aria-label={`Daily order counts over the last seven days: ${orderTrend.map((day) => `${day.label}: ${day.count}`).join(", ")}`}>
+              {orderTrend.map((day) => (
+                <div className="transactions-volume-day" key={day.key}>
+                  <strong>{day.count}</strong>
+                  <div className="transactions-volume-track"><span style={{ height: `${day.count ? Math.max(8, (day.count / orderTrendMax) * 100) : 0}%` }} /></div>
+                  <small>{day.label}</small>
+                </div>
+              ))}
+            </div>
+            {matchingTotal > orders.length && <p className="transactions-chart-note">Trend uses the latest {orders.length} matching records. Status totals include all orders.</p>}
+          </article>
+
+          <article className="transactions-insight-card transactions-distribution-card">
+            <div className="transactions-insight-heading">
+              <span className="transactions-insight-icon"><CheckCircle2 size={18} aria-hidden="true" /></span>
+              <div><h2>Order Status Distribution</h2><p>Current status of all orders</p></div>
+            </div>
+            <div className="transactions-distribution-list">
+              {orderDistribution.map((item) => (
+                <div className="transactions-distribution-row" key={item.label}>
+                  <span>{item.label}</span>
+                  <div className="transactions-distribution-track" aria-hidden="true"><span className={item.tone} style={{ width: `${orderDistributionTotal ? (item.value / orderDistributionTotal) * 100 : 0}%` }} /></div>
+                  <strong>{item.value}</strong>
+                  <small>{orderDistributionTotal ? Math.round((item.value / orderDistributionTotal) * 100) : 0}%</small>
+                </div>
+              ))}
+            </div>
+          </article>
         </section>
 
         <section className="transactions-directory">

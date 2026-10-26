@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   CheckCircle2,
   Eye,
   AlertTriangle,
+  Clock3,
   Package,
   RefreshCw,
   Search,
@@ -154,6 +155,66 @@ export default function AdminProductModeration() {
 
   const [rejectingProduct, setRejectingProduct] =
     useState(null);
+
+  const moderationTrend = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const days = Array.from({ length: 7 }, (_, index) => {
+      const date = new Date(today);
+      date.setDate(today.getDate() - (6 - index));
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+      return { key, label: date.toLocaleDateString(undefined, { month: "short", day: "numeric" }), submitted: 0, approved: 0, rejected: 0 };
+    });
+    const byDay = new Map(days.map((day) => [day.key, day]));
+    const reviewDurations = [];
+
+    products.forEach((product) => {
+      const submittedAt = new Date(product.created_at);
+      if (!Number.isNaN(submittedAt.getTime())) {
+        const key = `${submittedAt.getFullYear()}-${String(submittedAt.getMonth() + 1).padStart(2, "0")}-${String(submittedAt.getDate()).padStart(2, "0")}`;
+        const day = byDay.get(key);
+        if (day) day.submitted += 1;
+      }
+
+      const events = Array.isArray(product.moderation_events) ? product.moderation_events : [];
+      const decisions = events
+        .filter((event) => ["active", "approved", "rejected", "suspended"].includes(String(event.to_status || "").toLowerCase()))
+        .sort((left, right) => new Date(left.created_at) - new Date(right.created_at));
+      const firstDecision = decisions[0];
+      if (firstDecision && !Number.isNaN(submittedAt.getTime())) {
+        const decidedAt = new Date(firstDecision.created_at);
+        const duration = (decidedAt.getTime() - submittedAt.getTime()) / 3600000;
+        if (Number.isFinite(duration) && duration >= 0) reviewDurations.push(duration);
+      }
+
+      events.forEach((event) => {
+        const decidedAt = new Date(event.created_at);
+        if (Number.isNaN(decidedAt.getTime())) return;
+        const key = `${decidedAt.getFullYear()}-${String(decidedAt.getMonth() + 1).padStart(2, "0")}-${String(decidedAt.getDate()).padStart(2, "0")}`;
+        const day = byDay.get(key);
+        if (!day) return;
+        const status = String(event.to_status || "").toLowerCase();
+        if (status === "active" || status === "approved") day.approved += 1;
+        if (status === "rejected") day.rejected += 1;
+      });
+    });
+
+    return {
+      days,
+      averageReviewHours: reviewDurations.length
+        ? reviewDurations.reduce((total, duration) => total + duration, 0) / reviewDurations.length
+        : null,
+    };
+  }, [products]);
+
+  const moderationTrendMax = Math.max(1, ...moderationTrend.days.flatMap((day) => [day.submitted, day.approved, day.rejected]));
+  const moderationTotal = queueCounts.pending + queueCounts.approved + queueCounts.rejected + queueCounts.suspended;
+  const moderationDistribution = [
+    { label: "Approved", value: queueCounts.approved, tone: "approved" },
+    { label: "Rejected", value: queueCounts.rejected, tone: "rejected" },
+    { label: "Suspended", value: queueCounts.suspended, tone: "suspended" },
+    { label: "Pending", value: queueCounts.pending, tone: "pending" },
+  ];
 
   const handleUnauthorized = useCallback(() => {
     localStorage.removeItem("token");
@@ -502,6 +563,62 @@ export default function AdminProductModeration() {
           <article className="moderation-queue-card suspended">
             <span className="moderation-queue-icon"><AlertTriangle size={19} aria-hidden="true" /></span>
             <div><span>Suspended</span><strong>{queueCounts.suspended}</strong><small>Not visible in marketplace</small></div>
+          </article>
+        </section>
+
+        <section className="moderation-insights-grid" aria-label="Moderation trends and status overview">
+          <article className="moderation-insight-card moderation-trend-card">
+            <div className="moderation-insight-heading">
+              <span className="moderation-insight-icon"><Package size={18} aria-hidden="true" /></span>
+              <div><h2>Submissions &amp; Decisions Trend</h2><p>Last 7 days · current product results</p></div>
+            </div>
+            <div className="moderation-trend-legend" aria-hidden="true">
+              <span className="submitted">Submitted</span><span className="approved">Approved</span><span className="rejected">Rejected</span>
+            </div>
+            <div className="moderation-trend-chart" role="img" aria-label={`Daily submissions and moderation decisions: ${moderationTrend.days.map((day) => `${day.label}: ${day.submitted} submitted, ${day.approved} approved, ${day.rejected} rejected`).join("; ")}`}>
+              {moderationTrend.days.map((day) => (
+                <div className="moderation-trend-day" key={day.key}>
+                  <div className="moderation-trend-bars">
+                    <span className="submitted" style={{ height: `${day.submitted ? Math.max(6, (day.submitted / moderationTrendMax) * 100) : 0}%` }} />
+                    <span className="approved" style={{ height: `${day.approved ? Math.max(6, (day.approved / moderationTrendMax) * 100) : 0}%` }} />
+                    <span className="rejected" style={{ height: `${day.rejected ? Math.max(6, (day.rejected / moderationTrendMax) * 100) : 0}%` }} />
+                  </div>
+                  <small>{day.label}</small>
+                </div>
+              ))}
+            </div>
+          </article>
+
+          <article className="moderation-insight-card moderation-distribution-card">
+            <div className="moderation-insight-heading">
+              <span className="moderation-insight-icon"><CheckCircle2 size={18} aria-hidden="true" /></span>
+              <div><h2>Moderation Decisions</h2><p>{moderationTotal} listings across tracked statuses</p></div>
+            </div>
+            <div className="moderation-distribution-list">
+              {moderationDistribution.map((item) => (
+                <div className="moderation-distribution-row" key={item.label}>
+                  <span>{item.label}</span>
+                  <div className="moderation-distribution-track" aria-hidden="true"><span className={item.tone} style={{ width: `${moderationTotal ? (item.value / moderationTotal) * 100 : 0}%` }} /></div>
+                  <strong>{item.value}</strong>
+                  <small>{moderationTotal ? Math.round((item.value / moderationTotal) * 100) : 0}%</small>
+                </div>
+              ))}
+            </div>
+          </article>
+
+          <article className="moderation-insight-card moderation-review-time-card">
+            <div className="moderation-insight-heading">
+              <span className="moderation-insight-icon"><Clock3 size={18} aria-hidden="true" /></span>
+              <div><h2>Average Review Time</h2><p>From available moderation history</p></div>
+            </div>
+            <strong className="moderation-review-time-value">
+              {moderationTrend.averageReviewHours === null ? "—" : `${moderationTrend.averageReviewHours.toFixed(1)} hours`}
+            </strong>
+            <p className="moderation-review-time-note">
+              {moderationTrend.averageReviewHours === null
+                ? "Review history is not available for the current results."
+                : "Calculated from the first recorded decision for each listing."}
+            </p>
           </article>
         </section>
 
