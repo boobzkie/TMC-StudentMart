@@ -284,13 +284,6 @@ export default function AdminLayout({
     ...(accountItems.length
       ? [{ id: "accounts", label: isStaff ? "Student Accounts" : "Account Management", heading: isStaff ? "STUDENT ACCOUNTS" : "ACCOUNT MANAGEMENT", icon: UserRoundCog, items: accountItems }]
       : []),
-    {
-      id: "settings",
-      label: isStaff ? "My Profile" : "Settings",
-      heading: isStaff ? "MY PROFILE" : "SETTINGS",
-      icon: Settings,
-      items: [{ to: settingsPath, label: "My Profile", icon: Settings }],
-    },
   ];
   const routeMatchesItem = (item) => (
     location.pathname === item.to ||
