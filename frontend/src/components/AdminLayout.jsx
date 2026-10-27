@@ -8,7 +8,6 @@ import {
   CreditCard,
   ChevronRight,
   FileClock,
-  FileBarChart,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -238,11 +237,21 @@ export default function AdminLayout({
         ? [{ to: "/staff/product-moderation", label: "Product Moderation", icon: ShieldAlert }]
         : [])
     : marketplaceLinks;
+  const staffInsightRoutes = [
+    ...(staffCanViewReports ? ["/staff/reports"] : []),
+    ...(staffCanViewAnalytics ? ["/staff/analytics"] : []),
+  ];
   const insightItems = isStaff
-    ? [
-        ...(staffCanViewReports ? [{ to: "/staff/reports", label: "Reports", icon: FileBarChart }] : []),
-        ...(staffCanViewAnalytics ? [{ to: "/staff/analytics", label: "Analytics", icon: BarChart3 }] : []),
-      ]
+    ? (staffInsightRoutes.length
+        ? [{
+            to: staffCanViewReports ? "/staff/reports" : "/staff/analytics",
+            matchPaths: staffInsightRoutes,
+            label: staffCanViewReports && staffCanViewAnalytics
+              ? "Marketplace Insights"
+              : staffCanViewReports ? "Reports" : "Analytics",
+            icon: BarChart3,
+          }]
+        : [])
     : insightLinks;
   const accountItems = isStaff
     ? (staffCanManageStudents

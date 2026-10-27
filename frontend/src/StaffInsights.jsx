@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Activity, AlertCircle, BarChart3, CheckCircle2, Clock3, FileBarChart, MessageSquareWarning, Package, ShieldAlert, XCircle } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import AdminLayout from "./components/AdminLayout";
 import AdminPageHero from "./components/AdminPageHero";
 import { StatCard } from "./ui";
@@ -29,6 +29,16 @@ function formatHours(value) {
 export default function StaffInsights({ mode = "reports" }) {
   const navigate = useNavigate();
   const isAnalytics = mode === "analytics";
+  const staffPermissions = (() => {
+    try {
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
+      return Array.isArray(user.staff_permissions) ? user.staff_permissions : [];
+    } catch {
+      return [];
+    }
+  })();
+  const canViewReports = staffPermissions.includes("view_reports");
+  const canViewAnalytics = staffPermissions.includes("view_analytics");
   const endpoint = isAnalytics ? "/staff/analytics" : "/staff/reports";
   const [from, setFrom] = useState(initialFrom);
   const [to, setTo] = useState(isoDate(new Date()));
@@ -109,6 +119,17 @@ export default function StaffInsights({ mode = "reports" }) {
           autoRefreshKey={`${endpoint}|${from}|${to}`}
           autoRefreshPaused={filtersFocused}
         />
+
+        {canViewReports && canViewAnalytics && (
+          <nav className="staff-insights-view-switch" aria-label="Insights views">
+            <NavLink to="/staff/reports" end>
+              Reports
+            </NavLink>
+            <NavLink to="/staff/analytics" end>
+              Analytics
+            </NavLink>
+          </nav>
+        )}
 
         <form className="staff-insights-filters" onFocusCapture={() => setFiltersFocused(true)} onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setFiltersFocused(false); }} onSubmit={(event) => { event.preventDefault(); load(); }}>
           <label>From<input type="date" value={from} max={to} onChange={(event) => setFrom(event.target.value)} required /></label>

@@ -1,4 +1,9 @@
 .staff-insights-page { display: grid; gap: 18px; color: var(--tmc-admin-text, #06151e); }
+.staff-insights-view-switch { display: inline-flex; justify-self: start; max-width: 100%; gap: 4px; padding: 4px; border: 1px solid var(--tmc-admin-border, #d6d6d6); border-radius: var(--tmc-ui-radius-md, 9px); background: var(--tmc-admin-bg-muted, #f4f7fb); }
+.staff-insights-view-switch a { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 18px; border-radius: var(--tmc-ui-radius-sm, 6px); color: var(--tmc-admin-secondary, #545a5b); font-size: 14px; font-weight: 600; text-decoration: none; transition: color .16s ease, background-color .16s ease, box-shadow .16s ease; }
+.staff-insights-view-switch a:hover { color: var(--tmc-admin-primary, #0a4174); }
+.staff-insights-view-switch a.active { color: var(--tmc-admin-on-primary, #fff); background: var(--tmc-admin-primary, #0a4174); box-shadow: var(--tmc-admin-card-shadow, 0 1px 2px rgba(6,21,30,.05)); }
+.staff-insights-view-switch a:focus-visible { outline: 3px solid var(--tmc-admin-focus, #4aa3df); outline-offset: 2px; }
 .staff-insights-hero, .staff-insights-filters, .staff-insights-cards article, .staff-insights-panel { border: 1px solid var(--tmc-admin-border, #d6d6d6); border-radius: var(--tmc-ui-radius-lg, 12px); background: var(--tmc-admin-surface, #fff); box-shadow: var(--tmc-admin-card-shadow, 0 1px 2px rgba(6,21,30,.05)); }
 .staff-insights-hero { display: flex; align-items: center; gap: 15px; padding: 22px; }
 .staff-insights-icon { display: grid; place-items: center; width: 50px; height: 50px; border-radius: 14px; color: var(--tmc-admin-primary, #0a4174); background: var(--tmc-admin-accent-soft, #e8f0f5); }
@@ -44,5 +49,9 @@
   .staff-insights-hero button { margin-left: 65px; }
   .staff-insights-filters > span { width: 100%; margin: 0; }
 }
-@media(max-width: 480px) { .staff-insights-cards { grid-template-columns: 1fr; } }
+@media(max-width: 480px) {
+  .staff-insights-cards { grid-template-columns: 1fr; }
+  .staff-insights-view-switch { width: 100%; }
+  .staff-insights-view-switch a { flex: 1; padding: 0 10px; }
+}
 @media(prefers-reduced-motion: reduce) { .staff-tool-card { transition: none; } .staff-tool-card:hover { transform: none; } }
