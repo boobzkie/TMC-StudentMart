@@ -8,6 +8,7 @@ import {
   CreditCard,
   ChevronRight,
   FileClock,
+  FileBarChart,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -269,24 +270,24 @@ export default function AdminLayout({
       ? [{ id: "marketplace", label: "Marketplace", heading: "MARKETPLACE", icon: Store, items: marketplaceItems }]
       : []),
     ...(insightItems.length
-      ? [{ id: "insights", label: "Marketplace Insights", heading: "INSIGHTS & OVERSIGHT", icon: BarChart3, items: insightItems }]
+      ? [{ id: "insights", label: isStaff ? "Insights & Oversight" : "Marketplace Insights", heading: "INSIGHTS & OVERSIGHT", icon: BarChart3, items: insightItems }]
       : []),
     ...(isStaff && staffCanManageComplaints
       ? [{
           id: "support",
-          label: "Student Support",
-          heading: "STUDENT SUPPORT",
+          label: "Complaints Management",
+          heading: "COMPLAINTS MANAGEMENT",
           icon: MessageSquareWarning,
           items: [{ to: "/staff/complaints", label: "Complaints", icon: MessageSquareWarning }],
         }]
       : []),
     ...(accountItems.length
-      ? [{ id: "accounts", label: "Account Management", heading: "ACCOUNT MANAGEMENT", icon: UserRoundCog, items: accountItems }]
+      ? [{ id: "accounts", label: isStaff ? "Student Accounts" : "Account Management", heading: isStaff ? "STUDENT ACCOUNTS" : "ACCOUNT MANAGEMENT", icon: UserRoundCog, items: accountItems }]
       : []),
     {
       id: "settings",
-      label: "Settings",
-      heading: "SETTINGS",
+      label: isStaff ? "My Profile" : "Settings",
+      heading: isStaff ? "MY PROFILE" : "SETTINGS",
       icon: Settings,
       items: [{ to: settingsPath, label: "My Profile", icon: Settings }],
     },

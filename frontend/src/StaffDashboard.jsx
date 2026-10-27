@@ -281,12 +281,6 @@ export default function StaffDashboard() {
     activeStudents + inactiveStudents > 0
       ? Math.round((activeStudents / (activeStudents + inactiveStudents)) * 100)
       : 0;
-  const staffPulseMetrics = [
-    staffCanManageStudents && { label: "New students", value: stats?.new_students_30_days, icon: UserPlus, tone: "info" },
-    staffCanModerateProducts && { label: "Listings to review", value: stats?.pending_products, icon: ShieldAlert, tone: "warning" },
-    staffCanManageComplaints && { label: "Open complaints", value: stats?.open_complaints, icon: MessageSquareWarning, tone: "danger" },
-  ].filter(Boolean);
-
   return (
     <AdminLayout
       title="Staff Dashboard"
@@ -306,36 +300,6 @@ export default function StaffDashboard() {
               Open {tools[0].label}
               <ArrowRight size={16} aria-hidden="true" />
             </Link>
-          )}
-          sideContent={(
-            <div className="staff-welcome-visual" aria-label="Assigned staff overview">
-            <div className="staff-pulse-orbit staff-pulse-orbit--outer" aria-hidden="true" />
-            <div className="staff-pulse-card">
-              <div className="staff-pulse-heading">
-                <span className="staff-pulse-icon"><Activity size={17} aria-hidden="true" /></span>
-                <span><strong>Your workspace</strong><small>Based on assigned access</small></span>
-              </div>
-              <div className="staff-pulse-metrics">
-                {staffPulseMetrics.map((item) => {
-                  const Icon = item.icon;
-                  const valueAvailable = item.value !== null && item.value !== undefined && item.value !== "";
-                  return (
-                    <div className={`staff-pulse-metric staff-pulse-metric--${item.tone}`} key={item.label}>
-                      <span className="staff-pulse-metric-icon"><Icon size={15} aria-hidden="true" /></span>
-                      <span className="staff-pulse-metric-label">{item.label}</span>
-                      <strong>{loading || !valueAvailable ? "..." : formatValue(item.value)}</strong>
-                    </div>
-                  );
-                })}
-                {staffPulseMetrics.length === 0 && (
-                  <div className="staff-pulse-access">
-                    <span>{tools.length}</span>
-                    <p>tools assigned to your role</p>
-                  </div>
-                )}
-              </div>
-            </div>
-            </div>
           )}
         />
 

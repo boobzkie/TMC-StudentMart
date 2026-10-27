@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Activity, AlertCircle, BarChart3, FileBarChart } from "lucide-react";
+import { Activity, AlertCircle, BarChart3, CheckCircle2, Clock3, FileBarChart, MessageSquareWarning, Package, ShieldAlert, XCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import AdminLayout from "./components/AdminLayout";
 import AdminPageHero from "./components/AdminPageHero";
+import { StatCard } from "./ui";
 import { API_URL } from "./utils/api";
 import "./StaffInsights.css";
 
@@ -81,15 +82,15 @@ export default function StaffInsights({ mode = "reports" }) {
 
   const summary = data?.summary || {};
   const cards = [
-    ["Products submitted", summary.products_submitted, "In selected period"],
-    ["Listings awaiting review", summary.products_pending, "Pending submissions in period"],
-    ["Products approved", summary.products_approved, "Recorded review decisions"],
-    ["Products rejected", summary.products_rejected, "Recorded review decisions"],
-    ["Complaints submitted", summary.complaints_submitted, "In selected period"],
-    ["Complaints pending", summary.complaints_pending, "Submitted in selected period"],
-    ["Complaints under review", summary.complaints_in_review, "Submitted in selected period"],
-    ["Complaints resolved", summary.complaints_resolved, "Submitted in selected period"],
-    ["Average resolution time", formatHours(summary.average_resolution_hours), "Based on resolved complaints"],
+    { label: "Products submitted", value: summary.products_submitted, subtitle: "In selected period", icon: Package, tone: "primary" },
+    { label: "Listings awaiting review", value: summary.products_pending, subtitle: "Pending submissions in period", icon: ShieldAlert, tone: "warning" },
+    { label: "Products approved", value: summary.products_approved, subtitle: "Recorded review decisions", icon: CheckCircle2, tone: "success" },
+    { label: "Products rejected", value: summary.products_rejected, subtitle: "Recorded review decisions", icon: XCircle, tone: "danger" },
+    { label: "Complaints submitted", value: summary.complaints_submitted, subtitle: "In selected period", icon: MessageSquareWarning, tone: "info" },
+    { label: "Complaints pending", value: summary.complaints_pending, subtitle: "Submitted in selected period", icon: Clock3, tone: "warning" },
+    { label: "Complaints under review", value: summary.complaints_in_review, subtitle: "Submitted in selected period", icon: Activity, tone: "primary" },
+    { label: "Complaints resolved", value: summary.complaints_resolved, subtitle: "Submitted in selected period", icon: CheckCircle2, tone: "success" },
+    { label: "Average resolution time", value: formatHours(summary.average_resolution_hours), subtitle: "Based on resolved complaints", icon: Clock3, tone: "info" },
   ];
 
   const activity = Array.isArray(data?.daily_activity) ? data.daily_activity : [];
@@ -121,10 +122,10 @@ export default function StaffInsights({ mode = "reports" }) {
 
         {data && <>
           <section className="staff-insights-cards">
-            {cards.map(([label, value, hint]) => <article key={label}><span>{label}</span><strong>{value ?? 0}</strong><small>{hint}</small></article>)}
+            {cards.map((card) => <StatCard key={card.label} {...card} value={card.value ?? 0} />)}
           </section>
-          <section className="staff-insights-panel">
-            <header><div><Activity size={18} /><h3>Daily activity</h3></div><span>{activity.length} days</span></header>
+          <section className="staff-insights-panel tmc-card">
+            <header className="tmc-card-header"><div><Activity size={18} /><h3>Daily activity</h3></div><span>{activity.length} days</span></header>
             {!hasActivity ? <div className="staff-insights-state">No product or complaint activity was recorded in this date range.</div>
               : <div className="staff-insights-table-wrap"><table><thead><tr><th>Date</th><th>Submissions</th><th>Approved</th><th>Rejected</th><th>Complaints</th><th>Resolved</th></tr></thead><tbody>
                 {activity.filter((day) => Object.entries(day).some(([key, value]) => key !== "date" && Number(value) > 0)).map((day) => <tr key={day.date}><td>{new Date(day.date + "T00:00:00").toLocaleDateString(undefined, { dateStyle: "medium" })}</td><td>{day.product_submissions}</td><td>{day.products_approved}</td><td>{day.products_rejected}</td><td>{day.complaints_submitted}</td><td>{day.complaints_resolved}</td></tr>)}

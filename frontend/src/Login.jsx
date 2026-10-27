@@ -1,7 +1,7 @@
 ﻿import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { API_URL } from "./utils/api";
-import { Eye, EyeOff, Mail, LockKeyhole, ShieldCheck } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, LockKeyhole, Mail, ShieldCheck } from "lucide-react";
 import "./Login.css";
 
 function Login() {
@@ -128,50 +128,33 @@ function Login() {
   };
 
   return (
-    <main className="login-page" data-theme="light">
+    <main className="login-page" data-theme="dark">
       <section className="auth-shell" aria-label="TMC StudentMart sign in">
-        <aside className="auth-promo-panel" aria-labelledby="brand-heading">
-          <div className="auth-promo-brand">
-            <img src="/assets/tmc-logo.png" alt="Trinidad Municipal College logo" />
-            <div>
-              <strong>TMC StudentMart</strong>
-              <span>ADMIN &amp; STAFF PORTAL</span>
-            </div>
-          </div>
+        <header className="auth-topbar">
+          <Link className="auth-topbar-brand" to="/" aria-label="TMC StudentMart home">
+            <img src="/assets/tmc-logo.png" alt="" />
+            <span><strong>TMC <em>StudentMart</em></strong><small>ADMIN &amp; STAFF PORTAL</small></span>
+          </Link>
+        </header>
 
+        <aside className="auth-promo-panel" aria-labelledby="brand-heading">
           <div className="auth-promo-copy">
             <span className="auth-promo-eyebrow">
               <ShieldCheck size={16} aria-hidden="true" /> SECURE PORTAL
             </span>
-            <h2 id="brand-heading">Marketplace management, <span>all in one place.</span></h2>
+            <span className="auth-promo-kicker">ADMIN &amp; STAFF PORTAL</span>
+            <h2 id="brand-heading">Marketplace<br />management,<br /><span>all in one place.</span></h2>
             <p>
-              Manage student listings, orders, sellers, users, moderation, and marketplace activity from one secure workspace.
+              Manage student listings, orders, sellers, users, and marketplace activity from one secure workspace.
             </p>
           </div>
 
-          <div className="auth-promo-bottom">
-            <div className="auth-promo-note">
-              <ShieldCheck size={20} aria-hidden="true" />
-              <div>
-                <strong>Secure administrative access</strong>
-                <span>Administrators manage the marketplace while approved staff receive access according to their assigned permissions.</span>
-              </div>
-            </div>
-            <div className="auth-promo-footer">
-              <span>Trinidad Municipal College</span>
-              <span>StudentMart</span>
-            </div>
-          </div>
         </aside>
 
         <section className="auth-form-panel login-card" aria-labelledby="login-heading">
-          <div className="auth-form-brand">
-            <span>ADMINISTRATOR &amp; STAFF ACCESS</span>
-          </div>
-
           <div className="login-title">
-            <h1 id="login-heading">Welcome back</h1>
-            <p>Sign in to continue to your TMC StudentMart workspace.</p>
+            <h1 id="login-heading">Welcome back.</h1>
+            <p>Sign in to your TMC StudentMart workspace.</p>
           </div>
 
           {error && <div className="login-error" id="login-error" role="alert">{error}</div>}
@@ -184,7 +167,7 @@ function Login() {
                 <input
                   id="email"
                   type="email"
-                  placeholder="Enter your email address"
+                  placeholder="Enter your staff email"
                   value={email}
                   onChange={(event) => {
                     setEmail(event.target.value);
@@ -245,14 +228,12 @@ function Login() {
                   <span className="button-spinner" aria-hidden="true" />
                   Signing in...
                 </>
-              ) : (
-                "Sign in"
-              )}
+              ) : <>Sign in <ArrowRight size={19} aria-hidden="true" /></>}
             </button>
           </form>
 
           <p className="login-register-link">
-            Need a staff account? <Link to="/staff/register">Register as Staff</Link>
+            <span>Need a staff account?</span> <Link to="/staff/register">Register as Staff</Link>
           </p>
           <p className="login-student-note">
             Student accounts are managed in the TMC StudentMart mobile application.

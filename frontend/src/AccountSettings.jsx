@@ -56,6 +56,17 @@ function archiveDate(value) {
     : date.toLocaleString();
 }
 
+function formatEmploymentDate(value) {
+  if (!value) return "Not provided";
+  const [year, month, day] = String(value).slice(0, 10).split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  if (
+    !year || !month || !day || Number.isNaN(date.getTime())
+    || date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day
+  ) return String(value);
+  return date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+}
+
 export default function AccountSettings() {
   const navigate = useNavigate();
   const [user, setUser] = useState(readStoredUser);
@@ -500,16 +511,23 @@ export default function AccountSettings() {
                 </section>
 
                 {isStaff && (
-                  <section className="account-readonly-section">
-                    <div className="account-readonly-heading"><BriefcaseBusiness size={18} aria-hidden="true" /><div><h4>Staff employment details</h4><p>These details are managed by the TMC Administrator.</p></div></div>
-                    <div className="account-readonly-grid">
-                      <div><span>Employee ID</span><strong>{staff.employee_id || "Not assigned"}</strong></div>
-                      <div><span>Department</span><strong>{staff.department || "Not assigned"}</strong></div>
-                      <div><span>Position</span><strong>{staff.position || "Not assigned"}</strong></div>
-                      <div><span>Employment status</span><strong>{staff.employment_status || "Not assigned"}</strong></div>
-                      <div><span>Start date</span><strong>{staff.employment_start_date || "Not assigned"}</strong></div>
-                      <div><span>Campus</span><strong>{staff.campus || "Not assigned"}</strong></div>
-                    </div>
+                  <section className="account-readonly-section" aria-labelledby="account-employment-details-title">
+                    <header className="account-readonly-heading">
+                      <span className="account-readonly-icon"><BriefcaseBusiness size={18} aria-hidden="true" /></span>
+                      <div className="account-readonly-copy">
+                        <h4 id="account-employment-details-title">Employment details</h4>
+                        <p>Your current work assignment and employment information.</p>
+                      </div>
+                      <span className="account-readonly-badge"><ShieldCheck size={14} aria-hidden="true" />Admin managed</span>
+                    </header>
+                    <dl className="account-readonly-grid">
+                      <div><dt>Employee ID</dt><dd>{staff.employee_id || "Not assigned"}</dd></div>
+                      <div><dt>Department</dt><dd>{staff.department || "Not assigned"}</dd></div>
+                      <div><dt>Position</dt><dd>{staff.position || "Not assigned"}</dd></div>
+                      <div><dt>Employment type</dt><dd>{staff.employment_status || "Not assigned"}</dd></div>
+                      <div><dt>Start date</dt><dd>{formatEmploymentDate(staff.employment_start_date)}</dd></div>
+                      <div><dt>Campus / office</dt><dd>{staff.campus || "Not assigned"}</dd></div>
+                    </dl>
                   </section>
                 )}
 

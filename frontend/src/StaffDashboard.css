@@ -741,3 +741,64 @@
 .admin-layout[data-theme="dark"] .admin-content .staff-dashboard-page .staff-tool-card { background: linear-gradient(145deg,#132d4a,#0d223b); }
 .admin-layout[data-theme="dark"] .admin-content .staff-dashboard-page .staff-action-card { background: linear-gradient(145deg,#183354,#102843); }
 .admin-layout[data-theme="dark"] .admin-content .staff-dashboard-page .staff-status-ring > span { box-shadow: var(--staff-dashboard-inset); }
+
+/* Keep Staff dashboard surfaces in step with the shared Admin design system. */
+.admin-layout[data-theme] .admin-content .staff-dashboard-page {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  min-width: 0;
+}
+
+.admin-layout[data-theme] .admin-content .staff-dashboard-page .metrics-grid {
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 14px;
+  margin: 0;
+}
+
+.admin-layout[data-theme] .admin-content .staff-dashboard-page .tmc-stat-card,
+.admin-layout[data-theme] .admin-content .staff-dashboard-page .staff-action-queue,
+.admin-layout[data-theme] .admin-content .staff-dashboard-page .staff-chart-card,
+.admin-layout[data-theme] .admin-content .staff-dashboard-page .staff-tool-card {
+  border: 1px solid var(--tmc-admin-border);
+  border-radius: var(--tmc-ui-radius-lg);
+  background: var(--tmc-admin-surface);
+  box-shadow: var(--tmc-admin-card-shadow);
+}
+
+.admin-layout[data-theme] .admin-content .staff-dashboard-page .tmc-stat-card {
+  min-height: 0;
+  padding: 16px 18px;
+}
+
+.admin-layout[data-theme] .admin-content .staff-dashboard-page .tmc-stat-card::after { content: none; }
+.admin-layout[data-theme] .admin-content .staff-dashboard-page .tmc-stat-icon { width: 40px; height: 40px; flex-basis: 40px; border-radius: 12px; box-shadow: none; }
+.admin-layout[data-theme] .admin-content .staff-dashboard-page .tmc-stat-value { font-size: 23px; }
+.admin-layout[data-theme] .admin-content .staff-dashboard-page .staff-action-queue { margin: 0; padding: 18px; }
+.admin-layout[data-theme] .admin-content .staff-dashboard-page .staff-action-card { border-color: var(--tmc-admin-border); border-radius: var(--tmc-ui-radius-md); background: var(--tmc-admin-bg-muted); box-shadow: none; }
+.admin-layout[data-theme] .admin-content .staff-dashboard-page .staff-action-card:hover,
+.admin-layout[data-theme] .admin-content .staff-dashboard-page .staff-tool-card:hover { border-color: var(--tmc-admin-accent-border); box-shadow: var(--tmc-admin-card-hover); transform: translateY(-1px); }
+.admin-layout[data-theme] .admin-content .staff-dashboard-page .staff-chart-card { height: 100%; padding: 0; }
+.admin-layout[data-theme] .admin-content .staff-dashboard-page .staff-tool-section { margin: 0; }
+.admin-layout[data-theme] .admin-content .staff-dashboard-page .staff-tool-grid { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; }
+.admin-layout[data-theme] .admin-content .staff-dashboard-page .staff-tool-card { min-height: 0; padding: 16px 18px; }
+.admin-layout[data-theme] .admin-content .staff-dashboard-page .staff-tool-icon { border-radius: 12px; box-shadow: none; }
+.admin-layout[data-theme] .admin-content .staff-dashboard-page .staff-status-ring { box-shadow: none; }
+.admin-layout[data-theme] .admin-content .staff-dashboard-page .staff-status-ring > span { background: var(--tmc-admin-surface); box-shadow: inset 0 0 0 1px var(--tmc-admin-border); }
+.admin-layout[data-theme] .admin-content .staff-dashboard-page .recent-table-wrap { border-color: var(--tmc-admin-border); border-radius: var(--tmc-ui-radius-lg); box-shadow: none; }
+.admin-layout[data-theme] .admin-content .staff-dashboard-page .staff-recent-table th { background: var(--tmc-admin-bg-muted); }
+
+@media (max-width: 900px) {
+  .admin-layout[data-theme] .admin-content .staff-dashboard-page { gap: 22px; }
+}
+
+@media (max-width: 700px) {
+  .admin-layout[data-theme] .admin-content .staff-dashboard-page .staff-action-queue { padding: 15px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-layout[data-theme] .admin-content .staff-dashboard-page .staff-action-card,
+  .admin-layout[data-theme] .admin-content .staff-dashboard-page .staff-tool-card { transition: none; }
+  .admin-layout[data-theme] .admin-content .staff-dashboard-page .staff-action-card:hover,
+  .admin-layout[data-theme] .admin-content .staff-dashboard-page .staff-tool-card:hover { transform: none; }
+}

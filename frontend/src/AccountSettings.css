@@ -731,6 +731,88 @@
   border-color: transparent;
   box-shadow: none;
 }
+
+.account-readonly-section {
+  display: grid;
+  gap: 15px;
+  min-width: 0;
+  padding: 17px;
+  border: 1px solid var(--portal-border);
+  border-radius: 12px;
+  background: var(--portal-surface);
+  box-shadow: var(--portal-shadow-sm);
+}
+
+.account-readonly-heading {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 11px;
+}
+
+.account-readonly-icon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  place-items: center;
+  border: 1px solid var(--portal-border);
+  border-radius: 11px;
+  color: var(--portal-primary-strong);
+  background: var(--portal-surface-soft);
+}
+
+.account-readonly-copy { min-width: 0; }
+.account-readonly-copy h4 { margin: 0; color: var(--portal-ink); font-size: 15px; font-weight: 800; }
+.account-readonly-copy p { margin: 3px 0 0; color: var(--portal-muted); font-size: 12px; line-height: 1.45; }
+
+.account-readonly-badge {
+  display: inline-flex;
+  min-height: 30px;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  padding: 0 9px;
+  border: 1px solid var(--portal-border);
+  border-radius: 999px;
+  color: var(--portal-primary-strong);
+  background: var(--portal-surface-soft);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.account-readonly-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.account-readonly-grid > div {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: 7px;
+  min-height: 70px;
+  padding: 12px 13px;
+  border: 1px solid var(--portal-border);
+  border-radius: 10px;
+  background: var(--portal-surface-soft);
+}
+
+.account-readonly-grid dt { color: var(--portal-muted); font-size: 12px; font-weight: 600; }
+.account-readonly-grid dd { margin: 0; overflow-wrap: anywhere; color: var(--portal-ink); font-size: 14px; font-weight: 700; line-height: 1.4; }
+
 @media (max-width: 720px) {
   .account-preferences-grid { grid-template-columns: minmax(0, 1fr); }
+  .account-readonly-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 600px) {
+  .account-readonly-section { padding: 14px; }
+  .account-readonly-heading { align-items: flex-start; flex-wrap: wrap; }
+  .account-readonly-copy { flex: 1 1 calc(100% - 55px); }
+  .account-readonly-badge { margin: 0 0 0 51px; }
+  .account-readonly-grid { grid-template-columns: minmax(0, 1fr); }
 }

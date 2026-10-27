@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Eye, Loader2, MessageSquareWarning, Search, X } from "lucide-react";
+import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Eye, Loader2, MessageSquareWarning, Search, X, XCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import AdminLayout from "./components/AdminLayout";
 import AdminPageHero from "./components/AdminPageHero";
 import Modal from "./ui/Modal";
+import { StatCard } from "./ui";
 import { API_URL } from "./utils/api";
 import "./StaffComplaints.css";
 
@@ -190,7 +191,12 @@ export default function StaffComplaints() {
     }
   };
 
-  const cardStats = [["Pending", "pending"], ["Under review", "in_review"], ["Resolved", "resolved"], ["Rejected", "rejected"]];
+  const cardStats = [
+    { label: "Pending", key: "pending", subtitle: "Awaiting review", icon: Clock3, tone: "warning" },
+    { label: "Under review", key: "in_review", subtitle: "Being investigated", icon: MessageSquareWarning, tone: "info" },
+    { label: "Resolved", key: "resolved", subtitle: "Closed with a resolution", icon: CheckCircle2, tone: "success" },
+    { label: "Rejected", key: "rejected", subtitle: "Reviewed and declined", icon: XCircle, tone: "danger" },
+  ];
 
   return (
     <AdminLayout title="Complaints" subtitle="Review reports submitted by students">
@@ -208,8 +214,8 @@ export default function StaffComplaints() {
 
         {error && <div className="staff-complaints-error" role="alert"><AlertCircle size={17} />{error}<button type="button" onClick={() => setError("")} aria-label="Dismiss error"><X size={16} /></button></div>}
 
-        <section className="staff-complaint-stats">
-          {cardStats.map(([label, key]) => <article key={key}><span>{label}</span><strong>{stats[key] ?? 0}</strong></article>)}
+        <section className="staff-complaint-stats" aria-label="Complaint totals by status">
+          {cardStats.map((card) => <StatCard key={card.key} label={card.label} value={stats[card.key] ?? 0} subtitle={card.subtitle} icon={card.icon} tone={card.tone} />)}
         </section>
 
         <form className="staff-complaint-filters" onFocusCapture={() => setFiltersFocused(true)} onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setFiltersFocused(false); }} onSubmit={(event) => { event.preventDefault(); setPage(1); }}>
