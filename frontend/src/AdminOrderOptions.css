@@ -155,6 +155,19 @@
   margin-bottom: 10px;
 }
 
+.order-options-trend-heading {
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.order-options-trend-heading .order-options-section-heading {
+  flex: 1 1 240px;
+}
+
+.order-options-trend-heading .order-options-period {
+  margin-left: auto;
+}
+
 .order-options-panel-heading h2 {
   margin: 3px 0 3px;
   color: var(--tmc-admin-text);
@@ -1056,6 +1069,8 @@
   .order-options-management-panel .order-options-primary { align-self: flex-end; }
   .order-options-table-footer { align-items: flex-start; flex-direction: column; }
   .order-options-chart-labels { font-size: 12px; }
+  .order-options-trend-heading { align-items: flex-start; }
+  .order-options-trend-heading .order-options-period { margin-left: 46px; }
 }
 
 @media (max-width: 420px) {

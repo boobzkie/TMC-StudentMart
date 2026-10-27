@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -261,12 +262,14 @@ export default function AdminReports() {
     useState(false);
 
   const [error, setError] = useState("");
+  const reportsRequestSequenceRef = useRef(0);
 
   const loadReports = useCallback(
-    async (showRefresh = false) => {
+    async (showRefresh = false, signal) => {
+      const requestSequence = ++reportsRequestSequenceRef.current;
       try {
         if (showRefresh) {
-          setRefreshing(true);
+          if (!signal) setRefreshing(true);
         } else {
           setLoading(true);
           setFetchedAt(null);
@@ -290,9 +293,10 @@ export default function AdminReports() {
           Authorization: `Bearer ${token}`,
         };
         const [statsResult, commissionResult] = await Promise.allSettled([
-          fetch(`${API_URL}/admin/stats?period=${encodeURIComponent(period)}`, { method: "GET", headers }),
-          fetch(`${API_URL}/admin/commission`, { method: "GET", headers }),
+          fetch(`${API_URL}/admin/stats?period=${encodeURIComponent(period)}`, { method: "GET", headers, ...(signal ? { signal } : {}) }),
+          fetch(`${API_URL}/admin/commission`, { method: "GET", headers, ...(signal ? { signal } : {}) }),
         ]);
+        if (signal?.aborted || requestSequence !== reportsRequestSequenceRef.current) return;
         if (statsResult.status === "rejected") throw statsResult.reason;
         const response = statsResult.value;
         const commissionResponse = commissionResult.status === "fulfilled" ? commissionResult.value : null;
@@ -312,6 +316,7 @@ export default function AdminReports() {
         }
 
         const data = await response.json().catch(() => ({}));
+        if (signal?.aborted || requestSequence !== reportsRequestSequenceRef.current) return;
 
         if (!response.ok) {
           throw new Error(
@@ -386,6 +391,7 @@ export default function AdminReports() {
         });
         if (commissionResponse) {
           const commissionData = await commissionResponse.json().catch(() => ({}));
+          if (signal?.aborted || requestSequence !== reportsRequestSequenceRef.current) return;
           if (commissionResponse.ok) {
             setCommissionSummary(commissionData.summary || null);
             setCommissionError("");
@@ -399,6 +405,7 @@ export default function AdminReports() {
         }
         setFetchedAt(new Date());
       } catch (err) {
+        if (signal?.aborted || err?.name === "AbortError" || requestSequence !== reportsRequestSequenceRef.current) return;
         console.error(
           "Reports error:",
           err
@@ -408,8 +415,10 @@ export default function AdminReports() {
           "We couldn't load the reports. Please try again."
         );
       } finally {
-        setLoading(false);
-        setRefreshing(false);
+        if (!signal?.aborted && requestSequence === reportsRequestSequenceRef.current) {
+          setLoading(false);
+          setRefreshing(false);
+        }
       }
     },
     [navigate, period]
@@ -580,7 +589,9 @@ export default function AdminReports() {
               </select>
             </label>
           )}
-          onRefresh={() => loadReports(true)}
+          onRefresh={(signal) => loadReports(true, signal)}
+          autoRefreshIntervalMs={120_000}
+          autoRefreshKey={period}
           refreshing={loading || refreshing}
         />
 

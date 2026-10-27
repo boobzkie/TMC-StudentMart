@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { RefreshCw } from "lucide-react";
 
 export default function AdminPageHero({
@@ -8,6 +8,9 @@ export default function AdminPageHero({
   onRefresh,
   refreshing = false,
   refreshDisabled = false,
+  autoRefreshIntervalMs = 0,
+  autoRefreshKey,
+  autoRefreshPaused = false,
   refreshLabel,
   actions,
   meta,
@@ -15,21 +18,96 @@ export default function AdminPageHero({
   className = "",
 }) {
   const [requesting, setRequesting] = useState(false);
+  const [autoRefreshing, setAutoRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState("");
-  const busy = requesting || refreshing;
+  const busy = requesting || autoRefreshing || refreshing;
+  const onRefreshRef = useRef(onRefresh);
+  const refreshStateRef = useRef({ busy, refreshDisabled, autoRefreshPaused });
+  const requestInFlightRef = useRef(false);
+  const activeControllerRef = useRef(null);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    onRefreshRef.current = onRefresh;
+    refreshStateRef.current = { busy, refreshDisabled, autoRefreshPaused };
+  }, [onRefresh, busy, refreshDisabled, autoRefreshPaused]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      activeControllerRef.current?.abort();
+    };
+  }, []);
+
+  const runRefresh = useCallback(async (signal, automatic = false) => {
+    const handler = onRefreshRef.current;
+    if (!handler || requestInFlightRef.current) return;
+
+    requestInFlightRef.current = true;
+    if (automatic) setAutoRefreshing(true);
+    else setRequesting(true);
+    setRefreshError("");
+
+    try {
+      await handler(signal);
+    } catch (error) {
+      if (!signal?.aborted && mountedRef.current) {
+        setRefreshError(error?.message || "Unable to refresh this page. Please try again.");
+      }
+    } finally {
+      requestInFlightRef.current = false;
+      if (mountedRef.current) {
+        if (automatic) setAutoRefreshing(false);
+        else setRequesting(false);
+      }
+    }
+  }, []);
 
   const handleRefresh = async () => {
     if (!onRefresh || busy || refreshDisabled) return;
-    setRequesting(true);
-    setRefreshError("");
-    try {
-      await onRefresh();
-    } catch (error) {
-      setRefreshError(error?.message || "Unable to refresh this page. Please try again.");
-    } finally {
-      setRequesting(false);
-    }
+    await runRefresh();
   };
+
+  useEffect(() => {
+    if (!autoRefreshIntervalMs) return undefined;
+
+    let active = true;
+    let controller = null;
+
+    const refreshWhenDue = async () => {
+      const state = refreshStateRef.current;
+      if (
+        !active ||
+        document.visibilityState !== "visible" ||
+        state.busy ||
+        state.refreshDisabled ||
+        state.autoRefreshPaused ||
+        requestInFlightRef.current ||
+        !onRefreshRef.current
+      ) return;
+
+      controller = new AbortController();
+      activeControllerRef.current = controller;
+      await runRefresh(controller.signal, true);
+      if (activeControllerRef.current === controller) activeControllerRef.current = null;
+      controller = null;
+    };
+
+    const pauseWhenHidden = () => {
+      if (document.visibilityState !== "visible") controller?.abort();
+    };
+
+    const timer = window.setInterval(() => { void refreshWhenDue(); }, autoRefreshIntervalMs);
+    document.addEventListener("visibilitychange", pauseWhenHidden);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", pauseWhenHidden);
+      controller?.abort();
+      if (activeControllerRef.current === controller) activeControllerRef.current = null;
+    };
+  }, [autoRefreshIntervalMs, autoRefreshKey, autoRefreshPaused, runRefresh]);
 
   return (
     <section
@@ -47,7 +125,7 @@ export default function AdminPageHero({
           </span>
         )}
         <div className="admin-page-hero-copy">
-          <h2>{title}</h2>
+          <h1>{title}</h1>
           {description && <p>{description}</p>}
           {meta && <div className="admin-page-hero-meta">{meta}</div>}
         </div>
@@ -57,7 +135,7 @@ export default function AdminPageHero({
 
       <div className="admin-page-hero-actions">
         {actions}
-        {onRefresh && (
+        {autoRefreshIntervalMs <= 0 && onRefresh && (
           <button
             type="button"
             className="admin-page-hero-refresh"

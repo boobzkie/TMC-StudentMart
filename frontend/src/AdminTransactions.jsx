@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   CheckCircle2,
@@ -88,6 +88,7 @@ function AdminTransactions() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
+  const ordersRequestSequenceRef = useRef(0);
 
   const toggleSort = (key) => setSort((current) => ({ key, direction: current.key === key && current.direction === "asc" ? "desc" : "asc" }));
   const sortedOrders = sortRows(orders, sort, (order, key) => ({
@@ -102,9 +103,11 @@ function AdminTransactions() {
     created_at: order.created_at,
   })[key]);
 
-  const loadOrders = useCallback(async (showRefresh = false) => {
-    if (showRefresh) setRefreshing(true);
-    else setLoading(true);
+  const loadOrders = useCallback(async (showRefresh = false, signal) => {
+    if (signal?.aborted) return;
+    const requestSequence = ++ordersRequestSequenceRef.current;
+    if (showRefresh && !signal) setRefreshing(true);
+    else if (!showRefresh) setLoading(true);
     setError("");
 
     try {
@@ -123,18 +126,22 @@ function AdminTransactions() {
       const query = params.toString();
       const [response, optionsResponse] = await Promise.all([
         fetch(API_URL + "/admin/orders" + (query ? "?" + query : ""), {
+          ...(signal ? { signal } : {}),
           headers: {
             Accept: "application/json",
             Authorization: "Bearer " + token,
           },
         }),
         fetch(API_URL + "/admin/order-options", {
+          ...(signal ? { signal } : {}),
           headers: {
             Accept: "application/json",
             Authorization: "Bearer " + token,
           },
         }),
       ]);
+
+      if (signal?.aborted || requestSequence !== ordersRequestSequenceRef.current) return;
 
       if (response.status === 401 || response.status === 403) {
         localStorage.removeItem("token");
@@ -145,6 +152,7 @@ function AdminTransactions() {
       }
 
       const payload = await response.json();
+      if (signal?.aborted || requestSequence !== ordersRequestSequenceRef.current) return;
       if (!response.ok) {
         throw new Error(payload.message || "Unable to load order requests.");
       }
@@ -152,20 +160,29 @@ function AdminTransactions() {
       setMatchingTotal(Number(payload.total) || 0);
       setSummary((current) => ({ ...current, ...(payload.summary || {}) }));
       const optionsPayload = await optionsResponse.json().catch(() => ({}));
+      if (signal?.aborted || requestSequence !== ordersRequestSequenceRef.current) return;
       if (optionsResponse.ok) {
         setPickupLocations(Array.isArray(optionsPayload.pickup_locations) ? optionsPayload.pickup_locations : []);
       }
     } catch (loadError) {
-      setError(loadError.message || "Unable to load order requests.");
+      if (!signal?.aborted && loadError?.name !== "AbortError" && requestSequence === ordersRequestSequenceRef.current) {
+        setError(loadError.message || "Unable to load order requests.");
+      }
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (!signal?.aborted && requestSequence === ordersRequestSequenceRef.current) {
+        setLoading(false);
+        if (!signal) setRefreshing(false);
+      }
     }
   }, [fromDate, navigate, pickupLocationId, search, status, toDate]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => void loadOrders(), 0);
-    return () => window.clearTimeout(timer);
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => void loadOrders(false, controller.signal), 0);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
   }, [loadOrders]);
 
   const submitSearch = (event) => {
@@ -224,8 +241,11 @@ function AdminTransactions() {
           title="Order Requests"
           description="Review order status and the payment and pickup arrangements selected at checkout. Payment is not collected here."
           icon={CreditCard}
-          onRefresh={() => loadOrders(true)}
+          onRefresh={(signal) => loadOrders(true, signal)}
           refreshing={loading || refreshing}
+          autoRefreshIntervalMs={120_000}
+          autoRefreshKey={`${search}|${status}|${fromDate}|${toDate}|${pickupLocationId}`}
+          autoRefreshPaused={searchDraft !== search}
         />
 
         <section className="transactions-status-grid" aria-label="Order totals">

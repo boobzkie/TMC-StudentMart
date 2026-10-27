@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Bell } from "lucide-react";
 import AdminLayout from "./components/AdminLayout";
 import AdminPageHero from "./components/AdminPageHero";
@@ -38,9 +38,10 @@ export default function AdminNotifications() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [notificationLoadError, setNotificationLoadError] = useState("");
+  const requestSequenceRef = useRef(0);
 
-  const fetchUserNotifications = useCallback(async () => {
-    const response = await fetch(`${API_URL}/notifications`, { headers: getAuthHeaders() });
+  const fetchUserNotifications = useCallback(async (signal) => {
+    const response = await fetch(`${API_URL}/notifications`, { headers: getAuthHeaders(), ...(signal ? { signal } : {}) });
     if (response.status === 401) {
       clearAuth();
       window.location.replace("/login");
@@ -54,10 +55,11 @@ export default function AdminNotifications() {
     };
   }, []);
 
-  const fetchStats = useCallback(async () => {
+  const fetchStats = useCallback(async (signal) => {
     const token = localStorage.getItem("token");
     const response = await fetch(API_URL + "/admin/stats", {
       headers: { Accept: "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) },
+      ...(signal ? { signal } : {}),
     });
     if (response.status === 401) {
       localStorage.removeItem("token");
@@ -71,60 +73,47 @@ export default function AdminNotifications() {
     return data.stats || {};
   }, []);
 
-  const refreshNotifications = async () => {
-    setRefreshing(true);
+  const refreshNotifications = useCallback(async (signal) => {
+    if (signal?.aborted) return;
+    const requestSequence = ++requestSequenceRef.current;
+    if (!signal) setRefreshing(true);
     setError("");
-    const requests = [fetchUserNotifications()];
-    if (!isStaff) requests.push(fetchStats());
-    const results = await Promise.allSettled(requests);
-    const [notificationsResult, statsResult] = results;
+    try {
+      const requests = [fetchUserNotifications(signal)];
+      if (!isStaff) requests.push(fetchStats(signal));
+      const results = await Promise.allSettled(requests);
+      if (signal?.aborted || requestSequence !== requestSequenceRef.current) return;
+      const [notificationsResult, statsResult] = results;
 
-    if (notificationsResult.status === "fulfilled" && notificationsResult.value) {
-      setNotificationItems(notificationsResult.value.notifications);
-      setUnreadCount(notificationsResult.value.unreadCount);
-      setNotificationLoadError("");
-    } else if (notificationsResult.status === "rejected") {
-      const message = notificationsResult.reason?.message || "We could not refresh your notifications. Please try again.";
-      setNotificationLoadError(message);
-      setError(message);
+      if (notificationsResult.status === "fulfilled" && notificationsResult.value) {
+        setNotificationItems(notificationsResult.value.notifications);
+        setUnreadCount(notificationsResult.value.unreadCount);
+        setNotificationLoadError("");
+      } else if (notificationsResult.status === "rejected") {
+        const message = notificationsResult.reason?.message || "We could not refresh your notifications. Please try again.";
+        setNotificationLoadError(message);
+        setError(message);
+      }
+      if (!isStaff && statsResult?.status === "fulfilled" && statsResult.value !== null) setStats(statsResult.value);
+      if (!isStaff && statsResult?.status === "rejected") {
+        setError(statsResult.reason?.message || "We could not refresh priority notifications. Please try again.");
+      }
+    } finally {
+      if (!signal?.aborted && requestSequence === requestSequenceRef.current) {
+        setLoading(false);
+        if (!signal) setRefreshing(false);
+      }
     }
-    if (!isStaff && statsResult?.status === "fulfilled" && statsResult.value !== null) setStats(statsResult.value);
-    if (!isStaff && statsResult?.status === "rejected") {
-      setError(statsResult.reason?.message || "We could not refresh priority notifications. Please try again.");
-    }
-    setRefreshing(false);
-  };
+  }, [fetchStats, fetchUserNotifications, isStaff]);
 
   useEffect(() => {
-    let active = true;
-    const requests = [
-      fetchUserNotifications()
-        .then((data) => {
-          if (!active || !data) return;
-          setNotificationItems(data.notifications);
-          setUnreadCount(data.unreadCount);
-          setNotificationLoadError("");
-        })
-        .catch((err) => {
-          if (active) {
-            const message = err.message || "We could not load notifications. Please try again.";
-            setNotificationLoadError(message);
-            setError(message);
-          }
-        }),
-    ];
-    if (!isStaff) {
-      requests.push(
-        fetchStats()
-          .then((nextStats) => { if (active && nextStats !== null) setStats(nextStats); })
-          .catch((err) => {
-            if (active) setError(err.message || "We could not load priority notifications. Please try again.");
-          }),
-      );
-    }
-    Promise.all(requests).finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
-  }, [fetchStats, fetchUserNotifications, isStaff]);
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => { void refreshNotifications(controller.signal); }, 0);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [refreshNotifications]);
 
   const markNotificationRead = async (notification) => {
     if (!notification?.id || notification.read_at || markingNotificationId) return;
@@ -227,6 +216,9 @@ export default function AdminNotifications() {
           icon={Bell}
           onRefresh={refreshNotifications}
           refreshing={loading || refreshing}
+          autoRefreshIntervalMs={120_000}
+          autoRefreshKey="notifications"
+          autoRefreshPaused={Boolean(markingNotificationId)}
         />
         <div style={{ padding: 40, textAlign: "center", color: "var(--tmc-text-muted)" }}>Loading notifications...</div>
       </AdminLayout>
@@ -241,6 +233,9 @@ export default function AdminNotifications() {
         icon={Bell}
         onRefresh={refreshNotifications}
         refreshing={refreshing}
+        autoRefreshIntervalMs={120_000}
+        autoRefreshKey="notifications"
+        autoRefreshPaused={Boolean(markingNotificationId)}
       />
       {error && (
         <div className="dashboard-error" role="alert" style={{ padding: 16, border: "1px solid var(--tmc-error-soft)", background: "var(--tmc-error-soft)", color: "var(--tmc-error)", borderRadius: "var(--tmc-radius-md)", marginBottom: 20, display: "flex", alignItems: "center", gap: 10 }}>

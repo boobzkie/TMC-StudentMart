@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   CheckCircle2,
   Edit3,
@@ -53,6 +53,7 @@ export default function AdminCategories() {
 
   const [deletingId, setDeletingId] = useState(null);
   const [togglingId, setTogglingId] = useState(null);
+  const categoriesRequestSequenceRef = useRef(0);
 
   const clearMessages = () => {
     setError("");
@@ -68,7 +69,9 @@ export default function AdminCategories() {
   }, []);
 
   const loadCategories = useCallback(
-    async (isRefresh = false) => {
+    async (isRefresh = false, signal) => {
+      if (signal?.aborted) return;
+      const requestSequence = ++categoriesRequestSequenceRef.current;
       const token = getToken();
 
       if (!token) {
@@ -76,9 +79,9 @@ export default function AdminCategories() {
         return;
       }
 
-      if (isRefresh) {
+      if (isRefresh && !signal) {
         setRefreshing(true);
-      } else {
+      } else if (!isRefresh) {
         setLoading(true);
       }
 
@@ -111,12 +114,15 @@ export default function AdminCategories() {
           }`,
           {
             method: "GET",
+            ...(signal ? { signal } : {}),
             headers: {
               Accept: "application/json",
               Authorization: `Bearer ${token}`,
             },
           }
         );
+
+        if (signal?.aborted || requestSequence !== categoriesRequestSequenceRef.current) return;
 
         if (
           response.status === 401 ||
@@ -127,6 +133,7 @@ export default function AdminCategories() {
         }
 
         const data = await response.json();
+        if (signal?.aborted || requestSequence !== categoriesRequestSequenceRef.current) return;
 
         if (!response.ok) {
           throw new Error(
@@ -143,13 +150,14 @@ export default function AdminCategories() {
         );
         setCategories(uniqueCategories);
       } catch (err) {
-        setError(
-          err.message ||
-            "Unable to load categories."
-        );
+        if (!signal?.aborted && err?.name !== "AbortError" && requestSequence === categoriesRequestSequenceRef.current) {
+          setError(err.message || "Unable to load categories.");
+        }
       } finally {
-        setLoading(false);
-        setRefreshing(false);
+        if (!signal?.aborted && requestSequence === categoriesRequestSequenceRef.current) {
+          setLoading(false);
+          if (!signal) setRefreshing(false);
+        }
       }
     },
     [
@@ -160,11 +168,15 @@ export default function AdminCategories() {
   );
 
   useEffect(() => {
+    const controller = new AbortController();
     const timer = setTimeout(() => {
-      loadCategories();
+      loadCategories(false, controller.signal);
     }, 250);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, [loadCategories]);
 
   const openCreateModal = () => {
@@ -508,8 +520,11 @@ export default function AdminCategories() {
           title="Product Categories"
           description="Organize products into clear and manageable marketplace categories."
           icon={Tags}
-          onRefresh={() => loadCategories(true)}
+          onRefresh={(signal) => loadCategories(true, signal)}
           refreshing={loading || refreshing}
+          autoRefreshIntervalMs={120_000}
+          autoRefreshKey={`${search}|${statusFilter}`}
+          autoRefreshPaused={modalOpen || saving || deletingId !== null || togglingId !== null || searchInput.trim() !== search}
           actions={(
             <button type="button" className="admin-page-hero-primary" onClick={openCreateModal}>
               <Plus size={17} aria-hidden="true" />

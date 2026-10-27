@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Activity, AlertCircle, CalendarDays, CheckCircle2, Eye, Info, ListFilter, MessageSquareWarning, RotateCcw, Search, ShieldAlert } from "lucide-react";
 
 import AdminLayout from "./components/AdminLayout";
 import AdminPageHero from "./components/AdminPageHero";
 import { SortableHead } from "./ui/Table";
+import Modal from "./ui/Modal";
 import { API_URL, sortRows } from "./utils/api";
 
 import { Badge, Button, EmptyState, LoadingSpinner, StatCard } from "./ui";
@@ -147,6 +148,11 @@ export default function AdminComplaints() {
   const [adminResponse, setAdminResponse] = useState("");
 
   const [saving, setSaving] = useState(false);
+  const [searchFocused, setSearchFocused] = useState(false);
+  const complaintsRequestSequenceRef = useRef(0);
+  const statsRequestSequenceRef = useRef(0);
+  const detailsRequestSequenceRef = useRef(0);
+  const complaintTriggerRef = useRef(null);
 
   const toggleSort = (key) => setSort((current) => ({ key, direction: current.key === key && current.direction === "asc" ? "desc" : "asc" }));
   const sortedComplaints = sortRows(complaints, sort, (complaint, key) => ({
@@ -208,8 +214,11 @@ export default function AdminComplaints() {
     [handleUnauthorized]
   );
 
-  const loadStats = useCallback(async () => {
-    const response = await request(`/admin/complaints/stats?period=${encodeURIComponent(period)}`);
+  const loadStats = useCallback(async (signal) => {
+    if (signal?.aborted) return;
+    const requestSequence = ++statsRequestSequenceRef.current;
+    const response = await request(`/admin/complaints/stats?period=${encodeURIComponent(period)}`, signal ? { signal } : {});
+    if (signal?.aborted || requestSequence !== statsRequestSequenceRef.current) return;
     setStats({
       total: Number(response?.stats?.total || 0),
       pending: Number(response?.stats?.pending || 0),
@@ -221,7 +230,9 @@ export default function AdminComplaints() {
     });
   }, [period, request]);
 
-  const loadComplaints = useCallback(async (showLoader = true) => {
+  const loadComplaints = useCallback(async (showLoader = true, signal) => {
+    if (signal?.aborted) return;
+    const requestSequence = ++complaintsRequestSequenceRef.current;
     if (showLoader) setLoading(true);
     setError("");
     try {
@@ -234,7 +245,8 @@ export default function AdminComplaints() {
       if (relatedProductFilter) params.set("related_product", relatedProductFilter);
       params.set("sort_by", sort.key);
       params.set("sort_direction", sort.direction);
-      const response = await request(`/admin/complaints?${params.toString()}`);
+      const response = await request(`/admin/complaints?${params.toString()}`, signal ? { signal } : {});
+      if (signal?.aborted || requestSequence !== complaintsRequestSequenceRef.current) return;
       const paginatedData = response?.data;
       setComplaints(Array.isArray(paginatedData?.data) ? paginatedData.data : []);
       setPagination({
@@ -243,34 +255,47 @@ export default function AdminComplaints() {
         total: Number(paginatedData?.total || 0),
       });
     } catch (err) {
-      setError(err.message || "Unable to load complaint records.");
+      if (!signal?.aborted && err?.name !== "AbortError" && requestSequence === complaintsRequestSequenceRef.current) {
+        setError(err.message || "Unable to load complaint records.");
+      }
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (!signal?.aborted && requestSequence === complaintsRequestSequenceRef.current) {
+        setLoading(false);
+        if (!signal) setRefreshing(false);
+      }
     }
   }, [page, period, relatedProductFilter, request, search, sort, statusFilter]);
 
-  const loadData = useCallback(async () => {
-    setRefreshing(true);
+  const loadData = useCallback(async (signal) => {
+    if (signal?.aborted) return;
+    if (!signal) setRefreshing(true);
     setError("");
     try {
-      await Promise.all([loadStats(), loadComplaints(false)]);
+      await Promise.all([loadStats(signal), loadComplaints(false, signal)]);
     } catch (err) {
-      setError(err.message || "Unable to load complaint information.");
+      if (!signal?.aborted && err?.name !== "AbortError") setError(err.message || "Unable to load complaint information.");
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (!signal?.aborted && !signal) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, [loadComplaints, loadStats]);
 
   useEffect(() => {
+    const controller = new AbortController();
     const timer = setTimeout(() => {
-      Promise.all([loadComplaints(true), loadStats()]).catch((err) => {
-        setError(err.message || "Unable to load complaint information.");
-        setLoading(false);
+      Promise.all([loadComplaints(true, controller.signal), loadStats(controller.signal)]).catch((err) => {
+        if (!controller.signal.aborted) {
+          setError(err.message || "Unable to load complaint information.");
+          setLoading(false);
+        }
       });
     }, 350);
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, [loadComplaints, loadStats]);
 
   const handleSearchChange = (event) => {
@@ -288,9 +313,7 @@ export default function AdminComplaints() {
     setRelatedProductFilter(event.target.value);
   };
 
-  const handleRefresh = async () => {
-    await loadData();
-  };
+  const handleRefresh = async (signal) => loadData(signal);
 
   const clearFilters = () => {
     setSearch("");
@@ -302,6 +325,7 @@ export default function AdminComplaints() {
   };
 
   const openComplaint = async (complaint) => {
+    const requestId = ++detailsRequestSequenceRef.current;
     setSelectedComplaint(complaint);
     setStatusDraft(complaint.status || "pending");
     setAdminResponse(complaint.admin_response || "");
@@ -309,26 +333,34 @@ export default function AdminComplaints() {
     setError("");
     try {
       const response = await request(`/admin/complaints/${complaint.id}`);
+      if (requestId !== detailsRequestSequenceRef.current) return;
       let details = response?.data || complaint;
       if (details.status === "pending") {
         const reviewResponse = await request(`/admin/complaints/${details.id}`, {
           method: "PUT",
           body: JSON.stringify({ status: "in_review" }),
         });
+        if (requestId !== detailsRequestSequenceRef.current) return;
         details = reviewResponse?.data || { ...details, status: "in_review" };
       }
       setSelectedComplaint(details);
       setStatusDraft(details.status || "pending");
       setAdminResponse(details.admin_response || "");
     } catch (err) {
-      setError(err.message || "Unable to load complaint details.");
+      if (requestId === detailsRequestSequenceRef.current) setError(err.message || "Unable to load complaint details.");
     } finally {
-      setDetailsLoading(false);
+      if (requestId === detailsRequestSequenceRef.current) setDetailsLoading(false);
     }
   };
 
   const closeComplaint = () => {
     if (saving) return;
+    const hasUnsavedChanges = Boolean(selectedComplaint && (
+      statusDraft !== (selectedComplaint.status || "pending")
+      || adminResponse !== (selectedComplaint.admin_response || "")
+    ));
+    if (hasUnsavedChanges && !window.confirm("You have unsaved complaint changes. Close and discard them?")) return;
+    detailsRequestSequenceRef.current += 1;
     setSelectedComplaint(null);
     setDetailsLoading(false);
   };
@@ -406,6 +438,9 @@ export default function AdminComplaints() {
           icon={MessageSquareWarning}
           onRefresh={handleRefresh}
           refreshing={loading || refreshing}
+          autoRefreshIntervalMs={120_000}
+          autoRefreshKey={`${period}|${page}|${search}|${statusFilter}|${relatedProductFilter}|${sort.key}|${sort.direction}`}
+          autoRefreshPaused={Boolean(selectedComplaint || saving || searchFocused)}
           sideContent={(
             <label className="complaints-period-select">
               <CalendarDays size={16} aria-hidden="true" />
@@ -424,7 +459,7 @@ export default function AdminComplaints() {
               <strong>Unable to load complaints</strong>
               <span>{error}</span>
             </div>
-            <Button variant="outline" size="sm" onClick={handleRefresh}>
+            <Button variant="outline" size="sm" onClick={() => handleRefresh()}>
               Try again
             </Button>
           </div>
@@ -464,6 +499,8 @@ export default function AdminComplaints() {
               <input
                 type="search"
                 value={search}
+                onFocus={() => setSearchFocused(true)}
+                onBlur={() => setSearchFocused(false)}
                 onChange={handleSearchChange}
                 placeholder="Search by ID, reporter, subject, or product…"
                 aria-label="Search by complaint ID, reporter, subject, or product"
@@ -543,7 +580,7 @@ export default function AdminComplaints() {
                         </Badge>
                       </td>
                       <td className="actions-cell">
-                        <Button variant="outline" size="sm" onClick={() => openComplaint(complaint)} aria-label={`View complaint #${complaint.id}`}>
+                        <Button variant="outline" size="sm" onClick={(event) => { complaintTriggerRef.current = event.currentTarget; openComplaint(complaint); }} aria-label={`View complaint #${complaint.id}`}>
                           <Eye size={14} aria-hidden="true" />
                         </Button>
                       </td>
@@ -573,8 +610,17 @@ export default function AdminComplaints() {
         </div>
 
         {selectedComplaint && (
-          <div className="complaint-detail-modal-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeComplaint(); }}>
-            <section className="complaint-detail-modal" role="dialog" aria-modal="true" aria-labelledby="complaint-detail-title">
+          <Modal
+            isOpen
+            className="complaint-detail-modal"
+            overlayClassName="complaint-detail-modal-overlay"
+            titleId="complaint-detail-title"
+            loading={detailsLoading || saving}
+            onClose={closeComplaint}
+            triggerRef={complaintTriggerRef}
+            fallbackFocusSelector=".complaints-table .actions-cell button"
+            unstyled
+          >
               <header className="complaint-modal-header">
                 <div>
                   <span className="complaint-modal-eyebrow">Complaint Details</span>
@@ -583,7 +629,7 @@ export default function AdminComplaints() {
                     {STATUS_LABELS[selectedComplaint.status] || selectedComplaint.status}
                   </Badge>
                 </div>
-                <button type="button" onClick={closeComplaint} aria-label="Close details">×</button>
+                <button type="button" data-modal-close onClick={closeComplaint} aria-label="Close details">×</button>
               </header>
 
               {detailsLoading && (
@@ -677,8 +723,7 @@ export default function AdminComplaints() {
                   </div>
                 </>
               )}
-            </section>
-          </div>
+          </Modal>
         )}
       </div>
     </AdminLayout>

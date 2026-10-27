@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
   ArrowUpDown,
@@ -175,12 +175,15 @@ export default function AdminActivityLogs() {
   const [sortDirection, setSortDirection] = useState("desc");
   const [page, setPage] = useState(1);
   const [expandedKey, setExpandedKey] = useState("");
+  const logsLoadSequenceRef = useRef(0);
 
-  const fetchLogs = useCallback(async () => {
+  const fetchLogs = useCallback(async (signal) => {
     const token = localStorage.getItem("token");
     const response = await fetch(API_URL + "/admin/stats", {
       headers: { Accept: "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) },
+      ...(signal ? { signal } : {}),
     });
+    if (signal?.aborted) return null;
     if (response.status === 401) {
       localStorage.removeItem("token");
       localStorage.removeItem("user");
@@ -195,38 +198,48 @@ export default function AdminActivityLogs() {
       : [];
   }, []);
 
-  const refreshLogs = async () => {
-    setRefreshing(true);
+  const refreshLogs = async (signal) => {
+    const loadSequence = ++logsLoadSequenceRef.current;
+    if (!signal) setRefreshing(true);
     setError("");
     try {
-      const nextLogs = await fetchLogs();
-      if (nextLogs !== null) {
+      const nextLogs = await fetchLogs(signal);
+      if (!signal?.aborted && loadSequence === logsLoadSequenceRef.current && nextLogs !== null) {
         setLogs(nextLogs);
         setAsOfTime(Date.now());
       }
     } catch (err) {
-      setError(err.message || "We could not refresh activity logs. Please try again.");
+      if (!signal?.aborted && err?.name !== "AbortError" && loadSequence === logsLoadSequenceRef.current) {
+        setError(err.message || "We could not refresh activity logs. Please try again.");
+      }
     } finally {
-      setRefreshing(false);
+      if (!signal?.aborted && loadSequence === logsLoadSequenceRef.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   };
 
   useEffect(() => {
     let active = true;
-    fetchLogs()
+    const controller = new AbortController();
+    const loadSequence = ++logsLoadSequenceRef.current;
+    fetchLogs(controller.signal)
       .then((nextLogs) => {
-        if (active && nextLogs !== null) {
+        if (active && !controller.signal.aborted && loadSequence === logsLoadSequenceRef.current && nextLogs !== null) {
           setLogs(nextLogs);
           setAsOfTime(Date.now());
         }
       })
       .catch((err) => {
-        if (active) setError(err.message || "We could not load activity logs. Please try again.");
+        if (active && !controller.signal.aborted && err?.name !== "AbortError" && loadSequence === logsLoadSequenceRef.current) {
+          setError(err.message || "We could not load activity logs. Please try again.");
+        }
       })
       .finally(() => {
-        if (active) setLoading(false);
+        if (active && loadSequence === logsLoadSequenceRef.current) setLoading(false);
       });
-    return () => { active = false; };
+    return () => { active = false; controller.abort(); };
   }, [fetchLogs]);
 
   const periodLabel = PERIODS.find((option) => option.value === period)?.label || "Last 30 days";
@@ -332,6 +345,7 @@ export default function AdminActivityLogs() {
           description="Review recorded account, product, order, moderation, and support activity across StudentMart."
           icon={FileClock}
           onRefresh={refreshLogs}
+          autoRefreshIntervalMs={120_000}
           refreshing={loading || refreshing}
           sideContent={(
             <label className="activity-period-select">

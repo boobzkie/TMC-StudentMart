@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Archive, BadgeCheck, Bell, BriefcaseBusiness, Camera, CheckCircle2, Eye, EyeOff,
-  KeyRound, LockKeyhole, Mail, Package, Phone, RefreshCw, Save, ShieldCheck,
+  KeyRound, LockKeyhole, Mail, Package, Phone, Save, ShieldCheck,
   Settings, UserRound, UsersRound,
 } from "lucide-react";
 import AdminLayout from "./components/AdminLayout";
@@ -80,6 +80,9 @@ export default function AccountSettings() {
   const [passwords, setPasswords] = useState({
     current_password: "", password: "", password_confirmation: "",
   });
+  const [accountFormFocused, setAccountFormFocused] = useState(false);
+  const archiveRequestSequenceRef = useRef(0);
+  const userRequestSequenceRef = useRef(0);
 
   useEffect(() => () => {
     if (photoPreview.startsWith("blob:")) URL.revokeObjectURL(photoPreview);
@@ -93,14 +96,17 @@ export default function AccountSettings() {
     navigate("/login", { replace: true });
   }, [navigate]);
 
-  const loadArchives = useCallback(async () => {
-    setArchivesLoading(true);
+  const loadArchives = useCallback(async (signal, background = false) => {
+    if (signal?.aborted) return;
+    const requestSequence = ++archiveRequestSequenceRef.current;
+    if (!background) setArchivesLoading(true);
     setArchivesError("");
     try {
       const [productResponse, staffResponse] = await Promise.all([
-        fetch(API_URL + "/admin/products?status=archived", { headers: getAuthHeaders() }),
-        fetch(API_URL + "/admin/staff?status=archived&per_page=100", { headers: getAuthHeaders() }),
+        fetch(API_URL + "/admin/products?status=archived", { headers: getAuthHeaders(), ...(signal ? { signal } : {}) }),
+        fetch(API_URL + "/admin/staff?status=archived&per_page=100", { headers: getAuthHeaders(), ...(signal ? { signal } : {}) }),
       ]);
+      if (signal?.aborted || requestSequence !== archiveRequestSequenceRef.current) return;
       if (productResponse.status === 401 || staffResponse.status === 401) {
         signOut();
         return;
@@ -114,13 +120,15 @@ export default function AccountSettings() {
       const lastPage = Math.max(1, Number(staffData.pagination?.last_page) || 1);
       const remainingPages = await Promise.all(Array.from({ length: lastPage - 1 }, (_, index) => {
         const params = new URLSearchParams({ status: "archived", per_page: "100", page: String(index + 2) });
-        return fetch(API_URL + "/admin/staff?" + params.toString(), { headers: getAuthHeaders() });
+        return fetch(API_URL + "/admin/staff?" + params.toString(), { headers: getAuthHeaders(), ...(signal ? { signal } : {}) });
       }));
+      if (signal?.aborted || requestSequence !== archiveRequestSequenceRef.current) return;
       if (remainingPages.some((response) => response.status === 401)) {
         signOut();
         return;
       }
       const remainingData = await Promise.all(remainingPages.map((response) => response.json()));
+      if (signal?.aborted || requestSequence !== archiveRequestSequenceRef.current) return;
       const failedPage = remainingPages.findIndex((response) => !response.ok);
       if (failedPage !== -1) {
         throw new Error(errorMessage(remainingData[failedPage], "Unable to load all archived Staff accounts."));
@@ -131,9 +139,11 @@ export default function AccountSettings() {
         ...remainingData.flatMap((page) => Array.isArray(page.staff) ? page.staff : []),
       ]);
     } catch (error) {
-      setArchivesError(error.message || "Unable to load archived records.");
+      if (!signal?.aborted && error?.name !== "AbortError" && requestSequence === archiveRequestSequenceRef.current) {
+        setArchivesError(error.message || "Unable to load archived records.");
+      }
     } finally {
-      setArchivesLoading(false);
+      if (!signal?.aborted && requestSequence === archiveRequestSequenceRef.current && !background) setArchivesLoading(false);
     }
   }, [signOut]);
 
@@ -169,40 +179,52 @@ export default function AccountSettings() {
     if (nextSection === "archives" && !isStaff) loadArchives();
   };
 
-  const loadUser = useCallback(async () => {
+  const loadUser = useCallback(async (signal, background = false) => {
+    if (signal?.aborted) return;
+    const requestSequence = ++userRequestSequenceRef.current;
     try {
       setProfileError("");
-      const response = await fetch(API_URL + "/user", { headers: getAuthHeaders() });
+      if (!background) setLoading(true);
+      const response = await fetch(API_URL + "/user", { headers: getAuthHeaders(), ...(signal ? { signal } : {}) });
+      if (signal?.aborted || requestSequence !== userRequestSequenceRef.current) return;
       if (response.status === 401) {
         signOut();
         return;
       }
       const data = await response.json();
+      if (signal?.aborted || requestSequence !== userRequestSequenceRef.current) return;
       if (!response.ok || !data.user) throw new Error(errorMessage(data, "Unable to load your account details."));
       setUser(data.user);
       setForm(makeProfileForm(data.user));
       localStorage.setItem("user", JSON.stringify(data.user));
       window.dispatchEvent(new Event("tmc-user-updated"));
     } catch (error) {
-      setProfileError(error.message || "Unable to load your account details.");
+      if (!signal?.aborted && error?.name !== "AbortError" && requestSequence === userRequestSequenceRef.current) {
+        setProfileError(error.message || "Unable to load your account details.");
+      }
     } finally {
-      setLoading(false);
+      if (!signal?.aborted && requestSequence === userRequestSequenceRef.current && !background) setLoading(false);
     }
   }, [signOut]);
 
   useEffect(() => {
-    const timer = window.setTimeout(loadUser, 0);
-    return () => window.clearTimeout(timer);
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => loadUser(controller.signal), 0);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
   }, [loadUser]);
 
   const hasProfileChanges = JSON.stringify(form) !== JSON.stringify(makeProfileForm(user)) || Boolean(photo);
   const hasUnsavedChanges = hasProfileChanges || Object.values(passwords).some(Boolean);
-  const refreshSettings = async () => {
+  const refreshSettings = async (signal) => {
+    if (signal?.aborted) return;
     if (section === "archives" && !isStaff) {
-      await loadArchives();
+      await loadArchives(signal, Boolean(signal));
       return;
     }
-    await loadUser();
+    await loadUser(signal, Boolean(signal));
   };
 
   const updateProfileField = (event) => {
@@ -376,6 +398,9 @@ export default function AccountSettings() {
           onRefresh={refreshSettings}
           refreshing={loading || archivesLoading || savingProfile || savingPassword || restoringProductId !== null}
           refreshDisabled={hasUnsavedChanges}
+          autoRefreshIntervalMs={120_000}
+          autoRefreshKey={section}
+          autoRefreshPaused={hasUnsavedChanges || accountFormFocused || savingProfile || savingPassword || restoringProductId !== null}
         />
 
         {loading && <div className="account-settings-notice" role="status">Loading account details…</div>}
@@ -415,7 +440,7 @@ export default function AccountSettings() {
 
           <section className="account-settings-panel" role="tabpanel">
             {section === "account" ? (
-              <form className="account-settings-form" onSubmit={saveProfile} aria-busy={savingProfile}>
+              <form className="account-settings-form" onFocusCapture={() => setAccountFormFocused(true)} onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setAccountFormFocused(false); }} onSubmit={saveProfile} aria-busy={savingProfile}>
                 <div className="account-panel-heading">
                   <div className="account-panel-heading-main"><UserRound size={20} aria-hidden="true" /><div><h3>Personal information</h3><p>Update the information associated with your portal account.</p></div></div>
                 </div>
@@ -497,7 +522,7 @@ export default function AccountSettings() {
                 </div>
               </form>
             ) : section === "security" ? (
-              <form className="account-settings-form account-password-form" onSubmit={savePassword}>
+              <form className="account-settings-form account-password-form" onFocusCapture={() => setAccountFormFocused(true)} onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setAccountFormFocused(false); }} onSubmit={savePassword}>
                 <div className="account-panel-heading">
                   <div><span className="account-settings-eyebrow">LOGIN SECURITY</span><h3>Change password</h3><p>Confirm your current password before choosing a new one.</p></div>
                   <div className="account-panel-icon"><LockKeyhole size={20} aria-hidden="true" /></div>
@@ -526,7 +551,6 @@ export default function AccountSettings() {
               <div className="account-archives-panel">
                 <div className="account-panel-heading">
                   <div><span className="account-settings-eyebrow">RETAINED RECORDS</span><h3>Archive management</h3><p>Review archived listings and Staff accounts while keeping their order and audit history intact.</p></div>
-                  <button type="button" className="account-archive-refresh" onClick={loadArchives} disabled={archivesLoading}><RefreshCw size={16} aria-hidden="true" />{archivesLoading ? "Loading…" : "Refresh"}</button>
                 </div>
                 {archivesError && <div className="account-settings-feedback error" role="alert">{archivesError}</div>}
                 {archivesLoading && <div className="account-settings-notice" role="status">Loading archived records…</div>}

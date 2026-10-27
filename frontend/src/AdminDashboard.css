@@ -1451,33 +1451,6 @@
   font-size: 12px;
 }
 
-.dash-audience-combined {
-  display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.9fr);
-  gap: 15px;
-  align-items: center;
-}
-
-.dash-audience-chart {
-  min-width: 0;
-}
-
-.dash-audience-chart h4 {
-  margin: 0 0 8px;
-  color: var(--dash-text);
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.dash-audience-chart .dash-donut {
-  width: 112px;
-  height: 112px;
-}
-
-.dash-audience-chart .dash-donut::after {
-  inset: 22px;
-}
-
 .dash-participation--compact {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1510,8 +1483,13 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: 10px;
-  padding-bottom: 9px;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 0 12px;
+  padding: 4px;
+  border: 1px solid var(--dash-card-border);
+  border-radius: 12px;
+  background: var(--dash-muted-bg);
   border-bottom: 1px solid var(--dash-card-border);
 }
 
@@ -1519,22 +1497,23 @@
   display: inline-flex;
   align-items: center;
   gap: 9px;
-  min-height: 34px;
-  padding: 7px 11px;
+  min-height: 36px;
+  padding: 7px 12px;
   border: 0;
   border-radius: 10px;
   color: var(--dash-text-muted);
   background: transparent;
   font: inherit;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   cursor: pointer;
+  transition: color 150ms ease, background-color 150ms ease, box-shadow 150ms ease;
 }
 
 .dash-recent-tabs button[aria-selected="true"] {
   color: var(--dash-color-primary);
   background: var(--dash-card-bg);
-  box-shadow: 3px 3px 7px rgba(113, 121, 158, 0.14), -3px -3px 7px rgba(255, 255, 255, 0.8);
+  box-shadow: 2px 2px 5px rgba(15, 37, 64, 0.1), -2px -2px 5px rgba(255, 255, 255, 0.65);
 }
 
 .dash-recent-tabs button:hover {
@@ -1552,6 +1531,11 @@
   background: var(--dash-muted-bg);
   margin-left: 2px;
   font-size: 12px;
+}
+
+.dash-recent-tabs button[aria-selected="true"] span {
+  color: var(--dash-color-primary);
+  background: var(--dash-muted-bg);
 }
 
 .dash-recent-card .dash-table-toolbar {
@@ -1626,9 +1610,6 @@
     grid-column: auto;
   }
 
-  .dash-audience-combined {
-    grid-template-columns: minmax(0, 1fr);
-  }
 }
 
 @media (max-width: 640px) {
@@ -1702,6 +1683,47 @@
 .admin-dashboard-page {
   gap: 24px;
   --dash-shadow: 0 12px 28px rgba(0, 29, 57, 0.065);
+}
+
+/* The dashboard grid already spaces its sections; remove the global section margin here. */
+.admin-dashboard-page > .dashboard-section { margin-top: 0; }
+
+.dash-range--hero { white-space: nowrap; }
+.dash-range--hero > span { color: var(--tmc-admin-secondary); }
+.dash-range--hero select { min-width: 124px; }
+.dashboard-quick-actions { min-width: 0; }
+.dashboard-quick-action-grid {
+  display: grid;
+  overflow: hidden;
+  padding: 0 14px;
+  border: 1px solid var(--dash-card-border);
+  border-radius: 16px;
+  background: var(--dash-card-bg);
+  box-shadow: var(--dash-shadow);
+}
+.dashboard-quick-action-grid a {
+  display: flex;
+  min-width: 0;
+  min-height: 43px;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid var(--dash-card-border);
+  color: var(--dash-text);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.dashboard-quick-action-grid a:last-child { border-bottom: 0; }
+.dashboard-quick-action-grid a > svg:first-child { flex: 0 0 auto; color: var(--dash-color-primary); }
+.dashboard-quick-action-grid a > span { flex: 1; }
+.dashboard-quick-action-grid a > svg:last-child { flex: 0 0 auto; color: var(--dash-text-muted); }
+.dashboard-quick-action-grid a:hover { color: var(--dash-color-primary); }
+.dashboard-quick-action-grid a:focus-visible { outline: 3px solid var(--dash-color-accent); outline-offset: -3px; }
+.admin-layout[data-theme="dark"] .dashboard-quick-action-grid { border-color: var(--tmc-admin-border); background: var(--tmc-admin-surface); }
+.admin-layout[data-theme="dark"] .dashboard-quick-action-grid a { border-color: var(--tmc-admin-border); color: var(--tmc-admin-text); }
+
+@media (max-width: 680px) {
+  .dashboard-quick-action-grid { padding-inline: 12px; }
 }
 
 .dashboard-welcome {

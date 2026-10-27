@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import {
@@ -32,13 +32,17 @@ export default function AdminSellers() {
   const [refreshing, setRefreshing] = useState(false);
 
   const [error, setError] = useState("");
+  const [searchFocused, setSearchFocused] = useState(false);
+  const sellersRequestSequenceRef = useRef(0);
 
   const loadSellers = useCallback(
-    async (showRefresh = false) => {
+    async (showRefresh = false, signal) => {
+      if (signal?.aborted) return;
+      const requestSequence = ++sellersRequestSequenceRef.current;
       try {
-        if (showRefresh) {
+        if (showRefresh && !signal) {
           setRefreshing(true);
-        } else {
+        } else if (!showRefresh) {
           setLoading(true);
         }
 
@@ -78,6 +82,7 @@ export default function AdminSellers() {
           }`,
           {
             method: "GET",
+            ...(signal ? { signal } : {}),
 
             headers: {
               Accept: "application/json",
@@ -85,6 +90,8 @@ export default function AdminSellers() {
             },
           }
         );
+
+        if (signal?.aborted || requestSequence !== sellersRequestSequenceRef.current) return;
 
         if (
           response.status === 401 ||
@@ -102,6 +109,7 @@ export default function AdminSellers() {
         }
 
         const data = await response.json();
+        if (signal?.aborted || requestSequence !== sellersRequestSequenceRef.current) return;
 
         if (!response.ok) {
           throw new Error(
@@ -116,6 +124,7 @@ export default function AdminSellers() {
             : []
         );
       } catch (err) {
+        if (signal?.aborted || err?.name === "AbortError" || requestSequence !== sellersRequestSequenceRef.current) return;
         console.error(
           "Seller loading error:",
           err
@@ -126,30 +135,30 @@ export default function AdminSellers() {
             "Unable to load sellers. Please try again."
         );
       } finally {
-        setLoading(false);
-        setRefreshing(false);
+        if (!signal?.aborted && requestSequence === sellersRequestSequenceRef.current) {
+          setLoading(false);
+          if (!signal) setRefreshing(false);
+        }
       }
     },
     [navigate, search, status]
   );
 
   useEffect(() => {
+    const controller = new AbortController();
     const timer = setTimeout(() => {
-      loadSellers();
+      loadSellers(false, controller.signal);
     }, 0);
 
     return () => {
       clearTimeout(timer);
+      controller.abort();
     };
   }, [loadSellers]);
 
   const handleSearch = (event) => {
     event.preventDefault();
 
-    loadSellers(true);
-  };
-
-  const handleRefresh = () => {
     loadSellers(true);
   };
 
@@ -274,8 +283,11 @@ export default function AdminSellers() {
           title="Seller Management"
           description="View student sellers, monitor their product activity, and check marketplace status."
           icon={Store}
-          onRefresh={handleRefresh}
+          onRefresh={(signal) => loadSellers(true, signal)}
           refreshing={refreshing}
+          autoRefreshIntervalMs={120_000}
+          autoRefreshKey={`${search}|${status}`}
+          autoRefreshPaused={searchFocused}
         />
 
         {/* =====================================================
@@ -413,6 +425,8 @@ export default function AdminSellers() {
               <input
                 type="text"
                 value={search}
+                onFocus={() => setSearchFocused(true)}
+                onBlur={() => setSearchFocused(false)}
                 onChange={(event) =>
                   setSearch(
                     event.target.value

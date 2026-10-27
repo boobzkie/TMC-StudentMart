@@ -536,7 +536,6 @@ export default function AdminLayout({
                 <ChevronRight size={13} aria-hidden="true" />
                 <span aria-current="page">{title}</span>
               </nav>
-              <h1>{title}</h1>
             </div>
           </div>
 

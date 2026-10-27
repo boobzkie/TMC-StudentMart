@@ -1,5 +1,5 @@
 /* oxlint-disable react(set-state-in-effect), react-hooks/exhaustive-deps */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   AlertCircle, Archive, CalendarDays, ChartNoAxesColumn, Check, CheckCircle2,
@@ -32,7 +32,6 @@ export default function AdminProducts() {
   const [period, setPeriod] = useState("12m");
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
   const [analyticsError, setAnalyticsError] = useState("");
-  const [analyticsReload, setAnalyticsReload] = useState(0);
   const [sort, setSort] = useState({ key: "created_at", direction: "desc" });
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
@@ -49,11 +48,15 @@ export default function AdminProducts() {
   const [columns, setColumns] = useState(Object.fromEntries(COLUMNS.map((key) => [key, true])));
   const [columnMenu, setColumnMenu] = useState(false);
   const [details, setDetails] = useState(null);
+  const productsRequestSequenceRef = useRef(0);
+  const analyticsRequestSequenceRef = useRef(0);
 
-  const loadProducts = useCallback(async (showRefresh = false) => {
+  const loadProducts = useCallback(async (showRefresh = false, signal) => {
+    if (signal?.aborted) return;
+    const requestSequence = ++productsRequestSequenceRef.current;
     try {
-      if (showRefresh) setRefreshing(true);
-      else setLoading(true);
+      if (showRefresh && !signal) setRefreshing(true);
+      else if (!showRefresh) setLoading(true);
       setError("");
       const token = localStorage.getItem("token");
       if (!token) { navigate("/login", { replace: true }); return; }
@@ -64,39 +67,65 @@ export default function AdminProducts() {
       if (seller) params.set("seller", seller);
       if (dateFrom) params.set("date_from", dateFrom);
       if (dateTo) params.set("date_to", dateTo);
-      const response = await fetch(`${API_URL}/admin/products${params.size ? `?${params}` : ""}`, { headers: getAuthHeaders() });
+      const response = await fetch(`${API_URL}/admin/products${params.size ? `?${params}` : ""}`, { headers: getAuthHeaders(), ...(signal ? { signal } : {}) });
+      if (signal?.aborted || requestSequence !== productsRequestSequenceRef.current) return;
       if (response.status === 401 || response.status === 403) {
         localStorage.removeItem("token"); localStorage.removeItem("role"); localStorage.removeItem("user");
         navigate("/login", { replace: true }); return;
       }
       const data = await response.json().catch(() => ({}));
+      if (signal?.aborted || requestSequence !== productsRequestSequenceRef.current) return;
       if (!response.ok) throw new Error(data.message || "Unable to load products.");
       setProducts(Array.isArray(data.products) ? data.products : []);
     } catch (err) {
-      console.error(err); setError(err.message || "We couldn't load the products. Please try again.");
-    } finally { setLoading(false); setRefreshing(false); }
+      if (!signal?.aborted && err?.name !== "AbortError" && requestSequence === productsRequestSequenceRef.current) {
+        console.error(err); setError(err.message || "We couldn't load the products. Please try again.");
+      }
+    } finally {
+      if (!signal?.aborted && requestSequence === productsRequestSequenceRef.current) {
+        setLoading(false);
+        if (!signal) setRefreshing(false);
+      }
+    }
   }, [navigate, search, status, category, seller, dateFrom, dateTo]);
 
   // Loading the API data is the page's initial side effect.
   // oxlint-disable-next-line react(set-state-in-effect)
   useEffect(() => {
-    const timer = window.setTimeout(() => loadProducts(), 0);
-    return () => window.clearTimeout(timer);
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => { void loadProducts(false, controller.signal); }, 0);
+    return () => { window.clearTimeout(timer); controller.abort(); };
   }, [loadProducts]);
+  const loadAnalytics = useCallback(async (signal, background = false) => {
+    if (signal?.aborted) return;
+    const requestSequence = ++analyticsRequestSequenceRef.current;
+    if (!background) setAnalyticsLoading(true);
+    setAnalyticsError("");
+    try {
+      const response = await fetch(`${API_URL}/admin/stats?period=${encodeURIComponent(period)}`, {
+        headers: getAuthHeaders(),
+        ...(signal ? { signal } : {}),
+      });
+      if (signal?.aborted || requestSequence !== analyticsRequestSequenceRef.current) return;
+      if (response.status === 401 || response.status === 403) { navigate("/login", { replace: true }); return; }
+      const data = await response.json().catch(() => ({}));
+      if (signal?.aborted || requestSequence !== analyticsRequestSequenceRef.current) return;
+      if (!response.ok) throw new Error(data.message || "Unable to load product analytics.");
+      if (data.stats) setAnalytics(data.stats);
+    } catch (err) {
+      if (!signal?.aborted && err?.name !== "AbortError" && requestSequence === analyticsRequestSequenceRef.current) {
+        setAnalyticsError(err.message || "Analytics are unavailable.");
+      }
+    } finally {
+      if (!signal?.aborted && requestSequence === analyticsRequestSequenceRef.current && !background) setAnalyticsLoading(false);
+    }
+  }, [navigate, period]);
+
   useEffect(() => {
-    let active = true;
-    fetch(`${API_URL}/admin/stats?period=${encodeURIComponent(period)}`, { headers: getAuthHeaders() })
-      .then(async (response) => {
-        if (response.status === 401 || response.status === 403) { navigate("/login", { replace: true }); return null; }
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(data.message || "Unable to load product analytics.");
-        return data.stats || null;
-      })
-      .then((stats) => { if (active && stats) setAnalytics(stats); })
-      .catch((err) => { if (active) setAnalyticsError(err.message || "Analytics are unavailable."); })
-      .finally(() => { if (active) setAnalyticsLoading(false); });
-    return () => { active = false; };
-  }, [period, analyticsReload, navigate]);
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => { void loadAnalytics(controller.signal); }, 0);
+    return () => { window.clearTimeout(timer); controller.abort(); };
+  }, [loadAnalytics]);
 
   const categories = useMemo(() => [...new Set(products.map(categoryName))].sort(), [products]);
   const sellers = useMemo(() => [...new Set(products.map(sellerName))].sort(), [products]);
@@ -120,7 +149,7 @@ export default function AdminProducts() {
       if (response.status === 401 || response.status === 403) { navigate("/login", { replace: true }); return; }
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.message || `Unable to ${action} product.`);
-      await loadProducts(true); setAnalyticsLoading(true); setAnalyticsReload((current) => current + 1);
+      await Promise.all([loadProducts(true), loadAnalytics()]);
     } catch (err) { window.alert(err.message || `Unable to ${action} product.`); }
     finally { setActionLoading(null); }
   };
@@ -142,12 +171,14 @@ export default function AdminProducts() {
   const maxListing = Math.max(1, ...listingSeries.map((item) => value(item.listings)));
   const maxSales = Math.max(1, ...salesSeries.flatMap((item) => [value(item.sales), value(item.pending)]));
   const makeLine = (field) => salesSeries.map((item, index) => `${salesSeries.length < 2 ? 50 : index / (salesSeries.length - 1) * 100},${94 - value(item[field]) / maxSales * 84}`).join(" ");
-  const refreshAll = () => { loadProducts(true); setAnalyticsLoading(true); setAnalyticsError(""); setAnalyticsReload((current) => current + 1); };
+  const refreshAll = async (signal) => {
+    await Promise.all([loadProducts(true, signal), loadAnalytics(signal, Boolean(signal))]);
+  };
 
   return (
     <AdminLayout title="Product Management" subtitle="Review marketplace listings, manage product information, and maintain accurate inventory records.">
       <div className="products-page">
-        <AdminPageHero title="Product Management" description="Review marketplace listings, manage product information, and maintain accurate inventory records." icon={Package} onRefresh={refreshAll} refreshing={refreshing} meta={`${value(stats.total_products) || products.length} products found`} />
+        <AdminPageHero title="Product Management" description="Review marketplace listings, manage product information, and maintain accurate inventory records." icon={Package} onRefresh={refreshAll} autoRefreshIntervalMs={120_000} autoRefreshKey={`${search}|${status}|${category}|${seller}|${dateFrom}|${dateTo}|${period}`} autoRefreshPaused={Boolean(details || actionLoading || searchInput.trim() !== search)} refreshing={loading || refreshing || analyticsLoading} meta={`${value(stats.total_products) || products.length} products found`} />
         {error && <div className="products-error" role="alert"><AlertCircle size={18} /><span>{error}</span><button type="button" onClick={() => loadProducts(true)}>Try Again</button></div>}
 
         <section className="pm-dashboard-section" aria-label="Product analytics">

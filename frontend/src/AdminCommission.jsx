@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
   BadgePercent,
@@ -69,10 +69,13 @@ function AdminCommission() {
   const [savingCollection, setSavingCollection] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const requestSequenceRef = useRef(0);
 
-  const loadData = useCallback(async (showRefresh = false) => {
-    if (showRefresh) setRefreshing(true);
-    else setLoading(true);
+  const loadData = useCallback(async (showRefresh = false, signal) => {
+    if (signal?.aborted) return;
+    const requestSequence = ++requestSequenceRef.current;
+    if (showRefresh && !signal) setRefreshing(true);
+    else if (!showRefresh) setLoading(true);
     setError("");
 
     try {
@@ -83,11 +86,14 @@ function AdminCommission() {
       }
 
       const response = await fetch(API_URL + "/admin/commission", {
+        ...(signal ? { signal } : {}),
         headers: {
           Accept: "application/json",
           Authorization: "Bearer " + token,
         },
       });
+
+      if (signal?.aborted || requestSequence !== requestSequenceRef.current) return;
 
       if (response.status === 401 || response.status === 403) {
         localStorage.removeItem("token");
@@ -98,6 +104,7 @@ function AdminCommission() {
       }
 
       const payload = await response.json();
+      if (signal?.aborted || requestSequence !== requestSequenceRef.current) return;
       if (!response.ok) {
         throw new Error(payload.message || "Unable to load commission records.");
       }
@@ -108,16 +115,24 @@ function AdminCommission() {
       setRecords(Array.isArray(payload.records) ? payload.records : []);
       setTax(payload.tax || { status: "unconfigured", message: "Tax is not configured." });
     } catch (loadError) {
-      setError(loadError.message || "Unable to load commission records.");
+      if (!signal?.aborted && loadError?.name !== "AbortError" && requestSequence === requestSequenceRef.current) {
+        setError(loadError.message || "Unable to load commission records.");
+      }
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (!signal?.aborted && requestSequence === requestSequenceRef.current) {
+        setLoading(false);
+        if (!signal) setRefreshing(false);
+      }
     }
   }, [navigate]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => void loadData(), 0);
-    return () => window.clearTimeout(timer);
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => void loadData(false, controller.signal), 0);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
   }, [loadData]);
 
   const saveRate = async (event) => {
@@ -207,8 +222,11 @@ function AdminCommission() {
           title="Commission & tax tracking"
           description="Review commissions from completed orders and record manual collection."
           icon={Coins}
-          onRefresh={() => loadData(true)}
+          onRefresh={(signal) => loadData(true, signal)}
           refreshing={loading || refreshing}
+          autoRefreshIntervalMs={120_000}
+          autoRefreshKey="commission"
+          autoRefreshPaused={Boolean(rateDraft || collectionDraft || savingRate || savingCollection)}
         />
 
         {error && <div className="commission-alert error" role="alert">{error}</div>}

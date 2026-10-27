@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Activity, AlertCircle, BarChart3, FileBarChart } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import AdminLayout from "./components/AdminLayout";
@@ -34,17 +34,24 @@ export default function StaffInsights({ mode = "reports" }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [filtersFocused, setFiltersFocused] = useState(false);
+  const requestSequenceRef = useRef(0);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (showLoading = true, signal) => {
+    if (signal?.aborted) return;
+    const requestSequence = ++requestSequenceRef.current;
+    if (showLoading) setLoading(true);
     setError("");
     try {
       const token = localStorage.getItem("token");
       const params = new URLSearchParams({ from, to });
       const response = await fetch(API_URL + endpoint + "?" + params, {
         headers: { Accept: "application/json", Authorization: "Bearer " + token },
+        ...(signal ? { signal } : {}),
       });
+      if (signal?.aborted || requestSequence !== requestSequenceRef.current) return;
       const body = await response.json().catch(() => ({}));
+      if (signal?.aborted || requestSequence !== requestSequenceRef.current) return;
       if (response.status === 401) {
         localStorage.removeItem("token");
         localStorage.removeItem("role");
@@ -55,15 +62,21 @@ export default function StaffInsights({ mode = "reports" }) {
       if (!response.ok) throw new Error(body.message || "Unable to load this workspace.");
       setData(body.data || null);
     } catch (err) {
-      setError(err.message || "Unable to load this workspace.");
+      if (!signal?.aborted && err?.name !== "AbortError" && requestSequence === requestSequenceRef.current) {
+        setError(err.message || "Unable to load this workspace.");
+      }
     } finally {
-      setLoading(false);
+      if (!signal?.aborted && requestSequence === requestSequenceRef.current) setLoading(false);
     }
   }, [endpoint, from, navigate, to]);
 
   useEffect(() => {
-    const timer = setTimeout(load, 0);
-    return () => clearTimeout(timer);
+    const controller = new AbortController();
+    const timer = setTimeout(() => load(true, controller.signal), 0);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, [load]);
 
   const summary = data?.summary || {};
@@ -89,11 +102,14 @@ export default function StaffInsights({ mode = "reports" }) {
           title={isAnalytics ? "Product and complaint analytics" : "Product and complaint report"}
           description="Review product and complaint activity from the selected date range."
           icon={isAnalytics ? BarChart3 : FileBarChart}
-          onRefresh={load}
+          onRefresh={(signal) => load(false, signal)}
           refreshing={loading}
+          autoRefreshIntervalMs={120_000}
+          autoRefreshKey={`${endpoint}|${from}|${to}`}
+          autoRefreshPaused={filtersFocused}
         />
 
-        <form className="staff-insights-filters" onSubmit={(event) => { event.preventDefault(); load(); }}>
+        <form className="staff-insights-filters" onFocusCapture={() => setFiltersFocused(true)} onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setFiltersFocused(false); }} onSubmit={(event) => { event.preventDefault(); load(); }}>
           <label>From<input type="date" value={from} max={to} onChange={(event) => setFrom(event.target.value)} required /></label>
           <label>To<input type="date" value={to} min={from} max={isoDate(new Date())} onChange={(event) => setTo(event.target.value)} required /></label>
           <button type="submit">Apply date range</button>

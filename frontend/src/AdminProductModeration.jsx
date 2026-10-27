@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CheckCircle2,
   Eye,
@@ -15,6 +15,7 @@ import { useNavigate } from "react-router-dom";
 
 import AdminLayout from "./components/AdminLayout";
 import AdminPageHero from "./components/AdminPageHero";
+import Modal from "./ui/Modal";
 import { API_URL, SERVER_URL } from "./utils/api";
 
 import "./AdminProductModeration.css";
@@ -43,7 +44,7 @@ function getImageUrl(image) {
   return `${SERVER_URL.replace(/\/+$/, "")}/storage/${cleanPath}`;
 }
 
-function ModerationPhotoGallery({ productName, imageUrls, initialImageUrl, status = "pending" }) {
+function ModerationPhotoGallery({ productName, imageUrls, initialImageUrl, status = "pending", showStatus = true }) {
   const primaryUrl = imageUrls.includes(initialImageUrl)
     ? initialImageUrl
     : imageUrls[0] || null;
@@ -71,7 +72,7 @@ function ModerationPhotoGallery({ productName, imageUrls, initialImageUrl, statu
           </div>
         )}
 
-        <span className="moderation-status">{status}</span>
+        {showStatus && <span className="moderation-status">{status}</span>}
       </div>
 
       {imageUrls.length > 1 && (
@@ -155,6 +156,22 @@ export default function AdminProductModeration() {
 
   const [rejectingProduct, setRejectingProduct] =
     useState(null);
+  const [reasonProduct, setReasonProduct] = useState(null);
+  const [reasonAction, setReasonAction] = useState(null);
+  const [moderationReason, setModerationReason] = useState("");
+  const productsRequestSequenceRef = useRef(0);
+  const reviewTriggerRef = useRef(null);
+  const rejectTriggerRef = useRef(null);
+  const reasonTriggerRef = useRef(null);
+  const selectedProductImages = Array.isArray(selectedProduct?.images) ? selectedProduct.images : [];
+  const reviewImageUrls = Array.from(new Set([
+    getImageUrl(selectedProduct?.image),
+    ...selectedProductImages.map((image) => getImageUrl(image?.path)),
+  ].filter(Boolean)));
+  const reviewPrimaryImage = getImageUrl(selectedProduct?.image)
+    || getImageUrl(selectedProductImages.find((image) => image?.is_primary)?.path)
+    || reviewImageUrls[0]
+    || null;
 
   const moderationTrend = useMemo(() => {
     const today = new Date();
@@ -227,7 +244,9 @@ export default function AdminProductModeration() {
   }, [navigate]);
 
   const loadPendingProducts = useCallback(
-    async (isRefresh = false) => {
+    async (isRefresh = false, signal) => {
+      if (signal?.aborted) return;
+      const requestSequence = ++productsRequestSequenceRef.current;
       const token = getToken();
 
       if (!token) {
@@ -235,9 +254,9 @@ export default function AdminProductModeration() {
         return;
       }
 
-      if (isRefresh) {
+      if (isRefresh && !signal) {
         setRefreshing(true);
-      } else {
+      } else if (!isRefresh) {
         setLoading(true);
       }
 
@@ -262,12 +281,15 @@ export default function AdminProductModeration() {
           `${API_URL}/${productsEndpoint}?${params.toString()}`,
           {
             method: "GET",
+            ...(signal ? { signal } : {}),
             headers: {
               Accept: "application/json",
               Authorization: `Bearer ${token}`,
             },
           }
         );
+
+        if (signal?.aborted || requestSequence !== productsRequestSequenceRef.current) return;
 
         if (
           response.status === 401
@@ -277,6 +299,7 @@ export default function AdminProductModeration() {
         }
 
         const data = await response.json();
+        if (signal?.aborted || requestSequence !== productsRequestSequenceRef.current) return;
 
         if (!response.ok) {
           throw new Error(
@@ -299,24 +322,29 @@ export default function AdminProductModeration() {
           return summary;
         }, { pending: 0, approved: 0, rejected: 0, suspended: 0 }));
       } catch (err) {
-        setError(
-          err.message ||
-            "Unable to load pending products."
-        );
+        if (!signal?.aborted && err?.name !== "AbortError" && requestSequence === productsRequestSequenceRef.current) {
+          setError(err.message || "Unable to load pending products.");
+        }
       } finally {
-        setLoading(false);
-        setRefreshing(false);
+        if (!signal?.aborted && requestSequence === productsRequestSequenceRef.current) {
+          setLoading(false);
+          if (!signal) setRefreshing(false);
+        }
       }
     },
     [search, statusFilter, categoryFilter, sellerFilter, dateFrom, dateTo, productsEndpoint, handleUnauthorized]
   );
 
   useEffect(() => {
+    const controller = new AbortController();
     const timer = setTimeout(() => {
-      loadPendingProducts();
+      loadPendingProducts(false, controller.signal);
     }, 250);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, [loadPendingProducts]);
 
   const clearMessages = () => {
@@ -390,10 +418,21 @@ export default function AdminProductModeration() {
     }
   };
 
-  const openRejectModal = (product) => {
+  const openProductReview = (product, trigger) => {
+    reviewTriggerRef.current = trigger || document.activeElement;
+    setSelectedProduct(product);
+  };
+
+  const closeProductReview = () => {
+    if (selectedProduct && processingId === selectedProduct.id) return;
+    setSelectedProduct(null);
+  };
+
+  const openRejectModal = (product, trigger) => {
     clearMessages();
     setRejectionReason("");
     setRejectingProduct(product);
+    rejectTriggerRef.current = trigger || document.activeElement;
     setRejectModalOpen(true);
   };
 
@@ -401,10 +440,27 @@ export default function AdminProductModeration() {
     if (processingId !== null) {
       return;
     }
+    if (rejectionReason.trim() && !window.confirm("Discard the rejection reason you entered?")) return;
 
     setRejectModalOpen(false);
     setRejectingProduct(null);
     setRejectionReason("");
+  };
+
+  const openReasonModal = (product, action, trigger) => {
+    clearMessages();
+    setModerationReason("");
+    setReasonProduct(product);
+    setReasonAction(action);
+    reasonTriggerRef.current = trigger || document.activeElement;
+  };
+
+  const closeReasonModal = () => {
+    if (reasonProduct && processingId === reasonProduct.id) return;
+    if (moderationReason.trim() && !window.confirm("Discard the moderation reason you entered?")) return;
+    setReasonProduct(null);
+    setReasonAction(null);
+    setModerationReason("");
   };
 
   const handleReject = async () => {
@@ -422,14 +478,6 @@ export default function AdminProductModeration() {
 
     if (!token) {
       handleUnauthorized();
-      return;
-    }
-
-    const confirmed = window.confirm(
-      `Reject "${rejectingProduct.name}"?`
-    );
-
-    if (!confirmed) {
       return;
     }
 
@@ -487,17 +535,12 @@ export default function AdminProductModeration() {
     }
   };
 
-  const handleWarningOrSuspension = async (product, action) => {
-    clearMessages();
-    const reason = window.prompt(action === "warn"
-      ? `Enter the warning for the seller of “${product.name}”:`
-      : `Enter the reason to suspend “${product.name}”:`);
-    if (reason === null) return;
+  const handleWarningOrSuspension = async (product, action, reason) => {
     if (reason.trim().length < 5) {
       setError("Enter a reason of at least five characters.");
       return;
     }
-    if (action === "suspend" && !window.confirm(`Suspend “${product.name}”? The listing will no longer be visible in the marketplace.`)) return;
+    clearMessages();
 
     const token = getToken();
     if (!token) {
@@ -518,6 +561,9 @@ export default function AdminProductModeration() {
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.message || "The moderation action could not be completed.");
       setSuccess(data.message || (action === "warn" ? "Warning sent to seller." : "Listing suspended."));
+      setReasonProduct(null);
+      setReasonAction(null);
+      setModerationReason("");
       if (action === "suspend") setSelectedProduct(null);
       else if (data.product) setSelectedProduct(data.product);
       await loadPendingProducts(true);
@@ -526,6 +572,12 @@ export default function AdminProductModeration() {
     } finally {
       setProcessingId(null);
     }
+  };
+
+  const submitReasonAction = (event) => {
+    event.preventDefault();
+    if (!reasonProduct || !reasonAction) return;
+    void handleWarningOrSuspension(reasonProduct, reasonAction, moderationReason);
   };
 
 
@@ -542,8 +594,11 @@ export default function AdminProductModeration() {
             ? "Review student listings assigned to your Staff account and record clear moderation decisions."
             : "Review submitted listings, inspect their history, and record clear decisions for sellers."}
           icon={ShieldAlert}
-          onRefresh={() => loadPendingProducts(true)}
+          onRefresh={(signal) => loadPendingProducts(true, signal)}
           refreshing={loading || refreshing}
+          autoRefreshIntervalMs={120_000}
+          autoRefreshKey={`${productsEndpoint}|${search}|${statusFilter}|${categoryFilter}|${sellerFilter}|${dateFrom}|${dateTo}`}
+          autoRefreshPaused={Boolean(selectedProduct || rejectModalOpen || processingId !== null)}
           meta={`${products.length} products shown`}
         />
 
@@ -857,11 +912,7 @@ export default function AdminProductModeration() {
                         <button
                           type="button"
                           className="moderation-view"
-                          onClick={() =>
-                            setSelectedProduct(
-                              product
-                            )
-                          }
+                          onClick={(event) => openProductReview(product, event.currentTarget)}
                           disabled={
                             isProcessing
                           }
@@ -875,11 +926,7 @@ export default function AdminProductModeration() {
                         <button
                           type="button"
                           className="moderation-reject"
-                          onClick={() =>
-                            openRejectModal(
-                              product
-                            )
-                          }
+                          onClick={(event) => openRejectModal(product, event.currentTarget)}
                           disabled={
                             isProcessing
                           }
@@ -911,8 +958,8 @@ export default function AdminProductModeration() {
                         )}
 
                         {product.status === "active" && <>
-                          <button type="button" className="moderation-reject" onClick={() => handleWarningOrSuspension(product, "warn")} disabled={isProcessing}><AlertTriangle size={16} />Issue warning</button>
-                          {!isStaff && <button type="button" className="moderation-reject" onClick={() => handleWarningOrSuspension(product, "suspend")} disabled={isProcessing}><XCircle size={16} />Suspend</button>}
+                          <button type="button" className="moderation-reject" onClick={(event) => openReasonModal(product, "warn", event.currentTarget)} disabled={isProcessing}><AlertTriangle size={16} />Issue warning</button>
+                          {!isStaff && <button type="button" className="moderation-reject" onClick={(event) => openReasonModal(product, "suspend", event.currentTarget)} disabled={isProcessing}><XCircle size={16} />Suspend</button>}
                         </>}
 
                       </div>
@@ -932,37 +979,42 @@ export default function AdminProductModeration() {
 
       {/* REVIEW MODAL */}
       {selectedProduct && (
-        <div
-          className="moderation-modal-overlay"
-          onMouseDown={(event) => {
-            if (
-              event.target ===
-              event.currentTarget
-            ) {
-              setSelectedProduct(null);
-            }
-          }}
+        <Modal
+          isOpen
+          className="moderation-modal"
+          overlayClassName="moderation-modal-overlay"
+          titleId="moderation-review-title"
+          isActive={!rejectModalOpen && !reasonProduct}
+          loading={processingId === selectedProduct.id}
+          onClose={closeProductReview}
+          triggerRef={reviewTriggerRef}
+          fallbackFocusSelector=".moderation-actions .moderation-view"
+          closeOnBackdrop={processingId !== selectedProduct.id}
+          unstyled
         >
-          <div className="moderation-modal">
 
             <div className="moderation-modal-header">
 
               <div>
                 <span>
-                  PRODUCT REVIEW
+                  PRODUCT MODERATION / REVIEW
                 </span>
 
-                <h3>
+                <h3 id="moderation-review-title">
                   {selectedProduct.name}
                 </h3>
+                <span className={`moderation-status ${selectedProduct.status === "active" ? "approved" : selectedProduct.status}`}>
+                  {String(selectedProduct.status || "unknown").replaceAll("_", " ")}
+                </span>
               </div>
 
               <button
                 type="button"
                 onClick={() =>
-                  setSelectedProduct(null)
+                  closeProductReview()
                 }
                 aria-label="Close review"
+                data-modal-close
               >
                 <X size={20} />
               </button>
@@ -971,102 +1023,73 @@ export default function AdminProductModeration() {
 
             <div className="review-content">
 
-              {getImageUrl(
-                selectedProduct.image
-              ) ? (
-                <img
-                  src={getImageUrl(
-                    selectedProduct.image
-                  )}
-                  alt={
-                    selectedProduct.name
-                  }
-                  className="review-image"
+              <div className="review-gallery">
+                <ModerationPhotoGallery
+                  productName={selectedProduct.name}
+                  imageUrls={reviewImageUrls}
+                  initialImageUrl={reviewPrimaryImage}
+                  status={String(selectedProduct.status || "unknown").replaceAll("_", " ")}
+                  showStatus={false}
                 />
-              ) : (
-                <div className="review-image-placeholder">
-                  <Package size={42} />
-                </div>
-              )}
+              </div>
 
               <div className="review-details">
 
                 <div className="review-detail">
-                  <span>
-                    Product
-                  </span>
-
-                  <strong>
-                    {
-                      selectedProduct.name
-                    }
-                  </strong>
+                  <span>Category</span>
+                  <strong>{selectedProduct.categoryRecord?.name || selectedProduct.category || "Other"}</strong>
                 </div>
 
                 <div className="review-detail">
-                  <span>
-                    Category
-                  </span>
-
-                  <strong>
-                    {selectedProduct.category ||
-                      "Other"}
-                  </strong>
+                  <span>Price</span>
+                  <strong>{formatPrice(selectedProduct.price)}</strong>
                 </div>
 
                 <div className="review-detail">
-                  <span>
-                    Price
-                  </span>
-
-                  <strong>
-                    {formatPrice(
-                      selectedProduct.price
-                    )}
-                  </strong>
+                  <span>Available stock</span>
+                  <strong>{Number(selectedProduct.stock_quantity) || 0} units</strong>
                 </div>
 
                 <div className="review-detail">
-                  <span>
-                    Seller
-                  </span>
+                  <span>Submitted</span>
+                  <strong>{formatDate(selectedProduct.created_at)}</strong>
+                </div>
 
-                  <strong>
-                    {selectedProduct.user
-                      ?.name ||
-                      "Unknown Seller"}
-                  </strong>
+                {selectedProduct.updated_at && <div className="review-detail">
+                  <span>Last updated</span>
+                  <strong>{formatDate(selectedProduct.updated_at)}</strong>
+                </div>}
+
+                <div className="review-detail full">
+                  <span>Seller</span>
+                  <strong>{selectedProduct.user?.name || "Unknown seller"}</strong>
+                  {selectedProduct.user?.student_id && <small>Student ID {selectedProduct.user.student_id}</small>}
+                  {selectedProduct.user?.email && <small>{selectedProduct.user.email}</small>}
                 </div>
 
                 <div className="review-detail full">
-                  <span>
-                    Description
-                  </span>
-
-                  <p>
-                    {selectedProduct.description ||
-                      "No description provided."}
-                  </p>
+                  <span>Description</span>
+                  <p>{selectedProduct.description || "No description provided."}</p>
                 </div>
 
               </div>
 
             </div>
 
-            {Array.isArray(selectedProduct.moderation_events) && selectedProduct.moderation_events.length > 0 && (
-              <section className="moderation-history" aria-label="Moderation history">
-                <h4>Review history</h4>
+            <section className="moderation-history" aria-label="Moderation history">
+              <h4>Review history</h4>
+              {Array.isArray(selectedProduct.moderation_events) && selectedProduct.moderation_events.length > 0 ? (
                 <ol>
                   {selectedProduct.moderation_events.map((event) => (
                     <li key={event.id}>
-                      <strong>{event.to_status === "active" ? "Approved" : "Rejected"}</strong>
+                      <strong>{event.to_status === "active" ? "Approved" : event.to_status === "rejected" ? "Rejected" : String(event.to_status || "Updated").replaceAll("_", " ")}</strong>
                       <span>{event.actor?.name || "Former moderator"} · {formatDate(event.created_at)}</span>
                       {event.reason && <p>{event.reason}</p>}
                     </li>
                   ))}
                 </ol>
-              </section>
-            )}
+              ) : <p className="moderation-history-empty">No previous moderation activity is recorded.</p>}
+            </section>
 
             {Array.isArray(selectedProduct.warnings) && selectedProduct.warnings.length > 0 && (
               <section className="moderation-history" aria-label="Product warning history">
@@ -1080,8 +1103,8 @@ export default function AdminProductModeration() {
             )}
 
             {selectedProduct.status === "active" && <div className="review-actions">
-              <button type="button" className="moderation-reject" disabled={processingId === selectedProduct.id} onClick={() => handleWarningOrSuspension(selectedProduct, "warn")}><AlertTriangle size={17} />Issue seller warning</button>
-              {!isStaff && <button type="button" className="moderation-reject" disabled={processingId === selectedProduct.id} onClick={() => handleWarningOrSuspension(selectedProduct, "suspend")}><XCircle size={17} />Suspend listing</button>}
+              <button type="button" className="moderation-reject" disabled={processingId === selectedProduct.id} onClick={(event) => openReasonModal(selectedProduct, "warn", event.currentTarget)}><AlertTriangle size={17} />Issue seller warning</button>
+              {!isStaff && <button type="button" className="moderation-reject" disabled={processingId === selectedProduct.id} onClick={(event) => openReasonModal(selectedProduct, "suspend", event.currentTarget)}><XCircle size={17} />Suspend listing</button>}
             </div>}
 
             {selectedProduct.status === "pending" && (
@@ -1091,10 +1114,8 @@ export default function AdminProductModeration() {
                 type="button"
                 className="moderation-reject"
                 disabled={selectedProduct.status !== "pending"}
-                onClick={() => {
-                  openRejectModal(
-                    selectedProduct
-                  );
+                onClick={(event) => {
+                    openRejectModal(selectedProduct, event.currentTarget);
                 }}
               >
                 <XCircle size={17} />
@@ -1123,25 +1144,35 @@ export default function AdminProductModeration() {
             </div>
             )}
 
-          </div>
-        </div>
+        </Modal>
       )}
 
       {/* REJECT MODAL */}
       {rejectModalOpen &&
         rejectingProduct && (
-          <div className="moderation-modal-overlay">
-            <div className="reject-modal">
+            <Modal
+              isOpen
+              className="reject-modal"
+              overlayClassName="moderation-modal-overlay"
+              titleId="reject-product-title"
+              descriptionId="reject-product-description"
+              loading={processingId === rejectingProduct.id}
+              onClose={closeRejectModal}
+              triggerRef={rejectTriggerRef}
+              fallbackFocusSelector=".moderation-actions .moderation-view"
+              closeOnBackdrop={processingId !== rejectingProduct.id}
+              unstyled
+            >
 
               <div className="reject-icon">
                 <XCircle size={25} />
               </div>
 
-              <h3>
+              <h3 id="reject-product-title">
                 Reject Product?
               </h3>
 
-              <p>
+              <p id="reject-product-description">
                 Are you sure you want to
                 reject{" "}
                 <strong>
@@ -1152,7 +1183,7 @@ export default function AdminProductModeration() {
 
               <label className="moderation-reason-field" htmlFor="moderation-rejection-reason">
                 <span>Reason for the seller</span>
-                <textarea id="moderation-rejection-reason" value={rejectionReason} onChange={(event) => setRejectionReason(event.target.value)} rows={4} maxLength={2000} placeholder="Explain what needs to be corrected before the listing can be approved." />
+                <textarea id="moderation-rejection-reason" data-modal-initial-focus value={rejectionReason} onChange={(event) => setRejectionReason(event.target.value)} rows={4} maxLength={2000} placeholder="Explain what needs to be corrected before the listing can be approved." />
                 <small>This reason is saved in the review history and shown to the seller.</small>
               </label>
 
@@ -1202,9 +1233,67 @@ export default function AdminProductModeration() {
 
               </div>
 
-            </div>
-          </div>
+            </Modal>
         )}
+
+      {reasonProduct && reasonAction && (
+        <Modal
+          isOpen
+          className="moderation-reason-modal"
+          overlayClassName="moderation-modal-overlay"
+          titleId="moderation-reason-title"
+          descriptionId="moderation-reason-description"
+          loading={processingId === reasonProduct.id}
+          onClose={closeReasonModal}
+          triggerRef={reasonTriggerRef}
+          fallbackFocusSelector=".moderation-actions .moderation-view"
+          closeOnBackdrop={processingId !== reasonProduct.id}
+          unstyled
+        >
+          <header className="moderation-modal-header">
+            <div>
+              <span>PRODUCT MODERATION / {reasonAction === "warn" ? "SELLER WARNING" : "SUSPENSION"}</span>
+              <h3 id="moderation-reason-title">{reasonAction === "warn" ? "Issue seller warning" : "Suspend listing"}</h3>
+            </div>
+            <button type="button" data-modal-close aria-label="Close moderation action" onClick={closeReasonModal} disabled={processingId === reasonProduct.id}>
+              <X size={19} aria-hidden="true" />
+            </button>
+          </header>
+          <form className="moderation-reason-form" onSubmit={submitReasonAction}>
+            <p id="moderation-reason-description">
+              {reasonAction === "warn"
+                ? "This warning will be sent to the seller. The listing stays active."
+                : "Suspending removes the listing from marketplace visibility. Enter the reason that will be recorded for the seller."}
+            </p>
+            <div className="moderation-reason-target">
+              <span>Product</span><strong>{reasonProduct.name}</strong>
+              <span>Seller</span><strong>{reasonProduct.user?.name || "Unknown seller"}</strong>
+            </div>
+            <label className="moderation-reason-field" htmlFor="moderation-action-reason">
+              <span>{reasonAction === "warn" ? "Warning for the seller" : "Suspension reason"}</span>
+              <textarea
+                id="moderation-action-reason"
+                data-modal-initial-focus
+                value={moderationReason}
+                onChange={(event) => setModerationReason(event.target.value)}
+                minLength={5}
+                maxLength={2000}
+                rows={4}
+                required
+                placeholder={reasonAction === "warn" ? "Explain the concern and what the seller should address." : "Explain why this listing must be suspended."}
+                disabled={processingId === reasonProduct.id}
+              />
+              <small>This reason is saved with the moderation history.</small>
+            </label>
+            <div className="reject-actions">
+              <button type="button" className="moderation-cancel" onClick={closeReasonModal} disabled={processingId === reasonProduct.id}>Cancel</button>
+              <button type="submit" className={reasonAction === "suspend" ? "moderation-reject" : "moderation-warn"} disabled={processingId === reasonProduct.id || moderationReason.trim().length < 5}>
+                {processingId === reasonProduct.id ? <><RefreshCw size={16} className="moderation-spin" />Saving…</> : reasonAction === "warn" ? <><AlertTriangle size={16} />Send warning</> : <><XCircle size={16} />Suspend listing</>}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
 
     </AdminLayout>
   );

@@ -612,7 +612,7 @@ export default function AdminDashboard() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
 
-  const fetchStats = useCallback(async () => {
+  const fetchStats = useCallback(async (signal) => {
     const token = localStorage.getItem("token");
     let response;
 
@@ -622,11 +622,15 @@ export default function AdminDashboard() {
           Accept: "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
+        ...(signal ? { signal } : {}),
       });
     } catch (requestError) {
+      if (signal?.aborted || requestError?.name === "AbortError") throw requestError;
       console.error("Dashboard API request failed:", requestError);
       throw new Error("Unable to reach the Laravel API. Confirm the backend is running, then try again.");
     }
+
+    if (signal?.aborted) return null;
 
     if (response.status === 401) {
       localStorage.removeItem("token");
@@ -637,6 +641,7 @@ export default function AdminDashboard() {
     }
 
     const data = await response.json().catch(() => ({}));
+    if (signal?.aborted) return null;
     if (!response.ok) {
       console.error("Dashboard API returned HTTP", response.status);
       if (response.status >= 500) {
@@ -672,19 +677,25 @@ export default function AdminDashboard() {
     return () => { active = false; };
   }, [fetchStats]);
 
-  const refreshStats = async () => {
-    if (stats) setRefreshing(true);
-    else setLoading(true);
+  const refreshStats = async (signal) => {
+    if (!signal) {
+      if (stats) setRefreshing(true);
+      else setLoading(true);
+    }
     setError("");
 
     try {
-      const nextStats = await fetchStats();
-      if (nextStats !== null) setStats(nextStats);
+      const nextStats = await fetchStats(signal);
+      if (!signal?.aborted && nextStats !== null) setStats(nextStats);
     } catch (requestError) {
-      setError(requestError.message || "We could not load the marketplace analytics. Please try again.");
+      if (!signal?.aborted && requestError?.name !== "AbortError") {
+        setError(requestError.message || "We could not load the marketplace analytics. Please try again.");
+      }
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (!signal?.aborted) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   };
 
@@ -792,12 +803,28 @@ export default function AdminDashboard() {
       to: "/admin/users",
     },
     {
+      label: "Active student accounts",
+      value: formatCount(stats?.active_students),
+      subtitle: "Students with active status",
+      icon: UserCheck,
+      tone: "success",
+      to: "/admin/users",
+    },
+    {
       label: "Active listings",
       value: formatCount(stats?.active_products),
-      subtitle: `${formatCount(stats?.pending_products)} awaiting review`,
+      subtitle: "Currently available in the marketplace",
       icon: Package,
       tone: "success",
       to: "/admin/products",
+    },
+    {
+      label: "Pending listing reviews",
+      value: formatCount(stats?.pending_products),
+      subtitle: "Listings awaiting moderation",
+      icon: Inbox,
+      tone: "warning",
+      to: "/admin/product-moderation",
     },
     {
       label: "Pending orders",
@@ -808,12 +835,20 @@ export default function AdminDashboard() {
       to: "/admin/transactions?status=pending",
     },
     {
-      label: "Completed sales",
+      label: "Completed orders",
       value: formatCount(stats?.completed_orders),
       subtitle: "Orders successfully fulfilled",
       icon: CircleCheck,
       tone: "success",
       to: "/admin/transactions?status=completed",
+    },
+    {
+      label: "Completed sales",
+      value: formatMoney(stats?.total_sales),
+      subtitle: `${formatCount(stats?.completed_orders)} fulfilled orders`,
+      icon: Wallet,
+      tone: "primary",
+      to: "/admin/reports",
     },
     {
       label: "Items sold",
@@ -824,12 +859,12 @@ export default function AdminDashboard() {
       to: "/admin/transactions",
     },
     {
-      label: "Total sales",
-      value: formatMoney(stats?.total_sales),
-      subtitle: `Average order ${formatMoney(stats?.average_order_value)}`,
-      icon: Wallet,
-      tone: "primary",
-      to: "/admin/reports",
+      label: "Unpaid orders",
+      value: formatCount(unpaidCount),
+      subtitle: `${formatMoney(unpaidAmount)} outstanding`,
+      icon: CreditCard,
+      tone: "warning",
+      to: "/admin/transactions",
     },
     {
       label: "Open complaints",
@@ -1042,13 +1077,15 @@ export default function AdminDashboard() {
 
   if (loading && !stats) {
     return (
-      <AdminLayout title="Dashboard" subtitle="Marketplace analytics, sales, and administrative activity.">
+      <AdminLayout title="Marketplace overview" subtitle="Marketplace analytics, sales, and administrative activity.">
         <AdminPageHero
-          title="Dashboard"
-          description="Review marketplace performance, student activity, orders, and support metrics."
+          title="Marketplace overview"
+          description="Key metrics and insights about your student marketplace performance."
           icon={LayoutDashboard}
           onRefresh={refreshStats}
-          refreshing={refreshing}
+          autoRefreshIntervalMs={120_000}
+          autoRefreshKey={trendPeriod}
+          refreshing={refreshing || loading}
         />
         <DashboardSkeleton />
       </AdminLayout>
@@ -1057,13 +1094,15 @@ export default function AdminDashboard() {
 
   if (error && !stats) {
     return (
-      <AdminLayout title="Dashboard" subtitle="Marketplace analytics, sales, and administrative activity.">
+      <AdminLayout title="Marketplace overview" subtitle="Marketplace analytics, sales, and administrative activity.">
         <AdminPageHero
-          title="Dashboard"
-          description="Review marketplace performance, student activity, orders, and support metrics."
+          title="Marketplace overview"
+          description="Key metrics and insights about your student marketplace performance."
           icon={LayoutDashboard}
           onRefresh={refreshStats}
-          refreshing={refreshing}
+          autoRefreshIntervalMs={120_000}
+          autoRefreshKey={trendPeriod}
+          refreshing={refreshing || loading}
         />
         <div className="dashboard-error-state" role="alert">
           <AlertCircle size={22} aria-hidden="true" />
@@ -1080,7 +1119,7 @@ export default function AdminDashboard() {
   }
 
   return (
-    <AdminLayout title="Dashboard" subtitle="Marketplace analytics, sales, and administrative activity.">
+    <AdminLayout title="Marketplace overview" subtitle="Marketplace analytics, sales, and administrative activity.">
       <div className="admin-dashboard-page">
         {error && (
           <div className="dashboard-error" role="alert">
@@ -1095,13 +1134,23 @@ export default function AdminDashboard() {
         )}
 
         <AdminPageHero
-          title="Dashboard"
-          description="Review marketplace performance, student activity, orders, and support metrics."
+          title="Marketplace overview"
+          description="Key metrics and insights about your student marketplace performance."
           icon={LayoutDashboard}
           onRefresh={refreshStats}
-          refreshing={refreshing}
+          autoRefreshIntervalMs={120_000}
+          autoRefreshKey={trendPeriod}
+          refreshing={refreshing || loading}
           actions={(
             <>
+              <label className="dash-range dash-range--hero">
+                <span>Date range</span>
+                <select value={trendPeriod} onChange={(event) => setTrendPeriod(event.target.value)}>
+                  {RANGE_OPTIONS.map((option) => (
+                    <option value={option.value} key={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </label>
               <Link className="admin-page-hero-link" to={nextAction?.to ?? "/admin/products"}>
                 {nextAction ? `Review ${nextAction.label}` : "Browse listings"}
                 <ArrowRight size={16} aria-hidden="true" />
@@ -1117,16 +1166,6 @@ export default function AdminDashboard() {
             title="At a glance"
             subtitle="Live totals from student accounts, listings, orders, sales, and support."
             id="dashboard-kpi-title"
-            action={(
-              <label className="dash-range">
-                <span>Date range</span>
-                <select value={trendPeriod} onChange={(event) => setTrendPeriod(event.target.value)}>
-                  {RANGE_OPTIONS.map((option) => (
-                    <option value={option.value} key={option.value}>{option.label}</option>
-                  ))}
-                </select>
-              </label>
-            )}
           />
           <div className="metrics-grid dash-kpi-grid">
             {kpiCards.map((item) => (
@@ -1239,13 +1278,13 @@ export default function AdminDashboard() {
               id="dashboard-performance-chart-title"
             >
               <div className="dash-chart-controls">
-                <div className="dash-segmented dash-segmented--small" role="group" aria-label="Choose marketplace performance">
+                <div className="dash-segmented dash-segmented--small" role="group" aria-label="Choose category or product view">
                   <button type="button" aria-pressed={marketplaceView === "categories"} onClick={() => setMarketplaceView("categories")}>Categories</button>
                   <button type="button" aria-pressed={marketplaceView === "products"} onClick={() => setMarketplaceView("products")}>Products</button>
                 </div>
                 {marketplaceView === "categories" && (
                   <label className="dash-metric-control">
-                    <span>Metric</span>
+                    <span>Measure</span>
                     <select value={categoryMetric} onChange={(event) => setCategoryMetric(event.target.value)}>
                       <option value="sales">Completed sales</option>
                       <option value="orders">Orders</option>
@@ -1320,38 +1359,36 @@ export default function AdminDashboard() {
             subtitle="Track new student accounts, role mix, and recorded payment states."
             id="dashboard-audience-title"
           />
-          <div className="dash-grid dash-grid--wide">
+          <div className="dash-grid dash-grid--three dash-audience-grid">
             <ChartCard
-              title="Student growth and account mix"
+              title="Student growth"
+              subtitle="New student accounts in the selected range"
+              icon={Users}
+              id="dashboard-student-growth-title"
+            >
+              <TrendChart
+                data={studentsSeries}
+                valueKey="students"
+                title="Student growth"
+                unitLabel="students"
+                tone="primary"
+                emptyMessage="No student accounts were created in this range."
+              />
+            </ChartCard>
+            <ChartCard
+              title="Users by role"
               subtitle={formatCount(totalUsers) + " total accounts"}
               icon={Users}
-              id="dashboard-audience-card-title"
-              className="dash-card--wide"
+              id="dashboard-user-role-title"
             >
-              <div className="dash-audience-combined">
-                <div className="dash-audience-chart">
-                  <h4>New student accounts</h4>
-                  <TrendChart
-                    data={studentsSeries}
-                    valueKey="students"
-                    title="Student growth"
-                    unitLabel="students"
-                    tone="primary"
-                    emptyMessage="No student accounts were created in this range."
-                  />
-                </div>
-                <div className="dash-audience-chart">
-                  <h4>Users by role</h4>
-                  <DonutChart
-                    items={roleItems}
-                    total={totalUsers}
-                    centerValue={formatCount(totalUsers)}
-                    centerLabel="accounts"
-                    ariaLabel={"Users by role: " + roleItems.map((item) => item.label + " " + formatCount(item.value)).join(", ")}
-                    emptyMessage="No user accounts have been created yet."
-                  />
-                </div>
-              </div>
+              <DonutChart
+                items={roleItems}
+                total={totalUsers}
+                centerValue={formatCount(totalUsers)}
+                centerLabel="accounts"
+                ariaLabel={"Users by role: " + roleItems.map((item) => item.label + " " + formatCount(item.value)).join(", ")}
+                emptyMessage="No user accounts have been created yet."
+              />
               <div className="dash-participation dash-participation--compact">
                 <div><span><UserCheck size={14} aria-hidden="true" /> Student sellers</span><strong>{formatCount(stats?.student_sellers)}</strong></div>
                 <div><span>Students with orders</span><strong>{formatCount(stats?.students_with_orders)}</strong></div>
@@ -1383,6 +1420,22 @@ export default function AdminDashboard() {
                 </div>
               </div>
             </ChartCard>
+          </div>
+        </section>
+
+        <section className="dashboard-section dashboard-quick-actions" aria-labelledby="dashboard-quick-actions-title">
+          <SectionHeading
+            eyebrow="Operational shortcuts"
+            title="Quick actions"
+            subtitle="Go directly to common marketplace management tasks."
+            id="dashboard-quick-actions-title"
+          />
+          <div className="dashboard-quick-action-grid">
+            <Link to="/admin/transactions?status=pending"><ShoppingCart size={17} aria-hidden="true" /><span>Review pending orders</span><ArrowRight size={15} aria-hidden="true" /></Link>
+            <Link to="/admin/products"><Package size={17} aria-hidden="true" /><span>View all listings</span><ArrowRight size={15} aria-hidden="true" /></Link>
+            <Link to="/admin/users"><Users size={17} aria-hidden="true" /><span>View students and staff</span><ArrowRight size={15} aria-hidden="true" /></Link>
+            <Link to="/admin/complaints"><MessageSquare size={17} aria-hidden="true" /><span>Review complaints</span><ArrowRight size={15} aria-hidden="true" /></Link>
+            <Link to="/admin/reports"><ChartColumn size={17} aria-hidden="true" /><span>Reports and analytics</span><ArrowRight size={15} aria-hidden="true" /></Link>
           </div>
         </section>
 

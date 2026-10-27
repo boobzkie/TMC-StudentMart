@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Activity, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Coins, Edit3, Info, Loader2, MapPin, Plus, Search, SlidersHorizontal, WalletCards, X } from "lucide-react";
+import { Activity, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Coins, Edit3, Info, Loader2, MapPin, Plus, Search, WalletCards, X } from "lucide-react";
 
 import AdminLayout from "./components/AdminLayout";
 import AdminPageHero from "./components/AdminPageHero";
@@ -138,10 +138,14 @@ export default function AdminOrderOptions() {
   const [modalType, setModalType] = useState("");
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
+  const analyticsRequestSequenceRef = useRef(0);
+  const optionsRequestSequenceRef = useRef(0);
 
-  const loadAnalytics = useCallback(async (isRefresh = false) => {
-    if (isRefresh) setAnalyticsRefreshing(true);
-    else {
+  const loadAnalytics = useCallback(async (isRefresh = false, signal) => {
+    if (signal?.aborted) return;
+    const requestSequence = ++analyticsRequestSequenceRef.current;
+    if (isRefresh && !signal) setAnalyticsRefreshing(true);
+    else if (!isRefresh) {
       setAnalyticsLoading(true);
       setAnalyticsData(null);
     }
@@ -151,9 +155,10 @@ export default function AdminOrderOptions() {
       const { fromDate, toDate } = getAnalyticsDateRange(periodDays);
       const params = new URLSearchParams({ from_date: fromDate, to_date: toDate });
       const [ordersResponse, commissionResponse] = await Promise.all([
-        fetch(`${API_URL}/admin/orders?${params}`, { headers: getAuthHeaders() }),
-        fetch(`${API_URL}/admin/commission`, { headers: getAuthHeaders() }),
+        fetch(`${API_URL}/admin/orders?${params}`, { headers: getAuthHeaders(), ...(signal ? { signal } : {}) }),
+        fetch(`${API_URL}/admin/commission`, { headers: getAuthHeaders(), ...(signal ? { signal } : {}) }),
       ]);
+      if (signal?.aborted || requestSequence !== analyticsRequestSequenceRef.current) return;
       if ([ordersResponse.status, commissionResponse.status].some((status) => status === 401 || status === 403)) {
         clearAuthAndRedirect();
         return;
@@ -163,6 +168,7 @@ export default function AdminOrderOptions() {
         ordersResponse.json().catch(() => ({})),
         commissionResponse.json().catch(() => ({})),
       ]);
+      if (signal?.aborted || requestSequence !== analyticsRequestSequenceRef.current) return;
       if (!ordersResponse.ok) throw new Error(ordersPayload.message || "Unable to load recent order activity.");
       if (!commissionResponse.ok) throw new Error(commissionPayload.message || "Unable to load commission totals.");
 
@@ -172,46 +178,67 @@ export default function AdminOrderOptions() {
         commission: { ...EMPTY_COMMISSION_SUMMARY, ...(commissionPayload.summary || {}) },
       });
     } catch (loadError) {
-      setAnalyticsError(loadError.message || "Unable to load dashboard activity.");
+      if (!signal?.aborted && loadError?.name !== "AbortError" && requestSequence === analyticsRequestSequenceRef.current) {
+        setAnalyticsError(loadError.message || "Unable to load dashboard activity.");
+      }
     } finally {
-      setAnalyticsLoading(false);
-      setAnalyticsRefreshing(false);
+      if (!signal?.aborted && requestSequence === analyticsRequestSequenceRef.current) {
+        setAnalyticsLoading(false);
+        if (!signal) setAnalyticsRefreshing(false);
+      }
     }
   }, [periodDays]);
 
-  const loadOptions = useCallback(async (isRefresh = false) => {
-    if (isRefresh) setRefreshing(true);
-    else setLoading(true);
+  const loadOptions = useCallback(async (isRefresh = false, signal) => {
+    if (signal?.aborted) return;
+    const requestSequence = ++optionsRequestSequenceRef.current;
+    if (isRefresh && !signal) setRefreshing(true);
+    else if (!isRefresh) setLoading(true);
     setError("");
 
     try {
       const response = await fetch(`${API_URL}/admin/order-options`, {
         headers: getAuthHeaders(),
+        ...(signal ? { signal } : {}),
       });
+      if (signal?.aborted || requestSequence !== optionsRequestSequenceRef.current) return;
       if (response.status === 401 || response.status === 403) {
         clearAuthAndRedirect();
         return;
       }
       const payload = await response.json().catch(() => ({}));
+      if (signal?.aborted || requestSequence !== optionsRequestSequenceRef.current) return;
       if (!response.ok) throw new Error(payload.message || "Unable to load order options.");
       setPaymentMethods(Array.isArray(payload.payment_methods) ? payload.payment_methods : []);
       setPickupLocations(Array.isArray(payload.pickup_locations) ? payload.pickup_locations : []);
     } catch (loadError) {
-      setError(loadError.message || "Unable to load order options.");
+      if (!signal?.aborted && loadError?.name !== "AbortError" && requestSequence === optionsRequestSequenceRef.current) {
+        setError(loadError.message || "Unable to load order options.");
+      }
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (!signal?.aborted && requestSequence === optionsRequestSequenceRef.current) {
+        setLoading(false);
+        if (!signal) setRefreshing(false);
+      }
     }
   }, []);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => void loadOptions(), 0);
-    return () => window.clearTimeout(timer);
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => void loadOptions(false, controller.signal), 0);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
   }, [loadOptions]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => void loadAnalytics(), 0);
-    return () => window.clearTimeout(timer);
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => void loadAnalytics(false, controller.signal), 0);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
   }, [loadAnalytics]);
 
   const openCreate = (type) => {
@@ -397,20 +424,12 @@ export default function AdminOrderOptions() {
         <AdminPageHero
           title="Payment & Pickup Setup"
           description="Manage cash on delivery settings, commission activity, and approved pickup locations for the TMC StudentMart marketplace."
-          icon={SlidersHorizontal}
-          sideContent={(
-            <label className="order-options-period">
-              <CalendarDays size={16} aria-hidden="true" />
-              <span className="sr-only">Analytics date range</span>
-              <select value={periodDays} onChange={(event) => setPeriodDays(Number(event.target.value))} aria-label="Analytics date range">
-                <option value="7">Last 7 days</option>
-                <option value="30">Last 30 days</option>
-                <option value="90">Last 90 days</option>
-              </select>
-            </label>
-          )}
-          onRefresh={async () => { await Promise.all([loadOptions(true), loadAnalytics(true)]); }}
+          className="sr-only"
+          onRefresh={async (signal) => { await Promise.all([loadOptions(true, signal), loadAnalytics(true, signal)]); }}
           refreshing={loading || refreshing || analyticsLoading || analyticsRefreshing}
+          autoRefreshIntervalMs={60_000}
+          autoRefreshKey={String(periodDays)}
+          autoRefreshPaused={Boolean(modalType || saving || busyKey)}
         />
 
         <div className="order-options-notice">
@@ -431,9 +450,20 @@ export default function AdminOrderOptions() {
 
         <section className="order-options-analytics-grid" aria-label="Payment and commission analytics">
           <article className="order-options-panel order-options-trend-panel">
-            <div className="order-options-section-heading">
-              <div className="order-options-heading-icon"><Activity size={18} /></div>
-              <div><h2>COD Orders Trend</h2><p>{analyticsRangeLabel} · Cash on Delivery orders</p></div>
+            <div className="order-options-panel-heading order-options-trend-heading">
+              <div className="order-options-section-heading">
+                <div className="order-options-heading-icon"><Activity size={18} /></div>
+                <div><h2>COD Orders Trend</h2><p>{analyticsRangeLabel} · Cash on Delivery orders</p></div>
+              </div>
+              <label className="order-options-period">
+                <CalendarDays size={16} aria-hidden="true" />
+                <span className="sr-only">Analytics date range</span>
+                <select value={periodDays} onChange={(event) => setPeriodDays(Number(event.target.value))} aria-label="Analytics date range">
+                  <option value="7">Last 7 days</option>
+                  <option value="30">Last 30 days</option>
+                  <option value="90">Last 90 days</option>
+                </select>
+              </label>
             </div>
             {analyticsLoading && !analyticsData ? (
               <div className="order-options-loading" role="status"><Loader2 className="order-options-spin" size={20} />Loading order activity…</div>
@@ -449,7 +479,7 @@ export default function AdminOrderOptions() {
                 </div>
                 <p className="order-options-chart-note"><span className="order-options-chart-key" />{codOrders.length} COD orders in {analyticsData.orders.length} returned record{analyticsData.orders.length === 1 ? "" : "s"}.{analyticsData.totalOrders > analyticsData.orders.length ? ` Showing ${analyticsData.orders.length} of ${analyticsData.totalOrders} matching orders (API limit: 200).` : ""}</p>
               </>
-            ) : <div className="order-options-empty"><Activity size={22} /><strong>No order analytics available</strong><span>Refresh to try loading recent order activity.</span></div>}
+            ) : <div className="order-options-empty"><Activity size={22} /><strong>No order analytics available</strong><span>This data will be retried automatically.</span></div>}
           </article>
 
           <article className="order-options-panel order-options-commission-panel">
@@ -467,7 +497,7 @@ export default function AdminOrderOptions() {
                   <div><span className="legend-dot settled" /><span>Settled</span><strong>{formatCurrency(commissionSettled)}</strong><small>{commissionTotal ? `${Math.round(settledPercent)}%` : "0%"}</small></div>
                 </div>
               </div>
-            ) : <div className="order-options-empty"><Coins size={22} /><strong>Commission totals unavailable</strong><span>Refresh to try loading commission data.</span></div>}
+            ) : <div className="order-options-empty"><Coins size={22} /><strong>Commission totals unavailable</strong><span>This data will be retried automatically.</span></div>}
             <p className="order-options-chart-note">Commission figures are all-time totals returned by the existing commission service.</p>
           </article>
         </section>

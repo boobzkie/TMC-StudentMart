@@ -186,16 +186,18 @@ export default function StaffDashboard() {
     ]
   );
 
-  const loadDashboard = useCallback(async (showRefresh = false) => {
+  const loadDashboard = useCallback(async (showRefresh = false, signal) => {
     if (!hasDashboardDataAccess) {
       setLoading(false);
       return;
     }
 
-    if (showRefresh) {
-      setRefreshing(true);
-    } else {
-      setLoading(true);
+    if (!signal) {
+      if (showRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
     }
 
     setError("");
@@ -207,7 +209,10 @@ export default function StaffDashboard() {
           Accept: "application/json",
           Authorization: `Bearer ${token}`,
         },
+        ...(signal ? { signal } : {}),
       });
+
+      if (signal?.aborted) return;
 
       if (response.status === 401 || response.status === 403) {
         localStorage.removeItem("token");
@@ -219,6 +224,8 @@ export default function StaffDashboard() {
 
       const data = await response.json().catch(() => ({}));
 
+      if (signal?.aborted) return;
+
       if (!response.ok) {
         throw new Error(data.message || "Unable to load the staff dashboard.");
       }
@@ -226,10 +233,14 @@ export default function StaffDashboard() {
       setStats(data.stats || {});
       setRecentStudents(Array.isArray(data.recent_students) ? data.recent_students : []);
     } catch (err) {
-      setError(err.message || "Unable to load the staff dashboard.");
+      if (!signal?.aborted && err?.name !== "AbortError") {
+        setError(err.message || "Unable to load the staff dashboard.");
+      }
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (!signal?.aborted) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, [hasDashboardDataAccess, navigate]);
 
@@ -287,7 +298,8 @@ export default function StaffDashboard() {
           title="Staff Dashboard"
           description="See the queues and student activity available to your Staff role, then jump straight into the next task."
           icon={LayoutDashboard}
-          onRefresh={hasDashboardDataAccess ? () => loadDashboard(true) : undefined}
+          onRefresh={hasDashboardDataAccess ? (signal) => loadDashboard(true, signal) : undefined}
+          autoRefreshIntervalMs={hasDashboardDataAccess ? 120_000 : 0}
           refreshing={refreshing || loading}
           actions={tools.length > 0 && (
             <Link className="admin-page-hero-link" to={tools[0].to}>
@@ -341,6 +353,13 @@ export default function StaffDashboard() {
 
         {staffCanManageStudents ? (
           <>
+            <StaffActionQueue
+              actionItems={actionItems}
+              actionableItems={actionableItems}
+              actionCountsAvailable={actionCountsAvailable}
+              loading={loading}
+            />
+
             <div className="metrics-grid">
               {STAFF_METRIC_CARDS.map((card) => {
                 const Icon = card.icon;
@@ -357,13 +376,6 @@ export default function StaffDashboard() {
                 );
               })}
             </div>
-
-            <StaffActionQueue
-              actionItems={actionItems}
-              actionableItems={actionableItems}
-              actionCountsAvailable={actionCountsAvailable}
-              loading={loading}
-            />
 
             <div className="activity-grid-2">
               <Card className="staff-chart-card">
