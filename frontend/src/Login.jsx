@@ -1,7 +1,7 @@
 ﻿import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { API_URL } from "./utils/api";
-import { ArrowRight, Eye, EyeOff, LockKeyhole, Mail, ShieldCheck } from "lucide-react";
+import { ArrowRight, ChartColumn, Eye, EyeOff, LockKeyhole, Mail, Package, ShieldCheck, UsersRound } from "lucide-react";
 import "./Login.css";
 
 function Login() {
@@ -128,7 +128,7 @@ function Login() {
   };
 
   return (
-    <main className="login-page" data-theme="dark">
+    <main className="login-page" data-theme="light">
       <section className="auth-shell" aria-label="TMC StudentMart sign in">
         <header className="auth-topbar">
           <Link className="auth-topbar-brand" to="/" aria-label="TMC StudentMart home">
@@ -147,6 +147,11 @@ function Login() {
             <p>
               Manage student listings, orders, sellers, users, and marketplace activity from one secure workspace.
             </p>
+            <ul className="auth-promo-features" aria-label="Portal capabilities">
+              <li><Package size={19} aria-hidden="true" /><span><strong>Marketplace management</strong><small>Review products, listings, and orders.</small></span></li>
+              <li><UsersRound size={19} aria-hidden="true" /><span><strong>Account oversight</strong><small>Support student, seller, and staff accounts.</small></span></li>
+              <li><ChartColumn size={19} aria-hidden="true" /><span><strong>Reports and insights</strong><small>Understand activity across the marketplace.</small></span></li>
+            </ul>
           </div>
 
         </aside>

@@ -1,23 +1,28 @@
 /* TMC StudentMart Admin and Staff experience — shared visual layer */
 :root {
-  --portal-page: #F8FAFC;
-  --portal-surface: #FFFFFF;
-  --portal-surface-soft: #F1F5F9;
-  --portal-surface-raised: #FFFFFF;
-  --portal-ink: #0F2540;
+  --portal-page: #E9EEF4;
+  --portal-surface: #EEF3F8;
+  --portal-surface-soft: #E6ECF3;
+  --portal-surface-raised: #EDF2F8;
+  --portal-ink: #152B45;
   --portal-muted: #52657A;
-  --portal-border: #DCE4EC;
+  --portal-border: #D5DFE9;
   --portal-primary: #0A4174;
   --portal-primary-strong: #0A4174;
   --portal-accent: #4E8EA2;
   --portal-gold: #7BBDE8;
   --portal-focus: #0A68A8;
-  --portal-shadow-sm: 0 1px 2px rgba(15, 37, 64, 0.05);
-  --portal-shadow-md: 0 4px 12px rgba(15, 37, 64, 0.09);
-  --portal-radius-sm: 6px;
-  --portal-radius-md: 8px;
-  --portal-radius-lg: 12px;
-  --portal-radius-xl: 16px;
+  --portal-shadow-sm: 5px 5px 12px rgba(39, 58, 82, 0.09), -5px -5px 12px rgba(255, 255, 255, 0.88);
+  --portal-shadow-md: 8px 8px 18px rgba(39, 58, 82, 0.13), -8px -8px 18px rgba(255, 255, 255, 0.92);
+  --portal-shadow-inset: inset 3px 3px 7px rgba(39, 58, 82, 0.10), inset -3px -3px 7px rgba(255, 255, 255, 0.82);
+  --portal-radius-sm: 8px;
+  --portal-radius-md: 10px;
+  --portal-radius-lg: 14px;
+  --portal-radius-xl: 18px;
+  --tmc-ui-radius-sm: 8px;
+  --tmc-ui-radius-md: 10px;
+  --tmc-ui-radius-lg: 14px;
+  --tmc-ui-radius-xl: 18px;
   --portal-motion: 200ms cubic-bezier(0.2, 0, 0, 1);
   --primary: #0A4174;
   --primary-hover: #0D4F8A;
@@ -56,10 +61,10 @@
 }
 
 :root[data-theme="dark"] {
-  --portal-page: #0B1728;
-  --portal-surface: #14263D;
-  --portal-surface-soft: #182C45;
-  --portal-surface-raised: #1A304A;
+  --portal-page: #0C1726;
+  --portal-surface: #14253A;
+  --portal-surface-soft: #192B41;
+  --portal-surface-raised: #152940;
   --portal-ink: #F4F7FB;
   --portal-muted: #B5C3D3;
   --portal-border: rgba(181, 195, 211, 0.18);
@@ -68,8 +73,9 @@
   --portal-accent: #6EA2B3;
   --portal-gold: #7BBDE8;
   --portal-focus: #9CCFF0;
-  --portal-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.16);
-  --portal-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.24);
+  --portal-shadow-sm: 5px 5px 13px rgba(0, 0, 0, 0.24), -3px -3px 10px rgba(120, 155, 190, 0.035);
+  --portal-shadow-md: 8px 8px 18px rgba(0, 0, 0, 0.30), -4px -4px 12px rgba(120, 155, 190, 0.045);
+  --portal-shadow-inset: inset 3px 3px 7px rgba(0, 0, 0, 0.26), inset -2px -2px 6px rgba(120, 155, 190, 0.04);
   --primary: #7BBDE8;
   --primary-hover: #BDD8E9;
   --primary-light: #0D365D;
@@ -126,7 +132,7 @@
   --tmc-admin-sidebar-muted: #D8D9D0;
   --tmc-admin-card-shadow: var(--portal-shadow-sm);
   --tmc-admin-card-hover: var(--portal-shadow-md);
-  --tmc-admin-input-shadow: none;
+  --tmc-admin-input-shadow: var(--portal-shadow-inset);
   --tmc-admin-overlay: rgba(0, 29, 57, 0.62);
   --tmc-admin-success: #45664F;
   --tmc-admin-success-soft: rgba(69, 102, 79, 0.12);
@@ -159,7 +165,7 @@
   --tmc-admin-sidebar-muted: #C7CEC7;
   --tmc-admin-card-shadow: var(--portal-shadow-sm);
   --tmc-admin-card-hover: var(--portal-shadow-md);
-  --tmc-admin-input-shadow: none;
+  --tmc-admin-input-shadow: var(--portal-shadow-inset);
   --tmc-admin-overlay: rgba(3, 10, 18, 0.78);
   --tmc-admin-success: #8EBB91;
   --tmc-admin-success-soft: rgba(69, 102, 79, 0.2);

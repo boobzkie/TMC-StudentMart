@@ -2282,3 +2282,176 @@
     max-width: none;
   }
 }
+
+/* Shared soft-surface refinement for Admin and Staff workspaces. */
+.admin-layout[data-theme] .admin-header,
+.admin-layout[data-theme] .admin-content :is(
+  .admin-page-hero, .dashboard-welcome, .dashboard-section, .dash-card,
+  .staff-welcome, .staff-pulse-card, .staff-action-queue, .staff-chart-card,
+  .staff-tool-card, .staff-action-card, .tmc-card, .tmc-kpi, .tmc-stat-card,
+  .card, .stat-card, .activity-logs-section, .products-toolbar,
+  .products-table-card, .categories-panel, .moderation-panel,
+  .sellers-filter-card, .sellers-content-card, .transactions-directory,
+  .transactions-status-card, .order-options-panel, .commission-card,
+  .reports-stat-card, .reports-panel, .reports-summary-panel,
+  .analytics-card, .analytics-panel, .complaints-table-section,
+  .complaints-status-grid > *, .users-filter-card, .users-summary,
+  .users-table-card, .staff-overview-card, .staff-filter-bar, .staff-table-card
+) {
+  box-shadow: var(--tmc-admin-card-shadow) !important;
+  transition: box-shadow 180ms ease, border-color 180ms ease, transform 180ms ease;
+}
+
+.admin-layout[data-theme] .admin-content :is(
+  .admin-page-hero, .dashboard-welcome, .dashboard-section, .dash-card,
+  .staff-welcome, .staff-pulse-card, .staff-action-queue, .staff-chart-card,
+  .staff-tool-card, .staff-action-card, .tmc-card, .tmc-kpi, .tmc-stat-card,
+  .card, .stat-card, .products-toolbar, .products-table-card,
+  .categories-panel, .moderation-panel, .sellers-filter-card,
+  .sellers-content-card, .transactions-directory, .transactions-status-card,
+  .order-options-panel, .commission-card, .reports-stat-card, .reports-panel,
+  .reports-summary-panel, .analytics-card, .analytics-panel,
+  .complaints-table-section, .complaints-status-grid > *, .users-filter-card,
+  .users-summary, .users-table-card, .staff-overview-card, .staff-filter-bar,
+  .staff-table-card
+):hover {
+  box-shadow: var(--tmc-admin-card-hover) !important;
+}
+
+.admin-layout[data-theme] .admin-content .admin-page-hero-icon {
+  box-shadow: var(--tmc-admin-card-shadow) !important;
+}
+
+.admin-layout[data-theme] .admin-content :where(
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="submit"]):not([type="button"]):not([type="file"]),
+  select, textarea
+) {
+  border-radius: var(--tmc-ui-radius-md) !important;
+  background-color: var(--tmc-admin-surface-muted) !important;
+  box-shadow: var(--tmc-admin-input-shadow) !important;
+  transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+}
+
+.admin-layout[data-theme] .admin-content :where(
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="submit"]):not([type="button"]):not([type="file"]),
+  select, textarea
+):focus {
+  border-color: var(--tmc-admin-focus, var(--tmc-admin-accent-border)) !important;
+  box-shadow: 0 0 0 3px var(--tmc-admin-accent-soft), var(--tmc-admin-input-shadow) !important;
+}
+
+.admin-layout[data-theme] .admin-content :is(
+  .products-search, .products-filter, .users-filter-card .users-search-box,
+  .staff-search-control
+) {
+  background: var(--tmc-admin-surface-muted) !important;
+  box-shadow: var(--tmc-admin-input-shadow) !important;
+}
+
+.admin-layout[data-theme] .admin-content :is(
+  .products-search, .products-filter, .users-filter-card .users-search-box,
+  .staff-search-control
+):focus-within {
+  box-shadow: 0 0 0 3px var(--tmc-admin-accent-soft), var(--tmc-admin-input-shadow) !important;
+}
+
+.admin-layout[data-theme] .admin-content :is(
+  .tmc-btn, .action-button, .products-search-button, .products-refresh,
+  .category-primary-button, .category-refresh-button, .moderation-primary-button,
+  .sellers-search-button, .sellers-refresh-button, .transactions-refresh-button,
+  .transactions-secondary-button, .order-options-primary, .reports-refresh-button,
+  .analytics-refresh-button, .commission-primary-button, .users-refresh-button,
+  .users-search-button, .staff-create-button, .staff-filter-button,
+  .staff-refresh-button, .staff-row-action
+) {
+  box-shadow: var(--tmc-admin-card-shadow) !important;
+  transition: box-shadow 160ms ease, border-color 160ms ease, transform 160ms ease;
+}
+
+.admin-layout[data-theme] .admin-content :is(
+  .tmc-btn--primary, .admin-page-hero-refresh, .dashboard-welcome-primary,
+  .staff-welcome-primary
+) {
+  box-shadow: 0 5px 13px color-mix(in srgb, var(--tmc-admin-primary) 28%, transparent) !important;
+}
+
+.admin-layout[data-theme] .admin-content :is(
+  .tmc-btn:not(:disabled), .action-button:not(:disabled),
+  .products-search-button:not(:disabled), .products-refresh:not(:disabled),
+  .category-primary-button:not(:disabled), .category-refresh-button:not(:disabled),
+  .moderation-primary-button:not(:disabled), .sellers-search-button:not(:disabled),
+  .sellers-refresh-button:not(:disabled), .transactions-refresh-button:not(:disabled),
+  .transactions-secondary-button:not(:disabled), .order-options-primary:not(:disabled),
+  .reports-refresh-button:not(:disabled), .analytics-refresh-button:not(:disabled),
+  .commission-primary-button:not(:disabled), .users-refresh-button:not(:disabled),
+  .users-search-button:not(:disabled), .staff-create-button:not(:disabled),
+  .staff-filter-button:not(:disabled), .staff-refresh-button:not(:disabled),
+  .staff-row-action:not(:disabled)
+):hover {
+  box-shadow: var(--tmc-admin-card-hover) !important;
+  transform: translateY(-1px);
+}
+
+.admin-layout[data-theme] .admin-header-actions button,
+.admin-layout[data-theme] .admin-theme-toggle,
+.admin-layout[data-theme] .admin-account {
+  box-shadow: var(--tmc-admin-card-shadow);
+  transition: box-shadow 160ms ease, border-color 160ms ease, transform 160ms ease;
+}
+
+.admin-layout[data-theme] .admin-header-actions button:hover,
+.admin-layout[data-theme] .admin-theme-toggle:hover,
+.admin-layout[data-theme] .admin-account:hover {
+  box-shadow: var(--tmc-admin-card-hover);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-layout[data-theme] .admin-content :is(
+    .admin-page-hero, .dashboard-welcome, .dashboard-section, .dash-card,
+    .staff-welcome, .staff-pulse-card, .staff-action-queue, .staff-chart-card,
+    .staff-tool-card, .staff-action-card, .tmc-card, .tmc-kpi, .tmc-stat-card,
+    .card, .stat-card, .tmc-btn, .action-button
+  ) {
+    transition: none !important;
+  }
+}
+
+/* Match dashboard density to the space left after the expanded navigation. */
+@media (max-width: 1120px) and (min-width: 901px) {
+  .admin-layout[data-theme] .admin-content .admin-page-hero {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+    min-height: 0;
+    padding: 20px 22px;
+  }
+
+  .admin-layout[data-theme] .admin-content .admin-page-hero-main {
+    align-items: flex-start;
+  }
+
+  .admin-layout[data-theme] .admin-content .admin-page-hero-side,
+  .admin-layout[data-theme] .admin-content .admin-page-hero-actions {
+    grid-column: 1 / -1;
+    grid-row: auto;
+    max-width: none;
+    justify-content: flex-start;
+  }
+
+  .admin-layout[data-theme] .admin-content .admin-page-hero-actions {
+    flex-wrap: wrap;
+  }
+
+  .admin-layout[data-theme] .admin-content .admin-dashboard-page :is(
+    .metrics-grid.dash-kpi-grid, .dash-skeleton-kpis
+  ) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .admin-layout[data-theme] .admin-content .admin-dashboard-page :is(
+    .metrics-grid.dash-kpi-grid, .dash-skeleton-kpis
+  ) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
