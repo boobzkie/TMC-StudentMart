@@ -1,0 +1,33 @@
+# Dependencies & Framework Builds
+**/node_modules/
+**/vendor/
+**/dist/
+**/build/
+**/.dart_tool/
+**/.pub-cache/
+
+# Logs & Temporary Files
+*.log
+*.err
+flutter_analyze*.log
+serve.log
+serve.err
+
+# Storage & Large Uploads
+backend/storage/app/
+backend/storage/framework/
+
+
+# Cache & Compiled Files
+**/.cache/
+*/storage/.key
+**/.parcel-cache/
+**/.turbo/
+.next/
+.nuxt/
+
+# Archives & Large Backups (since you have a backup folder in your project)
+*.zip
+*.tar.gz
+*.rar
+backup/

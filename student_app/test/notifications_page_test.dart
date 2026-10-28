@@ -108,6 +108,12 @@ void main() {
             200,
           );
         }
+        if (request.method == 'GET' && request.url.path.endsWith('/orders')) {
+          return http.Response(
+            jsonEncode({'success': true, 'orders': [], 'total': 0}),
+            200,
+          );
+        }
 
         return http.Response('Not found', 404);
       });
@@ -115,7 +121,7 @@ void main() {
       await tester.pumpWidget(
         Provider<ApiService>.value(
           value: ApiService(client: client),
-          child: const MaterialApp(home: NotificationsPage()),
+          child: const MaterialApp(home: NotificationsPage(initialTab: 1)),
         ),
       );
       await tester.pumpAndSettle();
@@ -133,6 +139,162 @@ void main() {
       expect(find.text('Order details'), findsOneWidget);
       expect(find.text('Buyer'), findsOneWidget);
       expect(find.text('Test Buyer'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'Inbox exposes all destinations and uses the real order and follow APIs',
+    (tester) async {
+      tester.view.physicalSize = const Size(360, 840);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      FlutterSecureStoragePlatform.instance = TestFlutterSecureStoragePlatform({
+        ApiService.tokenKey: 'test-token',
+      });
+
+      final requestedPaths = <String>[];
+      final client = MockClient((request) async {
+        requestedPaths.add(request.url.path);
+        if (request.method == 'GET' &&
+            request.url.path.endsWith('/notifications')) {
+          return http.Response(
+            jsonEncode({
+              'success': true,
+              'unread_count': 2,
+              'notifications': [],
+              'total': 0,
+            }),
+            200,
+          );
+        }
+        if (request.method == 'GET' &&
+            (request.url.path.endsWith('/orders') ||
+                request.url.path.endsWith('/seller/orders'))) {
+          return http.Response(
+            jsonEncode({
+              'success': true,
+              'orders': [
+                {
+                  'id': 18,
+                  'order_number': 'TMC-TEST-18',
+                  'status': 'pending',
+                  'buyer': {'id': 4, 'name': 'Buyer'},
+                  'seller': {'id': 9, 'name': 'Seller'},
+                  'items': [
+                    {'product_name': 'Biology textbook'},
+                  ],
+                  'created_at': '2026-10-12T08:00:00.000000Z',
+                  'updated_at': '2026-10-12T08:00:00.000000Z',
+                },
+              ],
+              'total': 1,
+            }),
+            200,
+          );
+        }
+        if (request.method == 'GET' &&
+            request.url.path.endsWith('/user/followers')) {
+          return http.Response(
+            jsonEncode({
+              'success': true,
+              'accounts': [
+                {
+                  'id': 27,
+                  'name': 'Ana Santos',
+                  'course': 'BSIT',
+                  'profile_picture': null,
+                  'is_following': false,
+                },
+              ],
+              'total': 1,
+              'current_page': 1,
+              'last_page': 1,
+            }),
+            200,
+          );
+        }
+        if (request.method == 'GET' &&
+            request.url.path.endsWith('/user/following')) {
+          return http.Response(
+            jsonEncode({
+              'success': true,
+              'accounts': [],
+              'total': 0,
+              'current_page': 1,
+              'last_page': 1,
+            }),
+            200,
+          );
+        }
+        if (request.method == 'POST' &&
+            request.url.path.endsWith('/students/27/follow')) {
+          return http.Response(
+            jsonEncode({
+              'success': true,
+              'is_following': true,
+              'followers_count': 4,
+              'following_count': 2,
+            }),
+            200,
+          );
+        }
+        return http.Response('Not found', 404);
+      });
+
+      final api = ApiService(client: client);
+      final auth = AuthState(api)
+        ..user = const Student(
+          id: 9,
+          name: 'Test Seller',
+          email: 'seller@example.test',
+          role: 'student',
+        );
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            Provider<ApiService>.value(value: api),
+            ChangeNotifierProvider<AuthState>.value(value: auth),
+          ],
+          child: const MaterialApp(home: NotificationsPage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      for (final label in [
+        'Messages',
+        'Notifications',
+        'Orders',
+        'Followers',
+        'Following',
+      ]) {
+        expect(find.text(label), findsOneWidget);
+      }
+      expect(find.text('2'), findsOneWidget);
+      expect(find.text('1'), findsOneWidget);
+
+      await tester.ensureVisible(find.text('Orders'));
+      await tester.tap(find.text('Orders'));
+      await tester.pumpAndSettle();
+      expect(find.text('TMC-TEST-18'), findsOneWidget);
+      expect(requestedPaths, contains('/api/orders'));
+      expect(requestedPaths, contains('/api/seller/orders'));
+
+      await tester.ensureVisible(find.text('Followers'));
+      await tester.tap(find.text('Followers'));
+      await tester.pumpAndSettle();
+      expect(find.text('Ana Santos'), findsOneWidget);
+      expect(requestedPaths, contains('/api/user/followers'));
+
+      await tester.tap(find.byTooltip('Follow back Ana Santos'));
+      await tester.pumpAndSettle();
+      expect(requestedPaths, contains('/api/students/27/follow'));
+
+      await tester.ensureVisible(find.text('Following'));
+      await tester.tap(find.text('Following'));
+      await tester.pumpAndSettle();
+      expect(requestedPaths, contains('/api/user/following'));
     },
   );
 }

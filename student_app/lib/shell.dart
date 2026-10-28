@@ -27,7 +27,7 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   int _index = 0;
   bool _hasOpenedInbox = false;
-  static const _titles = ['Home', 'Shop', 'Sell', 'Inbox', 'Profile'];
+  int _unreadInboxCount = 0;
 
   void _selectDestination(int value) {
     setState(() {
@@ -44,11 +44,32 @@ class _AppShellState extends State<AppShell> {
         final student = context.read<AuthState>().user;
         if (student != null) {
           unawaited(context.read<CartState>().setCurrentUser(student.id));
+          unawaited(_loadInboxUnreadCount());
         }
         unawaited(context.read<MarketplaceState>().loadProducts());
         unawaited(context.read<MarketplaceState>().loadCategories());
       }
     });
+  }
+
+  Future<void> _loadInboxUnreadCount() async {
+    try {
+      final response = asMap(
+        await context.read<ApiService>().get('/notifications'),
+      );
+      if (!mounted) return;
+      setState(() {
+        _unreadInboxCount =
+            int.tryParse(valueOf(response['unread_count'])) ?? 0;
+      });
+    } catch (_) {
+      // Inbox data will retry when the user opens the Inbox destination.
+    }
+  }
+
+  void _setInboxUnreadCount(int count) {
+    if (!mounted || count == _unreadInboxCount) return;
+    setState(() => _unreadInboxCount = count);
   }
 
   @override
@@ -59,7 +80,11 @@ class _AppShellState extends State<AppShell> {
       const MarketplacePage(),
       const SellPage(),
       _hasOpenedInbox
-          ? const NotificationsPage(showAppBar: false)
+          ? NotificationsPage(
+              showAppBar: false,
+              initialUnreadCount: _unreadInboxCount,
+              onUnreadCountChanged: _setInboxUnreadCount,
+            )
           : const SizedBox.shrink(),
       const ProfilePage(),
     ];
@@ -67,6 +92,8 @@ class _AppShellState extends State<AppShell> {
       drawer: _StudentDrawer(
         selectedIndex: _index,
         onNavigate: _selectDestination,
+        unreadInboxCount: _unreadInboxCount,
+        onUnreadCountChanged: _setInboxUnreadCount,
       ),
       appBar: AppBar(
         leading: Builder(
@@ -78,58 +105,69 @@ class _AppShellState extends State<AppShell> {
         ),
         title: Row(
           children: [
-            const BrandLogo(size: 38),
-            const SizedBox(width: 10),
-            Text(
-              _index == 4 ? 'TMC StudentMart' : _titles[_index],
-              style: const TextStyle(
-                color: TmcPalette.text,
-                fontWeight: FontWeight.w800,
+            const BrandLogo(size: 36),
+            const SizedBox(width: 9),
+            const Expanded(
+              child: Text(
+                'TMC StudentMart',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: TmcPalette.text,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ),
           ],
         ),
-        actions: _index == 4
-            ? const <Widget>[]
-            : [
-                IconButton(
-                  tooltip: 'Search',
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(builder: (_) => const SearchPage()),
-                  ),
-                  icon: const Icon(Icons.search),
+        actions: [
+          IconButton(
+            tooltip: 'Search',
+            onPressed: () => Navigator.of(
+              context,
+            ).push(MaterialPageRoute<void>(builder: (_) => const SearchPage())),
+            icon: const Icon(Icons.search),
+          ),
+          IconButton(
+            tooltip: 'Cart',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => CartPage(
+                  onBrowse: () {
+                    Navigator.of(context).pop();
+                    _selectDestination(1);
+                  },
                 ),
-                IconButton(
-                  tooltip: 'Cart',
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => CartPage(
-                        onBrowse: () {
-                          Navigator.of(context).pop();
-                          _selectDestination(1);
-                        },
-                      ),
-                    ),
-                  ),
-                  icon: _CartNavigationIcon(count: cartCount, selected: false),
-                ),
-                const SizedBox(width: 6),
-              ],
+              ),
+            ),
+            icon: _CartNavigationIcon(count: cartCount, selected: false),
+          ),
+          const SizedBox(width: 6),
+        ],
       ),
       body: IndexedStack(index: _index, children: pages),
       bottomNavigationBar: _StudentBottomNavigationBar(
         selectedIndex: _index,
         onDestinationSelected: _selectDestination,
+        unreadInboxCount: _unreadInboxCount,
       ),
     );
   }
 }
 
 class _StudentDrawer extends StatelessWidget {
-  const _StudentDrawer({required this.selectedIndex, required this.onNavigate});
+  const _StudentDrawer({
+    required this.selectedIndex,
+    required this.onNavigate,
+    required this.unreadInboxCount,
+    required this.onUnreadCountChanged,
+  });
 
   final int selectedIndex;
   final ValueChanged<int> onNavigate;
+  final int unreadInboxCount;
+  final ValueChanged<int> onUnreadCountChanged;
 
   void _push(BuildContext context, Widget page) {
     Navigator.of(context).pop();
@@ -291,7 +329,14 @@ class _StudentDrawer extends StatelessWidget {
             ListTile(
               leading: const Icon(Icons.notifications_none),
               title: const Text('Notifications'),
-              onTap: () => _push(context, const NotificationsPage()),
+              onTap: () => _push(
+                context,
+                NotificationsPage(
+                  initialTab: 1,
+                  initialUnreadCount: unreadInboxCount,
+                  onUnreadCountChanged: onUnreadCountChanged,
+                ),
+              ),
             ),
             ListTile(
               leading: const Icon(Icons.flag_outlined),
@@ -358,10 +403,12 @@ class _StudentBottomNavigationBar extends StatelessWidget {
   const _StudentBottomNavigationBar({
     required this.selectedIndex,
     required this.onDestinationSelected,
+    required this.unreadInboxCount,
   });
 
   final int selectedIndex;
   final ValueChanged<int> onDestinationSelected;
+  final int unreadInboxCount;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -456,6 +503,7 @@ class _StudentBottomNavigationBar extends StatelessWidget {
               icon: Icons.chat_bubble_outline_rounded,
               selectedIcon: Icons.chat_bubble_rounded,
               selected: selectedIndex == 3,
+              badgeCount: unreadInboxCount,
               onTap: () => onDestinationSelected(3),
             ),
             _BottomNavigationItem(
@@ -479,6 +527,7 @@ class _BottomNavigationItem extends StatelessWidget {
     required this.selectedIcon,
     required this.selected,
     required this.onTap,
+    this.badgeCount = 0,
   });
 
   final String label;
@@ -486,13 +535,16 @@ class _BottomNavigationItem extends StatelessWidget {
   final IconData selectedIcon;
   final bool selected;
   final VoidCallback onTap;
+  final int badgeCount;
 
   @override
   Widget build(BuildContext context) => Expanded(
     child: Semantics(
       button: true,
       selected: selected,
-      label: label,
+      label: badgeCount > 0
+          ? '$label, $badgeCount unread notifications'
+          : label,
       child: Tooltip(
         message: label,
         child: Material(
@@ -506,12 +558,16 @@ class _BottomNavigationItem extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    selected ? selectedIcon : icon,
-                    size: 22,
-                    color: selected
-                        ? TmcPalette.white
-                        : TmcPalette.white.withValues(alpha: .72),
+                  Badge(
+                    isLabelVisible: badgeCount > 0,
+                    label: Text(badgeCount > 99 ? '99+' : '$badgeCount'),
+                    child: Icon(
+                      selected ? selectedIcon : icon,
+                      size: 22,
+                      color: selected
+                          ? TmcPalette.white
+                          : TmcPalette.white.withValues(alpha: .72),
+                    ),
                   ),
                   const SizedBox(height: 3),
                   Text(

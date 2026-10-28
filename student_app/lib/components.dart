@@ -563,6 +563,7 @@ class ProductCard extends StatelessWidget {
     this.isOwnListing = false,
     this.management = false,
     this.imageHeight = 132,
+    this.showSeller = false,
   });
   final Product product;
   final VoidCallback onTap;
@@ -570,6 +571,7 @@ class ProductCard extends StatelessWidget {
   final bool isOwnListing;
   final bool management;
   final double imageHeight;
+  final bool showSeller;
 
   @override
   Widget build(BuildContext context) {
@@ -660,6 +662,18 @@ class ProductCard extends StatelessWidget {
                     fontSize: 12,
                   ),
                 ),
+                if (showSeller && product.sellerName.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    'Sold by ${product.sellerName}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: TmcPalette.textSoft,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
                 if (!management) ...[
                   const SizedBox(height: 2),
                   Text(

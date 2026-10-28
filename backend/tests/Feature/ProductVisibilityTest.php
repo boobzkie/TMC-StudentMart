@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Category;
 use App\Models\Product;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -63,4 +64,36 @@ test('students can read another seller active marketplace product', function () 
         ->assertOk()
         ->assertJsonPath('product.id', $product->id)
         ->assertJsonPath('product.status', 'active');
+});
+
+test('marketplace search matches product, seller, and active category information', function () {
+    $seller = makeProductVisibilityStudent('SEARCH-OWNER');
+    $seller->update([
+        'name' => 'Searchable Seller',
+        'username' => 'searchseller',
+    ]);
+    $viewer = makeProductVisibilityStudent('SEARCH-VIEWER');
+    $category = Category::create([
+        'name' => 'Course Materials',
+        'description' => 'Books and supplies for class.',
+        'status' => 'active',
+    ]);
+    $product = makeVisibilityTestProduct($seller, 'active');
+    $product->update([
+        'name' => 'Study Notebook',
+        'description' => 'Ruled pages for lecture notes.',
+        'category_id' => $category->id,
+    ]);
+    Sanctum::actingAs($viewer);
+
+    foreach (['Notebook', 'Searchable Seller', 'searchseller', 'Course Materials'] as $term) {
+        $this->getJson('/api/products?search='.urlencode($term))
+            ->assertOk()
+            ->assertJsonPath('total', 1)
+            ->assertJsonPath('products.0.id', $product->id);
+    }
+
+    $this->getJson('/api/products?search='.str_repeat('a', 121))
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('search');
 });

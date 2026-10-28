@@ -28,6 +28,11 @@ class ProductController extends Controller
 
     public function index(Request $request): JsonResponse
     {
+        $request->validate([
+            'search' => ['nullable', 'string', 'max:120'],
+            'category' => ['nullable', 'string', 'max:100'],
+        ]);
+
         $visibleSoldOutCutoff = now()->subHour();
         $query = Product::with(['user:id,name,username,bio,course,profile_picture,student_id,contact_number,share_contact_info,facebook_url,instagram_url,tiktok_url', 'images', 'categoryRecord:id,name', 'variants' => fn ($query) => $query->where('is_active', true)])
             ->where(function ($query) use ($visibleSoldOutCutoff): void {
@@ -49,7 +54,12 @@ class ProductController extends Controller
             if ($search !== '') {
                 $query->where(function ($q) use ($search): void {
                     $q->where('name', 'like', "%{$search}%")
-                        ->orWhere('description', 'like', "%{$search}%");
+                        ->orWhere('description', 'like', "%{$search}%")
+                        ->orWhereHas('user', function ($seller) use ($search): void {
+                            $seller->where('name', 'like', "%{$search}%")
+                                ->orWhere('username', 'like', "%{$search}%");
+                        })
+                        ->orWhereHas('categoryRecord', fn ($category) => $category->where('name', 'like', "%{$search}%"));
                 });
             }
         }

@@ -1142,13 +1142,25 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   int _selectedTab = 0;
   Future<dynamic>? _ordersFuture;
-  late Future<Map<String, dynamic>> _followStatsFuture;
+  late Future<Map<String, dynamic>> _profileSummaryFuture;
 
   @override
   void initState() {
     super.initState();
-    _followStatsFuture = context.read<ApiService>().myFollowStats();
-    unawaited(context.read<MarketplaceState>().loadMine());
+    _profileSummaryFuture = _loadProfileSummary();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(context.read<MarketplaceState>().loadMine());
+    });
+  }
+
+  Future<Map<String, dynamic>> _loadProfileSummary() {
+    final studentId = context.read<AuthState>().user?.id ?? 0;
+    if (studentId <= 0) return Future.value(const <String, dynamic>{});
+    return context.read<ApiService>().sellerProfile(studentId);
+  }
+
+  void _refreshProfileSummary() {
+    setState(() => _profileSummaryFuture = _loadProfileSummary());
   }
 
   Future<void> _changeProfilePhoto() async {
@@ -1266,9 +1278,7 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
     );
     if (!mounted) return;
-    setState(() {
-      _followStatsFuture = context.read<ApiService>().myFollowStats();
-    });
+    _refreshProfileSummary();
   }
 
   @override
@@ -1280,203 +1290,234 @@ class _ProfilePageState extends State<ProfilePage> {
     final listings = marketplace.myProducts;
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       children: [
+        _buildProfileCard(student, auth),
+        const SizedBox(height: 18),
         TmcPanel(
-          padding: const EdgeInsets.all(18),
-          color: TmcPalette.primarySoft,
-          child: Column(
+          padding: const EdgeInsets.all(5),
+          radius: TmcRadius.pill,
+          child: Row(
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      _StudentAvatar(student: student, size: 88),
-                      Positioned(
-                        right: -5,
-                        bottom: -5,
-                        child: Tooltip(
-                          message: 'Change profile photo',
-                          child: Semantics(
-                            button: true,
-                            label: 'Change profile photo',
-                            child: IconButton.filled(
-                              onPressed: auth.savingProfile
-                                  ? null
-                                  : _changeProfilePhoto,
-                              tooltip: 'Change profile photo',
-                              icon: auth.savingProfile
-                                  ? const SizedBox.square(
-                                      dimension: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : const Icon(Icons.camera_alt_outlined),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          student.name,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.titleLarge
-                              ?.copyWith(
-                                color: TmcPalette.deepNavyBlack,
-                                fontWeight: FontWeight.w900,
-                              ),
-                        ),
-                        const SizedBox(height: 5),
-                        const Text(
-                          'TMC Student',
-                          style: TextStyle(
-                            color: TmcPalette.darkGray,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        if (student.status.isNotEmpty) ...[
-                          const SizedBox(height: 9),
-                          StatusBadge(student.status),
-                        ],
-                      ],
-                    ),
-                  ),
-                ],
+              Expanded(
+                child: _ProfileTab(
+                  label: 'My Listings',
+                  icon: Icons.storefront_outlined,
+                  selected: _selectedTab == 0,
+                  onTap: () => _selectTab(0),
+                ),
               ),
-              const SizedBox(height: 14),
-              FutureBuilder<Map<String, dynamic>>(
-                future: _followStatsFuture,
-                builder: (context, snapshot) {
-                  final stats = snapshot.data ?? const <String, dynamic>{};
-                  final followingCount =
-                      int.tryParse(valueOf(stats['following_count'])) ?? 0;
-                  final followersCount =
-                      int.tryParse(valueOf(stats['followers_count'])) ?? 0;
-                  final countLabel = snapshot.hasError || !snapshot.hasData
-                      ? '—'
-                      : null;
-
-                  return Row(
-                    children: [
-                      Expanded(
-                        child: _ProfileStat(
-                          count: countLabel ?? '$followingCount',
-                          label: 'Following',
-                          onTap: () => _openConnections(false),
-                        ),
-                      ),
-                      Container(width: 1, height: 38, color: TmcPalette.border),
-                      Expanded(
-                        child: _ProfileStat(
-                          count: countLabel ?? '$followersCount',
-                          label: 'Followers',
-                          onTap: () => _openConnections(true),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      OutlinedButton.icon(
-                        onPressed: () =>
-                            _open(context, const EditStudentProfilePage()),
-                        icon: const Icon(Icons.edit_outlined, size: 16),
-                        label: const Text('Edit profile'),
-                        style: OutlinedButton.styleFrom(
-                          minimumSize: const Size(48, 42),
-                          padding: const EdgeInsets.symmetric(horizontal: 10),
-                          visualDensity: VisualDensity.compact,
-                        ),
-                      ),
-                    ],
-                  );
-                },
+              Expanded(
+                child: _ProfileTab(
+                  label: 'My Orders',
+                  icon: Icons.shopping_bag_outlined,
+                  selected: _selectedTab == 1,
+                  onTap: () => _selectTab(1),
+                ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () => _open(context, const OrdersPage()),
-                icon: const Icon(Icons.shopping_bag_outlined),
-                label: const Text('My Orders'),
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size(48, 54),
-                ),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: FilledButton.icon(
-                onPressed: () => _openListings(context),
-                icon: const Icon(Icons.storefront_outlined),
-                label: const Text('My Listings'),
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size(48, 54),
-                  backgroundColor: TmcPalette.deepNavy,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 22),
-        TmcPanel(
-          padding: const EdgeInsets.fromLTRB(8, 4, 8, 12),
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  _ProfileTab(
-                    label: 'My Listings',
-                    selected: _selectedTab == 0,
-                    onTap: () => _selectTab(0),
-                  ),
-                  const SizedBox(width: 18),
-                  _ProfileTab(
-                    label: 'My Orders',
-                    selected: _selectedTab == 1,
-                    onTap: () => _selectTab(1),
-                  ),
-                  const Spacer(),
-                  TextButton(
-                    onPressed: () => _viewAll(context),
-                    style: TextButton.styleFrom(
-                      minimumSize: const Size(48, 44),
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text('View all'),
-                        Icon(Icons.chevron_right, size: 18),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const Divider(height: 1),
-              const SizedBox(height: 12),
-              if (_selectedTab == 0)
-                _buildListings(marketplace, listings)
-              else
-                _buildOrders(),
-            ],
-          ),
-        ),
+        const SizedBox(height: 10),
+        if (_selectedTab == 0)
+          _buildListings(marketplace, listings)
+        else
+          _buildOrders(),
       ],
     );
   }
+
+  Widget _buildProfileCard(Student student, AuthState auth) => Container(
+    padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+    decoration: BoxDecoration(
+      gradient: const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [TmcPalette.primary, TmcPalette.deepNavy],
+      ),
+      borderRadius: BorderRadius.circular(26),
+      boxShadow: TmcNeumorphism.darkRaised,
+    ),
+    child: Column(
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  width: 96,
+                  height: 96,
+                  padding: const EdgeInsets.all(3),
+                  decoration: const BoxDecoration(
+                    color: TmcPalette.white,
+                    shape: BoxShape.circle,
+                  ),
+                  child: _StudentAvatar(student: student, size: 90),
+                ),
+                Positioned(
+                  right: -4,
+                  bottom: -2,
+                  child: IconButton.filledTonal(
+                    tooltip: 'Change profile photo',
+                    onPressed: auth.savingProfile ? null : _changeProfilePhoto,
+                    style: IconButton.styleFrom(
+                      minimumSize: const Size(42, 42),
+                      backgroundColor: TmcPalette.white,
+                      foregroundColor: TmcPalette.primary,
+                    ),
+                    icon: auth.savingProfile
+                        ? const SizedBox.square(
+                            dimension: 17,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.camera_alt_outlined, size: 20),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    student.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: TmcPalette.white,
+                      fontSize: 21,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 7),
+                  const Row(
+                    children: [
+                      Icon(
+                        Icons.school_outlined,
+                        color: TmcPalette.paleBlue,
+                        size: 19,
+                      ),
+                      SizedBox(width: 7),
+                      Flexible(
+                        child: Text(
+                          'TMC Student',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: TmcPalette.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 4),
+            IconButton.filledTonal(
+              tooltip: 'Edit profile',
+              onPressed: auth.savingProfile
+                  ? null
+                  : () => _open(context, const EditStudentProfilePage()),
+              style: IconButton.styleFrom(
+                minimumSize: const Size(44, 44),
+                backgroundColor: TmcPalette.white.withValues(alpha: .14),
+                foregroundColor: TmcPalette.white,
+              ),
+              icon: const Icon(Icons.edit_outlined),
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        Container(height: 1, color: TmcPalette.white.withValues(alpha: .28)),
+        const SizedBox(height: 12),
+        FutureBuilder<Map<String, dynamic>>(
+          future: _profileSummaryFuture,
+          builder: (context, snapshot) {
+            final summary = snapshot.data ?? const <String, dynamic>{};
+            final following = int.tryParse(valueOf(summary['following_count']));
+            final followers = int.tryParse(valueOf(summary['followers_count']));
+            final reviewCount =
+                int.tryParse(valueOf(summary['reviews_count'])) ?? 0;
+            final average = double.tryParse(valueOf(summary['average_rating']));
+            final isLoading = snapshot.connectionState != ConnectionState.done;
+            final hasError = snapshot.hasError;
+            final rating =
+                !isLoading && !hasError && reviewCount > 0 && average != null
+                ? average.toStringAsFixed(1)
+                : '—';
+
+            return Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: _ProfileStat(
+                        count: isLoading || hasError
+                            ? '—'
+                            : '${following ?? 0}',
+                        label: 'Following',
+                        dark: true,
+                        onTap: () => _openConnections(false),
+                      ),
+                    ),
+                    Container(
+                      width: 1,
+                      height: 40,
+                      color: TmcPalette.white.withValues(alpha: .32),
+                    ),
+                    Expanded(
+                      child: _ProfileStat(
+                        count: isLoading || hasError
+                            ? '—'
+                            : '${followers ?? 0}',
+                        label: 'Followers',
+                        dark: true,
+                        onTap: () => _openConnections(true),
+                      ),
+                    ),
+                    Container(
+                      width: 1,
+                      height: 40,
+                      color: TmcPalette.white.withValues(alpha: .32),
+                    ),
+                    Expanded(
+                      child: _ProfileStat(
+                        count: rating,
+                        label: 'Rating',
+                        dark: true,
+                        trailing: rating == '—'
+                            ? null
+                            : const Icon(
+                                Icons.star_rounded,
+                                color: Color(0xFFFFD15C),
+                                size: 20,
+                              ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (hasError)
+                  TextButton.icon(
+                    onPressed: _refreshProfileSummary,
+                    icon: const Icon(Icons.refresh, size: 17),
+                    label: const Text('Retry profile stats'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: TmcPalette.white,
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+      ],
+    ),
+  );
 
   Widget _buildListings(MarketplaceState marketplace, List<Product> listings) {
     if (marketplace.loading && listings.isEmpty) {
@@ -1492,11 +1533,10 @@ class _ProfilePageState extends State<ProfilePage> {
       );
     }
     if (listings.isEmpty) {
-      return const EmptyMessage(
+      return const _ProfileEmptyState(
         icon: Icons.storefront_outlined,
-        title: 'No listings yet',
-        message:
-            'Your marketplace listings will appear here. Use the + button to create one.',
+        title: 'Your listings',
+        message: 'Manage the items you’ve posted on StudentMart.',
       );
     }
 
@@ -1510,29 +1550,38 @@ class _ProfilePageState extends State<ProfilePage> {
             ? 2
             : 1;
         final preview = listings.take(4).toList(growable: false);
-        return GridView.builder(
-          itemCount: preview.length,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: columns,
-            mainAxisExtent: 210,
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
-          ),
-          itemBuilder: (context, index) {
-            final product = preview[index];
-            return ProductCard(
-              product: product,
-              management: true,
-              imageHeight: 104,
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => ProductDetailsPage(productId: product.id),
-                ),
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _ProfileListHeading(
+              title: 'Your listings',
+              onViewAll: () => _viewAll(context),
+            ),
+            GridView.builder(
+              itemCount: preview.length,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: columns,
+                mainAxisExtent: 210,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
               ),
-            );
-          },
+              itemBuilder: (context, index) {
+                final product = preview[index];
+                return ProductCard(
+                  product: product,
+                  management: true,
+                  imageHeight: 104,
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => ProductDetailsPage(productId: product.id),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
         );
       },
     );
@@ -1560,14 +1609,19 @@ class _ProfilePageState extends State<ProfilePage> {
           ? rawOrders.map((row) => asMap(row)).take(3).toList()
           : <Map<String, dynamic>>[];
       if (orders.isEmpty) {
-        return const EmptyMessage(
+        return const _ProfileEmptyState(
           icon: Icons.receipt_long_outlined,
-          title: 'No orders yet',
-          message: 'Order requests you place will appear here.',
+          title: 'Your orders',
+          message: 'Track your purchases and pickup requests here.',
         );
       }
       return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          _ProfileListHeading(
+            title: 'Recent orders',
+            onViewAll: () => _viewAll(context),
+          ),
           for (final order in orders)
             _ProfileOrderCard(
               order: order,
@@ -1588,14 +1642,110 @@ class _ProfilePageState extends State<ProfilePage> {
   );
 }
 
+class _ProfileEmptyState extends StatelessWidget {
+  const _ProfileEmptyState({
+    required this.icon,
+    required this.title,
+    required this.message,
+  });
+
+  final IconData icon;
+  final String title;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final height = (MediaQuery.sizeOf(context).height * .4)
+        .clamp(280.0, 400.0)
+        .toDouble();
+    return SizedBox(
+      height: height,
+      child: Center(
+        child: Semantics(
+          liveRegion: true,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 104,
+                height: 104,
+                decoration: BoxDecoration(
+                  color: TmcPalette.primarySoft,
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                child: Icon(icon, size: 54, color: TmcPalette.primary),
+              ),
+              const SizedBox(height: 22),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  color: TmcPalette.deepNavy,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 8),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: TmcPalette.textMuted,
+                    fontSize: 15,
+                    height: 1.45,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileListHeading extends StatelessWidget {
+  const _ProfileListHeading({required this.title, required this.onViewAll});
+
+  final String title;
+  final VoidCallback onViewAll;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(4, 6, 0, 10),
+    child: Row(
+      children: [
+        Expanded(
+          child: Text(
+            title,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: TmcPalette.deepNavy,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+        TextButton.icon(
+          onPressed: onViewAll,
+          iconAlignment: IconAlignment.end,
+          icon: const Icon(Icons.chevron_right, size: 18),
+          label: const Text('View all'),
+        ),
+      ],
+    ),
+  );
+}
+
 class _ProfileTab extends StatelessWidget {
   const _ProfileTab({
     required this.label,
+    required this.icon,
     required this.selected,
     required this.onTap,
   });
 
   final String label;
+  final IconData icon;
   final bool selected;
   final VoidCallback onTap;
 
@@ -1606,24 +1756,57 @@ class _ProfileTab extends StatelessWidget {
     label: label,
     child: InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(TmcRadius.sm),
-      child: Container(
-        constraints: const BoxConstraints(minHeight: 46),
-        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 10),
+      borderRadius: BorderRadius.circular(TmcRadius.pill),
+      child: AnimatedContainer(
+        duration: TmcMotion.fast,
+        padding: const EdgeInsets.fromLTRB(6, 6, 6, 3),
         decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              color: selected ? TmcPalette.primary : Colors.transparent,
-              width: 3,
-            ),
-          ),
+          color: selected ? TmcPalette.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(TmcRadius.pill),
+          boxShadow: selected ? TmcNeumorphism.lightRaised : null,
         ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: selected ? TmcPalette.deepNavy : TmcPalette.darkGray,
-            fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-          ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 3),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    icon,
+                    size: 22,
+                    color: selected ? TmcPalette.primary : TmcPalette.textMuted,
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: selected
+                            ? TmcPalette.primary
+                            : TmcPalette.textMuted,
+                        fontSize: 14,
+                        fontWeight: selected
+                            ? FontWeight.w800
+                            : FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              height: 3,
+              margin: const EdgeInsets.symmetric(horizontal: 20),
+              decoration: BoxDecoration(
+                color: selected ? TmcPalette.primary : Colors.transparent,
+                borderRadius: BorderRadius.circular(TmcRadius.pill),
+              ),
+            ),
+          ],
         ),
       ),
     ),
@@ -1634,16 +1817,20 @@ class _ProfileStat extends StatelessWidget {
   const _ProfileStat({
     required this.count,
     required this.label,
-    required this.onTap,
+    this.onTap,
+    this.dark = false,
+    this.trailing,
   });
 
   final String count;
   final String label;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
+  final bool dark;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) => Semantics(
-    button: true,
+    button: onTap != null,
     label: '$count $label',
     child: InkWell(
       onTap: onTap,
@@ -1653,19 +1840,31 @@ class _ProfileStat extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              count,
-              style: const TextStyle(
-                color: TmcPalette.deepNavy,
-                fontSize: 16,
-                fontWeight: FontWeight.w900,
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    count,
+                    style: TextStyle(
+                      color: dark ? TmcPalette.white : TmcPalette.deepNavy,
+                      fontSize: 21,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  if (trailing != null) ...[
+                    const SizedBox(width: 3),
+                    trailing!,
+                  ],
+                ],
               ),
             ),
             Text(
               label,
               style: const TextStyle(
-                color: TmcPalette.darkGray,
-                fontSize: 12,
+                color: TmcPalette.paleBlue,
+                fontSize: 13,
                 fontWeight: FontWeight.w600,
               ),
             ),

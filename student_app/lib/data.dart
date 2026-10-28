@@ -1007,10 +1007,35 @@ class MarketplaceState extends ChangeNotifier {
   List<Product> products = [];
   List<Product> myProducts = [];
   List<ProductCategory> categories = [];
+  final List<String> recentSearches = <String>[];
   bool loading = false;
   bool categoriesLoading = false;
   String? error;
   String? categoriesError;
+
+  void addRecentSearch(String query) {
+    final normalized = query.trim();
+    if (normalized.isEmpty) return;
+    recentSearches.removeWhere(
+      (item) => item.toLowerCase() == normalized.toLowerCase(),
+    );
+    recentSearches.insert(0, normalized);
+    if (recentSearches.length > 8) recentSearches.removeLast();
+    notifyListeners();
+  }
+
+  void removeRecentSearch(String query) {
+    recentSearches.removeWhere(
+      (item) => item.toLowerCase() == query.toLowerCase(),
+    );
+    notifyListeners();
+  }
+
+  void clearRecentSearches() {
+    if (recentSearches.isEmpty) return;
+    recentSearches.clear();
+    notifyListeners();
+  }
 
   Future<void> loadCategories() async {
     categoriesLoading = true;
