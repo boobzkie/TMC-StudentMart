@@ -3,6 +3,8 @@
 use App\Models\Product;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 
 uses(RefreshDatabase::class);
@@ -51,6 +53,29 @@ test('student can update their own contact profile and explicit sharing preferen
     expect($student->contact_number)->toBe('09171234567')
         ->and($student->course)->toBe('BSIT')
         ->and($student->share_contact_info)->toBeTrue();
+});
+
+test('student can upload a profile photo through their existing profile endpoint', function () {
+    Storage::fake('public');
+    $student = makePrivacyStudent('PHOTO');
+    Sanctum::actingAs($student);
+    $png = base64_decode(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j5ZcAAAAASUVORK5CYII='
+    );
+
+    $response = $this->post('/api/user/student-profile', [
+        '_method' => 'PUT',
+        'profile_picture' => UploadedFile::fake()->createWithContent(
+            'student-profile.png',
+            $png
+        ),
+    ], ['Accept' => 'application/json']);
+
+    $response->assertOk();
+    $path = $response->json('user.profile_picture');
+    expect(str_starts_with($path, 'profile-pictures/'))->toBeTrue()
+        ->and(Storage::disk('public')->exists($path))->toBeTrue()
+        ->and($student->fresh()->profile_picture)->toBe($path);
 });
 
 test('seller contact details appear on product data only after the seller opts in', function () {

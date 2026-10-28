@@ -21,6 +21,7 @@ use App\Http\Controllers\StaffComplaintController;
 use App\Http\Controllers\StaffInsightsController;
 use App\Http\Controllers\StaffPresenceController;
 use App\Http\Controllers\StaffRegistrationController;
+use App\Http\Controllers\StudentFollowController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -129,6 +130,36 @@ Route::middleware('auth:sanctum')->group(function () {
             AuthController::class,
             'updateStudentPassword',
         ])->middleware('throttle:6,1');
+
+        Route::get('/user/follow-stats', [
+            StudentFollowController::class,
+            'summary',
+        ]);
+
+        Route::get('/user/followers', [
+            StudentFollowController::class,
+            'followers',
+        ]);
+
+        Route::get('/user/following', [
+            StudentFollowController::class,
+            'following',
+        ]);
+
+        Route::get('/students/{student}/follow', [
+            StudentFollowController::class,
+            'status',
+        ]);
+
+        Route::post('/students/{student}/follow', [
+            StudentFollowController::class,
+            'follow',
+        ])->middleware('throttle:60,1');
+
+        Route::delete('/students/{student}/follow', [
+            StudentFollowController::class,
+            'unfollow',
+        ])->middleware('throttle:60,1');
 
         /*
         |--------------------------------------------------------------------------

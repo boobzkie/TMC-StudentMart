@@ -26,7 +26,15 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   int _index = 0;
-  static const _titles = ['Home', 'Marketplace', 'Sell', 'Cart', 'Profile'];
+  bool _hasOpenedInbox = false;
+  static const _titles = ['Home', 'Shop', 'Sell', 'Inbox', 'Profile'];
+
+  void _selectDestination(int value) {
+    setState(() {
+      _index = value;
+      if (value == 3) _hasOpenedInbox = true;
+    });
+  }
 
   @override
   void initState() {
@@ -47,15 +55,18 @@ class _AppShellState extends State<AppShell> {
   Widget build(BuildContext context) {
     final cartCount = context.watch<CartState>().itemCount;
     final pages = <Widget>[
-      HomePage(onOpenMarketplace: () => setState(() => _index = 1)),
+      HomePage(onOpenMarketplace: () => _selectDestination(1)),
       const MarketplacePage(),
       const SellPage(),
-      CartPage(onBrowse: () => setState(() => _index = 1)),
+      _hasOpenedInbox
+          ? const NotificationsPage(showAppBar: false)
+          : const SizedBox.shrink(),
       const ProfilePage(),
     ];
     return Scaffold(
       drawer: _StudentDrawer(
-        onNavigate: (index) => setState(() => _index = index),
+        selectedIndex: _index,
+        onNavigate: _selectDestination,
       ),
       appBar: AppBar(
         leading: Builder(
@@ -70,7 +81,7 @@ class _AppShellState extends State<AppShell> {
             const BrandLogo(size: 38),
             const SizedBox(width: 10),
             Text(
-              _titles[_index],
+              _index == 4 ? 'TMC StudentMart' : _titles[_index],
               style: const TextStyle(
                 color: TmcPalette.text,
                 fontWeight: FontWeight.w800,
@@ -78,71 +89,46 @@ class _AppShellState extends State<AppShell> {
             ),
           ],
         ),
-        actions: [
-          IconButton(
-            tooltip: 'Notifications',
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => const NotificationsPage(),
-              ),
-            ),
-            icon: const Icon(Icons.notifications_none),
-          ),
-          IconButton(
-            tooltip: 'Search',
-            onPressed: () => Navigator.of(
-              context,
-            ).push(MaterialPageRoute<void>(builder: (_) => const SearchPage())),
-            icon: const Icon(Icons.search),
-          ),
-          if (_index != 4)
-            IconButton(
-              tooltip: 'Profile',
-              onPressed: () => setState(() => _index = 4),
-              icon: const Icon(Icons.account_circle_outlined),
-            ),
-          const SizedBox(width: 6),
-        ],
+        actions: _index == 4
+            ? const <Widget>[]
+            : [
+                IconButton(
+                  tooltip: 'Search',
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(builder: (_) => const SearchPage()),
+                  ),
+                  icon: const Icon(Icons.search),
+                ),
+                IconButton(
+                  tooltip: 'Cart',
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => CartPage(
+                        onBrowse: () {
+                          Navigator.of(context).pop();
+                          _selectDestination(1);
+                        },
+                      ),
+                    ),
+                  ),
+                  icon: _CartNavigationIcon(count: cartCount, selected: false),
+                ),
+                const SizedBox(width: 6),
+              ],
       ),
       body: IndexedStack(index: _index, children: pages),
-      bottomNavigationBar: NavigationBar(
+      bottomNavigationBar: _StudentBottomNavigationBar(
         selectedIndex: _index,
-        onDestinationSelected: (value) => setState(() => _index = value),
-        destinations: [
-          const NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.storefront_outlined),
-            selectedIcon: Icon(Icons.storefront),
-            label: 'Browse',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.add_box_outlined),
-            selectedIcon: Icon(Icons.add_box),
-            label: 'Sell',
-          ),
-          NavigationDestination(
-            icon: _CartNavigationIcon(count: cartCount, selected: false),
-            selectedIcon: _CartNavigationIcon(count: cartCount, selected: true),
-            label: 'Cart',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-        ],
+        onDestinationSelected: _selectDestination,
       ),
     );
   }
 }
 
 class _StudentDrawer extends StatelessWidget {
-  const _StudentDrawer({required this.onNavigate});
+  const _StudentDrawer({required this.selectedIndex, required this.onNavigate});
 
+  final int selectedIndex;
   final ValueChanged<int> onNavigate;
 
   void _push(BuildContext context, Widget page) {
@@ -150,6 +136,11 @@ class _StudentDrawer extends StatelessWidget {
     Navigator.of(
       context,
     ).push<void>(MaterialPageRoute<void>(builder: (_) => page));
+  }
+
+  void _navigate(BuildContext context, int destination) {
+    Navigator.of(context).pop();
+    onNavigate(destination);
   }
 
   @override
@@ -161,106 +152,154 @@ class _StudentDrawer extends StatelessWidget {
           padding: EdgeInsets.zero,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
-              child: Row(
+              padding: const EdgeInsets.fromLTRB(18, 14, 12, 14),
+              child: Column(
                 children: [
-                  _DrawerAvatar(student: student),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          student?.name ?? 'Student',
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
+                  Row(
+                    children: [
+                      const BrandLogo(size: 42),
+                      const SizedBox(width: 10),
+                      const Expanded(
+                        child: Text(
+                          'TMC StudentMart',
+                          style: TextStyle(
                             color: TmcPalette.deepNavyBlack,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
                           ),
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          student?.course ?? 'TMC Student',
-                          style: const TextStyle(color: TmcPalette.darkGray),
-                        ),
-                        if (student?.studentId.isNotEmpty ?? false)
-                          Text(
-                            student!.studentId,
-                            style: const TextStyle(
-                              color: TmcPalette.darkGray,
-                              fontSize: 12,
+                      ),
+                      IconButton(
+                        tooltip: 'Close menu',
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      _DrawerAvatar(student: student),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              student?.name ?? 'Student',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                                color: TmcPalette.deepNavyBlack,
+                              ),
                             ),
-                          ),
-                      ],
-                    ),
+                            const SizedBox(height: 2),
+                            Text(
+                              student?.course.isNotEmpty == true
+                                  ? student!.course
+                                  : 'TMC Student',
+                              style: const TextStyle(
+                                color: TmcPalette.darkGray,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
             const Divider(height: 1),
+            const _DrawerSectionLabel('Marketplace'),
             ListTile(
+              selected: selectedIndex == 0,
               leading: const Icon(Icons.home_outlined),
               title: const Text('Home'),
-              onTap: () {
-                Navigator.of(context).pop();
-                onNavigate(0);
-              },
+              onTap: () => _navigate(context, 0),
             ),
             ListTile(
+              selected: selectedIndex == 1,
               leading: const Icon(Icons.storefront_outlined),
-              title: const Text('Browse marketplace'),
-              onTap: () {
-                Navigator.of(context).pop();
-                onNavigate(1);
-              },
+              title: const Text('Shop'),
+              onTap: () => _navigate(context, 1),
             ),
             ListTile(
+              selected: selectedIndex == 2,
               leading: const Icon(Icons.add_box_outlined),
               title: const Text('Sell an item'),
-              onTap: () {
-                Navigator.of(context).pop();
-                onNavigate(2);
-              },
+              onTap: () => _navigate(context, 2),
             ),
             ListTile(
               leading: const Icon(Icons.shopping_cart_outlined),
               title: const Text('Cart'),
               onTap: () {
-                Navigator.of(context).pop();
-                onNavigate(3);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.person_outline),
-              title: const Text('Profile'),
-              onTap: () {
-                Navigator.of(context).pop();
-                onNavigate(4);
+                final navigator = Navigator.of(context);
+                navigator.pop();
+                navigator.push<void>(
+                  MaterialPageRoute<void>(
+                    builder: (_) => CartPage(
+                      onBrowse: () {
+                        navigator.pop();
+                        onNavigate(1);
+                      },
+                    ),
+                  ),
+                );
               },
             ),
             const Divider(height: 1),
-            const Padding(
-              padding: EdgeInsets.fromLTRB(20, 14, 20, 6),
-              child: Text(
-                'Settings and account',
-                style: TextStyle(fontWeight: FontWeight.w800),
-              ),
-            ),
+            const _DrawerSectionLabel('Your profile'),
             ListTile(
-              leading: const Icon(Icons.manage_accounts_outlined),
-              title: const Text('Edit profile and privacy'),
-              onTap: () => _push(context, const EditStudentProfilePage()),
+              selected: selectedIndex == 4,
+              leading: const Icon(Icons.person_outline),
+              title: const Text('Profile'),
+              onTap: () => _navigate(context, 4),
             ),
             ListTile(
               leading: const Icon(Icons.receipt_long_outlined),
-              title: const Text('My orders'),
+              title: const Text('My Orders'),
               onTap: () => _push(context, const OrdersPage()),
+            ),
+            ListTile(
+              leading: const Icon(Icons.storefront_outlined),
+              title: const Text('My Listings'),
+              onTap: () => _navigate(context, 2),
+            ),
+            ListTile(
+              leading: const Icon(Icons.alternate_email_outlined),
+              title: const Text('Email & Contact'),
+              onTap: () => _push(context, const EditStudentProfilePage()),
+            ),
+            ListTile(
+              leading: const Icon(Icons.manage_accounts_outlined),
+              title: const Text('Edit Profile'),
+              onTap: () => _push(context, const EditStudentProfilePage()),
+            ),
+            ListTile(
+              leading: const Icon(Icons.lock_outline),
+              title: const Text('Account Settings'),
+              onTap: () => _push(context, const AccountSecurityPage()),
+            ),
+            ListTile(
+              leading: const Icon(Icons.privacy_tip_outlined),
+              title: const Text('Privacy Settings'),
+              onTap: () => _push(context, const EditStudentProfilePage()),
+            ),
+            ListTile(
+              leading: const Icon(Icons.notifications_none),
+              title: const Text('Notifications'),
+              onTap: () => _push(context, const NotificationsPage()),
             ),
             ListTile(
               leading: const Icon(Icons.flag_outlined),
               title: const Text('My reports'),
               onTap: () => _push(context, const ReportsPage()),
             ),
+            const Divider(height: 1),
+            const _DrawerSectionLabel('More'),
             ListTile(
               leading: const Icon(Icons.category_outlined),
               title: const Text('Browse categories'),
@@ -272,19 +311,9 @@ class _StudentDrawer extends StatelessWidget {
               onTap: () => _push(context, const SalesPage()),
             ),
             ListTile(
-              leading: const Icon(Icons.lock_outlined),
-              title: const Text('Change password'),
-              onTap: () => _push(context, const AccountSecurityPage()),
-            ),
-            ListTile(
-              leading: const Icon(Icons.notifications_none),
-              title: const Text('Notifications'),
-              onTap: () => _push(context, const NotificationsPage()),
-            ),
-            ListTile(
               leading: const Icon(Icons.logout, color: TmcPalette.error),
               title: const Text(
-                'Sign out',
+                'Log Out',
                 style: TextStyle(
                   color: TmcPalette.error,
                   fontWeight: FontWeight.w700,
@@ -303,6 +332,208 @@ class _StudentDrawer extends StatelessWidget {
       ),
     );
   }
+}
+
+class _DrawerSectionLabel extends StatelessWidget {
+  const _DrawerSectionLabel(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(18, 14, 18, 5),
+    child: Text(
+      label.toUpperCase(),
+      style: const TextStyle(
+        color: TmcPalette.darkGray,
+        fontSize: 12,
+        fontWeight: FontWeight.w800,
+        letterSpacing: 1.1,
+      ),
+    ),
+  );
+}
+
+class _StudentBottomNavigationBar extends StatelessWidget {
+  const _StudentBottomNavigationBar({
+    required this.selectedIndex,
+    required this.onDestinationSelected,
+  });
+
+  final int selectedIndex;
+  final ValueChanged<int> onDestinationSelected;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    decoration: BoxDecoration(
+      color: TmcPalette.deepNavy,
+      border: Border(
+        top: BorderSide(color: Colors.white.withValues(alpha: .12)),
+      ),
+      boxShadow: [
+        BoxShadow(
+          color: TmcPalette.deepNavy.withValues(alpha: .2),
+          blurRadius: 14,
+          offset: const Offset(0, -4),
+        ),
+      ],
+    ),
+    child: SafeArea(
+      top: false,
+      child: SizedBox(
+        height: 66,
+        child: Row(
+          children: [
+            _BottomNavigationItem(
+              label: 'Home',
+              icon: Icons.home_outlined,
+              selectedIcon: Icons.home_rounded,
+              selected: selectedIndex == 0,
+              onTap: () => onDestinationSelected(0),
+            ),
+            _BottomNavigationItem(
+              label: 'Shop',
+              icon: Icons.shopping_bag_outlined,
+              selectedIcon: Icons.shopping_bag_rounded,
+              selected: selectedIndex == 1,
+              onTap: () => onDestinationSelected(1),
+            ),
+            Expanded(
+              child: Center(
+                child: Semantics(
+                  button: true,
+                  label: 'Sell an item',
+                  child: Tooltip(
+                    message: 'Sell an item',
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () => onDestinationSelected(2),
+                        borderRadius: BorderRadius.circular(16),
+                        child: Container(
+                          width: 54,
+                          height: 42,
+                          decoration: BoxDecoration(
+                            color: TmcPalette.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: TmcPalette.border),
+                            boxShadow: [
+                              BoxShadow(
+                                color: TmcPalette.lightBlue.withValues(
+                                  alpha: .68,
+                                ),
+                                offset: const Offset(-3, 0),
+                                blurRadius: 7,
+                              ),
+                              BoxShadow(
+                                color: TmcPalette.mutedTeal.withValues(
+                                  alpha: .62,
+                                ),
+                                offset: const Offset(3, 0),
+                                blurRadius: 7,
+                              ),
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: .22),
+                                offset: const Offset(0, 3),
+                                blurRadius: 7,
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.add_rounded,
+                            size: 29,
+                            color: TmcPalette.deepNavy,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            _BottomNavigationItem(
+              label: 'Inbox',
+              icon: Icons.chat_bubble_outline_rounded,
+              selectedIcon: Icons.chat_bubble_rounded,
+              selected: selectedIndex == 3,
+              onTap: () => onDestinationSelected(3),
+            ),
+            _BottomNavigationItem(
+              label: 'Profile',
+              icon: Icons.person_outline_rounded,
+              selectedIcon: Icons.person_rounded,
+              selected: selectedIndex == 4,
+              onTap: () => onDestinationSelected(4),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+class _BottomNavigationItem extends StatelessWidget {
+  const _BottomNavigationItem({
+    required this.label,
+    required this.icon,
+    required this.selectedIcon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final IconData selectedIcon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Expanded(
+    child: Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      child: Tooltip(
+        message: label,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(14),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 5),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    selected ? selectedIcon : icon,
+                    size: 22,
+                    color: selected
+                        ? TmcPalette.white
+                        : TmcPalette.white.withValues(alpha: .72),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.clip,
+                    style: TextStyle(
+                      color: selected
+                          ? TmcPalette.white
+                          : TmcPalette.white.withValues(alpha: .72),
+                      fontSize: 11,
+                      fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 class _DrawerAvatar extends StatelessWidget {

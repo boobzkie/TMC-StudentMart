@@ -6,6 +6,7 @@ use App\Notifications\ResetPasswordNotification;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
@@ -94,6 +95,26 @@ class User extends Authenticatable
     public function products()
     {
         return $this->hasMany(Product::class);
+    }
+
+    public function followers(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            self::class,
+            'student_follows',
+            'following_id',
+            'follower_id'
+        )->withTimestamps();
+    }
+
+    public function following(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            self::class,
+            'student_follows',
+            'follower_id',
+            'following_id'
+        )->withTimestamps();
     }
 
     public function complaints()

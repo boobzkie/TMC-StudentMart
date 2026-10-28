@@ -7,7 +7,9 @@ import 'order_details_page.dart';
 import 'tmc_theme.dart';
 
 class NotificationsPage extends StatefulWidget {
-  const NotificationsPage({super.key});
+  const NotificationsPage({super.key, this.showAppBar = true});
+
+  final bool showAppBar;
 
   @override
   State<NotificationsPage> createState() => _NotificationsPageState();
@@ -88,16 +90,18 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: const Text('Notifications'),
-      actions: [
-        IconButton(
-          tooltip: 'Refresh notifications',
-          onPressed: _refresh,
-          icon: const Icon(Icons.refresh),
-        ),
-      ],
-    ),
+    appBar: widget.showAppBar
+        ? AppBar(
+            title: const Text('Notifications'),
+            actions: [
+              IconButton(
+                tooltip: 'Refresh notifications',
+                onPressed: _refresh,
+                icon: const Icon(Icons.refresh),
+              ),
+            ],
+          )
+        : null,
     body: FutureBuilder<dynamic>(
       future: _future,
       builder: (context, snapshot) {
@@ -119,18 +123,25 @@ class _NotificationsPageState extends State<NotificationsPage> {
             : <Map<String, dynamic>>[];
 
         if (notifications.isEmpty) {
-          return Column(
-            children: [
-              _UnreadSummary(count: unreadCount),
-              const Expanded(
-                child: EmptyMessage(
-                  icon: Icons.notifications_none,
-                  title: 'You are all caught up',
-                  message:
-                      'Order updates will appear here when they are available.',
+          return RefreshIndicator(
+            onRefresh: _handleRefresh,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+              children: [
+                _UnreadSummary(count: unreadCount),
+                const SizedBox(height: 14),
+                const SizedBox(
+                  height: 280,
+                  child: EmptyMessage(
+                    icon: Icons.notifications_none,
+                    title: 'You are all caught up',
+                    message:
+                        'Order updates will appear here when they are available.',
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           );
         }
 

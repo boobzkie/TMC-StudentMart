@@ -298,9 +298,12 @@ class AuthController extends Controller
             'instagram_url',
             'tiktok_url',
             'share_contact_info',
+            'profile_picture',
         ];
 
-        $submittedFields = array_keys($request->all());
+        // Multipart requests use method spoofing because PHP does not reliably
+        // populate uploaded files for a native PUT request.
+        $submittedFields = array_keys($request->except('_method'));
 
         if (array_diff($submittedFields, $allowedFields) !== []) {
             throw ValidationException::withMessages([
@@ -318,12 +321,26 @@ class AuthController extends Controller
             'instagram_url' => ['sometimes', 'nullable', 'url', 'max:2048'],
             'tiktok_url' => ['sometimes', 'nullable', 'url', 'max:2048'],
             'share_contact_info' => ['sometimes', 'boolean'],
+            'profile_picture' => [
+                'sometimes',
+                'image',
+                'mimes:jpg,jpeg,png,webp',
+                'max:2048',
+            ],
         ]);
+
+        $profilePicture = $request->file('profile_picture');
+        unset($validated['profile_picture']);
 
         foreach ($validated as $field => $value) {
             $user->{$field} = is_string($value) && trim($value) === ''
                 ? null
                 : $value;
+        }
+
+        if ($profilePicture) {
+            $user->profile_picture = $profilePicture
+                ->store('profile-pictures', 'public');
         }
 
         $user->save();

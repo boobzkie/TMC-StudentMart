@@ -259,9 +259,85 @@ class ApiService {
     );
   }
 
+  Future<dynamic> uploadStudentProfilePicture(XFile image) async {
+    if (_candidateBaseUrls.isEmpty) {
+      throw const ApiException(
+        'No Laravel API base URL is configured.',
+        type: ApiErrorType.invalidUrl,
+      );
+    }
+
+    final request = http.MultipartRequest(
+      'POST',
+      _uri('/user/student-profile'),
+    );
+    request.headers.addAll(await _headers());
+    request.fields['_method'] = 'PUT';
+    request.files.add(
+      http.MultipartFile.fromBytes(
+        'profile_picture',
+        await image.readAsBytes(),
+        filename: image.name,
+        contentType: _imageMediaType(image),
+      ),
+    );
+
+    try {
+      final streamed = await _client
+          .send(request)
+          .timeout(const Duration(seconds: 10));
+      final response = await http.Response.fromStream(
+        streamed,
+      ).timeout(const Duration(seconds: 10));
+      return _decode(response);
+    } on SocketException {
+      throw ApiException(
+        'No internet connection. The device cannot reach the network at all. Check Wi-Fi or mobile data.',
+        type: ApiErrorType.noInternet,
+      );
+    } on TimeoutException {
+      throw ApiException(
+        'Timed out while contacting the Laravel API at $baseUrl.',
+        type: ApiErrorType.timeout,
+      );
+    } on http.ClientException {
+      final isNgrok =
+          Uri.tryParse(baseUrl)?.host.toLowerCase().contains('ngrok') == true;
+      throw ApiException(
+        isNgrok
+            ? 'The ngrok tunnel at $baseUrl is unavailable. Check that ngrok is still running and forwarding to http://localhost:8000.'
+            : 'Cannot reach the Laravel API at $baseUrl. Check that the backend is running and restart the app with the correct API URL for this platform.',
+        type: ApiErrorType.cannotConnect,
+      );
+    }
+  }
+
   Future<dynamic> delete(String path) async => _request(
     () async => _client.delete(_uri(path), headers: await _headers()),
   );
+
+  Future<Map<String, dynamic>> studentFollowStatus(int studentId) async =>
+      asMap(await get('/students/$studentId/follow'));
+
+  Future<Map<String, dynamic>> setStudentFollowing(
+    int studentId, {
+    required bool follow,
+  }) async {
+    final payload = follow
+        ? await post('/students/$studentId/follow', {})
+        : await delete('/students/$studentId/follow');
+    return asMap(payload);
+  }
+
+  Future<Map<String, dynamic>> myConnections({
+    required bool followers,
+    int page = 1,
+  }) async => asMap(
+    await get('/user/${followers ? 'followers' : 'following'}?page=$page'),
+  );
+
+  Future<Map<String, dynamic>> myFollowStats() async =>
+      asMap(await get('/user/follow-stats'));
 
   Future<dynamic> sendProduct({
     required Map<String, String> fields,
@@ -468,6 +544,34 @@ class Student {
         valueOf(json['share_contact_info']).toLowerCase() == '1' ||
         valueOf(json['share_contact_info']).toLowerCase() == 'true',
   );
+}
+
+class StudentConnection {
+  const StudentConnection({
+    required this.id,
+    required this.name,
+    required this.course,
+    required this.isFollowing,
+    this.profilePicture,
+  });
+
+  final int id;
+  final String name;
+  final String course;
+  final String? profilePicture;
+  final bool isFollowing;
+
+  factory StudentConnection.fromJson(Map<String, dynamic> json) =>
+      StudentConnection(
+        id: int.tryParse(valueOf(json['id'])) ?? 0,
+        name: valueOf(json['name']),
+        course: valueOf(json['course']),
+        profilePicture: json['profile_picture']?.toString(),
+        isFollowing:
+            json['is_following'] == true ||
+            valueOf(json['is_following']).toLowerCase() == '1' ||
+            valueOf(json['is_following']).toLowerCase() == 'true',
+      );
 }
 
 class ProductImage {
@@ -761,6 +865,24 @@ class AuthState extends ChangeNotifier {
     notifyListeners();
     try {
       final payload = asMap(await api.put('/user/student-profile', values));
+      final updated = Student.fromJson(asMap(payload['user']));
+      if (updated.id == 0 || updated.role != 'student') {
+        throw const ApiException(
+          'The API did not return your updated student profile.',
+        );
+      }
+      user = updated;
+    } finally {
+      savingProfile = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> uploadProfilePicture(XFile image) async {
+    savingProfile = true;
+    notifyListeners();
+    try {
+      final payload = asMap(await api.uploadStudentProfilePicture(image));
       final updated = Student.fromJson(asMap(payload['user']));
       if (updated.id == 0 || updated.role != 'student') {
         throw const ApiException(

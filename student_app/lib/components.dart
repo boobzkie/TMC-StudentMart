@@ -373,12 +373,14 @@ class ProductCard extends StatelessWidget {
     this.onAdd,
     this.isOwnListing = false,
     this.management = false,
+    this.imageHeight = 132,
   });
   final Product product;
   final VoidCallback onTap;
   final VoidCallback? onAdd;
   final bool isOwnListing;
   final bool management;
+  final double imageHeight;
 
   @override
   Widget build(BuildContext context) {
@@ -404,7 +406,7 @@ class ProductCard extends StatelessWidget {
               children: [
                 Stack(
                   children: [
-                    ProductPhoto(product: product, height: 132),
+                    ProductPhoto(product: product, height: imageHeight),
                     if (management || product.status == 'sold_out')
                       Positioned(
                         right: 8,

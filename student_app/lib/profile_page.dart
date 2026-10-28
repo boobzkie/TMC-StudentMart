@@ -1,10 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import 'components.dart';
 import 'data.dart';
 import 'edit_student_profile_page.dart';
+import 'marketplace_page.dart';
+import 'order_details_page.dart';
 import 'orders_page.dart';
+import 'sell_page.dart';
 import 'tmc_theme.dart';
 
 class CartPage extends StatefulWidget {
@@ -506,206 +512,789 @@ class _QuantityButton extends StatelessWidget {
   );
 }
 
-class ProfilePage extends StatelessWidget {
+class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
 
-  Future<void> _logout(BuildContext context) async {
-    final okay = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Sign out?'),
-        content: const Text(
-          'Your sign-in session will be cleared from this device.',
+  @override
+  State<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  int _selectedTab = 0;
+  Future<dynamic>? _ordersFuture;
+  late Future<Map<String, dynamic>> _followStatsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _followStatsFuture = context.read<ApiService>().myFollowStats();
+    unawaited(context.read<MarketplaceState>().loadMine());
+  }
+
+  Future<void> _changeProfilePhoto() async {
+    if (context.read<AuthState>().savingProfile) return;
+
+    try {
+      final photo = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1200,
+        maxHeight: 1200,
+        imageQuality: 85,
+      );
+      if (!mounted || photo == null) return;
+
+      final extension = photo.name.toLowerCase().split('.').last;
+      const supportedExtensions = {'jpg', 'jpeg', 'png', 'webp'};
+      if (!supportedExtensions.contains(extension)) {
+        _showProfilePhotoMessage('Choose a JPG, PNG, or WebP image.');
+        return;
+      }
+      if (await photo.length() > 2 * 1024 * 1024) {
+        if (mounted) {
+          _showProfilePhotoMessage('Choose an image smaller than 2 MB.');
+        }
+        return;
+      }
+
+      final bytes = await photo.readAsBytes();
+      if (!mounted) return;
+      final shouldUpload = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Update profile photo'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ClipOval(
+                child: Image.memory(
+                  bytes,
+                  width: 144,
+                  height: 144,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              const SizedBox(height: 14),
+              const Text('Use this photo on your StudentMart profile?'),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton.icon(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              icon: const Icon(Icons.upload_outlined),
+              label: const Text('Upload photo'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Sign out'),
-          ),
-        ],
+      );
+      if (shouldUpload != true || !mounted) return;
+
+      await context.read<AuthState>().uploadProfilePicture(photo);
+      if (mounted) {
+        _showProfilePhotoMessage('Profile photo updated.');
+      }
+    } catch (error) {
+      if (mounted) _showProfilePhotoMessage(error.toString());
+    }
+  }
+
+  void _showProfilePhotoMessage(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _selectTab(int tab) {
+    if (tab == _selectedTab) return;
+    if (tab == 1 && _ordersFuture == null) {
+      _ordersFuture = context.read<ApiService>().get('/orders');
+    }
+    setState(() => _selectedTab = tab);
+  }
+
+  void _open(BuildContext context, Widget page) {
+    Navigator.of(
+      context,
+    ).push<void>(MaterialPageRoute<void>(builder: (_) => page));
+  }
+
+  void _viewAll(BuildContext context) {
+    if (_selectedTab == 0) {
+      _openListings(context);
+    } else {
+      _open(context, const OrdersPage());
+    }
+  }
+
+  void _openListings(BuildContext context) {
+    _open(
+      context,
+      Scaffold(
+        appBar: AppBar(title: const Text('My Listings')),
+        body: const SellPage(),
       ),
     );
-    if (okay != true || !context.mounted) return;
-    final cart = context.read<CartState>();
-    final auth = context.read<AuthState>();
-    await cart.clear();
-    await auth.logout();
+  }
+
+  Future<void> _openConnections(bool followers) async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => _ConnectionsPage(followers: followers),
+      ),
+    );
+    if (!mounted) return;
+    setState(() {
+      _followStatsFuture = context.read<ApiService>().myFollowStats();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final student = context.watch<AuthState>().user;
+    final auth = context.watch<AuthState>();
+    final student = auth.user;
     if (student == null) return const SizedBox.shrink();
+    final marketplace = context.watch<MarketplaceState>();
+    final listings = marketplace.myProducts;
+
     return ListView(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
       children: [
         TmcPanel(
-          padding: const EdgeInsets.all(22),
+          padding: const EdgeInsets.all(18),
+          color: TmcPalette.primarySoft,
           child: Column(
             children: [
-              _StudentAvatar(student: student),
-              const SizedBox(height: 14),
-              Text(
-                student.name,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  color: TmcPalette.deepNavyBlack,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                student.course.isEmpty ? 'TMC Student' : student.course,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: TmcPalette.darkGray,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                student.studentId,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: TmcPalette.mediumGray,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              if (student.status.isNotEmpty) ...[
-                const SizedBox(height: 10),
-                StatusBadge(student.status),
-              ],
-              const SizedBox(height: 16),
               Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const EditStudentProfilePage(),
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      _StudentAvatar(student: student, size: 88),
+                      Positioned(
+                        right: -5,
+                        bottom: -5,
+                        child: Tooltip(
+                          message: 'Change profile photo',
+                          child: Semantics(
+                            button: true,
+                            label: 'Change profile photo',
+                            child: IconButton.filled(
+                              onPressed: auth.savingProfile
+                                  ? null
+                                  : _changeProfilePhoto,
+                              tooltip: 'Change profile photo',
+                              icon: auth.savingProfile
+                                  ? const SizedBox.square(
+                                      dimension: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(Icons.camera_alt_outlined),
+                            ),
+                          ),
                         ),
                       ),
-                      icon: const Icon(Icons.edit_outlined),
-                      label: const Text('Edit profile'),
-                    ),
+                    ],
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 16),
                   Expanded(
-                    child: FilledButton.icon(
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const OrdersPage(),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          student.name,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(
+                                color: TmcPalette.deepNavyBlack,
+                                fontWeight: FontWeight.w900,
+                              ),
                         ),
-                      ),
-                      icon: const Icon(Icons.receipt_long_outlined),
-                      label: const Text('My orders'),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: TmcPalette.deepNavyBlack,
-                      ),
+                        const SizedBox(height: 5),
+                        const Text(
+                          'TMC Student',
+                          style: TextStyle(
+                            color: TmcPalette.darkGray,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        if (student.status.isNotEmpty) ...[
+                          const SizedBox(height: 9),
+                          StatusBadge(student.status),
+                        ],
+                      ],
                     ),
                   ),
                 ],
               ),
+              const SizedBox(height: 14),
+              FutureBuilder<Map<String, dynamic>>(
+                future: _followStatsFuture,
+                builder: (context, snapshot) {
+                  final stats = snapshot.data ?? const <String, dynamic>{};
+                  final followingCount =
+                      int.tryParse(valueOf(stats['following_count'])) ?? 0;
+                  final followersCount =
+                      int.tryParse(valueOf(stats['followers_count'])) ?? 0;
+                  final countLabel = snapshot.hasError || !snapshot.hasData
+                      ? '—'
+                      : null;
+
+                  return Row(
+                    children: [
+                      Expanded(
+                        child: _ProfileStat(
+                          count: countLabel ?? '$followingCount',
+                          label: 'Following',
+                          onTap: () => _openConnections(false),
+                        ),
+                      ),
+                      Container(width: 1, height: 38, color: TmcPalette.border),
+                      Expanded(
+                        child: _ProfileStat(
+                          count: countLabel ?? '$followersCount',
+                          label: 'Followers',
+                          onTap: () => _openConnections(true),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      OutlinedButton.icon(
+                        onPressed: () =>
+                            _open(context, const EditStudentProfilePage()),
+                        icon: const Icon(Icons.edit_outlined, size: 16),
+                        label: const Text('Edit profile'),
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size(48, 42),
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
             ],
           ),
         ),
-        const SizedBox(height: 16),
-        const SectionHeading('Account information'),
-        const SizedBox(height: 8),
-        _InfoRow(
-          icon: Icons.badge_outlined,
-          label: 'Student ID',
-          value: student.studentId,
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () => _open(context, const OrdersPage()),
+                icon: const Icon(Icons.shopping_bag_outlined),
+                label: const Text('My Orders'),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(48, 54),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: FilledButton.icon(
+                onPressed: () => _openListings(context),
+                icon: const Icon(Icons.storefront_outlined),
+                label: const Text('My Listings'),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(48, 54),
+                  backgroundColor: TmcPalette.deepNavy,
+                ),
+              ),
+            ),
+          ],
         ),
-        _InfoRow(
-          icon: Icons.email_outlined,
-          label: 'Email',
-          value: student.email,
-        ),
-        _InfoRow(
-          icon: Icons.phone_outlined,
-          label: 'Contact number',
-          value: student.contactNumber,
-        ),
-        _InfoRow(
-          icon: Icons.school_outlined,
-          label: 'Course / Department',
-          value: student.course,
-        ),
-        Card(
+        const SizedBox(height: 22),
+        TmcPanel(
+          padding: const EdgeInsets.fromLTRB(8, 4, 8, 12),
           child: Column(
             children: [
-              ListTile(
-                leading: const Icon(Icons.manage_accounts_outlined),
-                title: const Text('Edit profile and privacy'),
-                subtitle: const Text(
-                  'Update contact details and sharing options',
-                ),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const EditStudentProfilePage(),
+              Row(
+                children: [
+                  _ProfileTab(
+                    label: 'My Listings',
+                    selected: _selectedTab == 0,
+                    onTap: () => _selectTab(0),
                   ),
-                ),
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.receipt_long_outlined),
-                title: const Text('My orders'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(builder: (_) => const OrdersPage()),
-                ),
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.storefront_outlined),
-                title: const Text('Orders for my listings'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const OrdersPage(selling: true),
+                  const SizedBox(width: 18),
+                  _ProfileTab(
+                    label: 'My Orders',
+                    selected: _selectedTab == 1,
+                    onTap: () => _selectTab(1),
                   ),
-                ),
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.flag_outlined),
-                title: const Text('My reports'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(builder: (_) => const ReportsPage()),
-                ),
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.logout, color: TmcPalette.error),
-                title: const Text(
-                  'Sign out',
-                  style: TextStyle(
-                    color: TmcPalette.error,
-                    fontWeight: FontWeight.w700,
+                  const Spacer(),
+                  TextButton(
+                    onPressed: () => _viewAll(context),
+                    style: TextButton.styleFrom(
+                      minimumSize: const Size(48, 44),
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('View all'),
+                        Icon(Icons.chevron_right, size: 18),
+                      ],
+                    ),
                   ),
-                ),
-                onTap: () => _logout(context),
+                ],
               ),
+              const Divider(height: 1),
+              const SizedBox(height: 12),
+              if (_selectedTab == 0)
+                _buildListings(marketplace, listings)
+              else
+                _buildOrders(),
             ],
           ),
         ),
       ],
     );
   }
+
+  Widget _buildListings(MarketplaceState marketplace, List<Product> listings) {
+    if (marketplace.loading && listings.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(24),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (marketplace.error != null && listings.isEmpty) {
+      return ErrorMessage(
+        message: marketplace.error!,
+        onRetry: marketplace.loadMine,
+      );
+    }
+    if (listings.isEmpty) {
+      return const EmptyMessage(
+        icon: Icons.storefront_outlined,
+        title: 'No listings yet',
+        message:
+            'Your marketplace listings will appear here. Use the + button to create one.',
+      );
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = constraints.maxWidth >= 900
+            ? 4
+            : constraints.maxWidth >= 620
+            ? 3
+            : constraints.maxWidth >= 350
+            ? 2
+            : 1;
+        final preview = listings.take(4).toList(growable: false);
+        return GridView.builder(
+          itemCount: preview.length,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: columns,
+            mainAxisExtent: 210,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+          ),
+          itemBuilder: (context, index) {
+            final product = preview[index];
+            return ProductCard(
+              product: product,
+              management: true,
+              imageHeight: 104,
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => ProductDetailsPage(product: product),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildOrders() => FutureBuilder<dynamic>(
+    future: _ordersFuture,
+    builder: (context, snapshot) {
+      if (snapshot.connectionState != ConnectionState.done) {
+        return const Padding(
+          padding: EdgeInsets.all(24),
+          child: Center(child: CircularProgressIndicator()),
+        );
+      }
+      if (snapshot.hasError) {
+        return ErrorMessage(
+          message: snapshot.error.toString(),
+          onRetry: () => setState(
+            () => _ordersFuture = context.read<ApiService>().get('/orders'),
+          ),
+        );
+      }
+      final rawOrders = asMap(snapshot.data)['orders'];
+      final orders = rawOrders is List
+          ? rawOrders.map((row) => asMap(row)).take(3).toList()
+          : <Map<String, dynamic>>[];
+      if (orders.isEmpty) {
+        return const EmptyMessage(
+          icon: Icons.receipt_long_outlined,
+          title: 'No orders yet',
+          message: 'Order requests you place will appear here.',
+        );
+      }
+      return Column(
+        children: [
+          for (final order in orders)
+            _ProfileOrderCard(
+              order: order,
+              onTap: () {
+                final id = int.tryParse(valueOf(order['id']));
+                if (id != null) {
+                  Navigator.of(context).push<void>(
+                    MaterialPageRoute<void>(
+                      builder: (_) => OrderDetailsPage(orderId: id),
+                    ),
+                  );
+                }
+              },
+            ),
+        ],
+      );
+    },
+  );
+}
+
+class _ProfileTab extends StatelessWidget {
+  const _ProfileTab({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    selected: selected,
+    label: label,
+    child: InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(TmcRadius.sm),
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 46),
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 10),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: selected ? TmcPalette.primary : Colors.transparent,
+              width: 3,
+            ),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? TmcPalette.deepNavy : TmcPalette.darkGray,
+            fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+class _ProfileStat extends StatelessWidget {
+  const _ProfileStat({
+    required this.count,
+    required this.label,
+    required this.onTap,
+  });
+
+  final String count;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    label: '$count $label',
+    child: InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(TmcRadius.sm),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              count,
+              style: const TextStyle(
+                color: TmcPalette.deepNavy,
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            Text(
+              label,
+              style: const TextStyle(
+                color: TmcPalette.darkGray,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+class _ConnectionsPage extends StatefulWidget {
+  const _ConnectionsPage({required this.followers});
+
+  final bool followers;
+
+  @override
+  State<_ConnectionsPage> createState() => _ConnectionsPageState();
+}
+
+class _ConnectionsPageState extends State<_ConnectionsPage> {
+  final List<StudentConnection> _accounts = [];
+  bool _loading = true;
+  bool _loadingMore = false;
+  String? _error;
+  int _page = 0;
+  int _total = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPage();
+  }
+
+  Future<void> _loadPage({bool append = false}) async {
+    if (_loadingMore) return;
+    setState(() {
+      if (append) {
+        _loadingMore = true;
+      } else {
+        _loading = true;
+      }
+      _error = null;
+    });
+
+    try {
+      final response = await context.read<ApiService>().myConnections(
+        followers: widget.followers,
+        page: append ? _page + 1 : 1,
+      );
+      final accounts = listFrom(response, 'accounts')
+          .map((row) => StudentConnection.fromJson(asMap(row)))
+          .where((account) => account.id > 0)
+          .toList(growable: false);
+      if (!mounted) return;
+
+      setState(() {
+        if (append) {
+          _accounts.addAll(accounts);
+        } else {
+          _accounts
+            ..clear()
+            ..addAll(accounts);
+        }
+        _page = int.tryParse(valueOf(response['current_page'])) ?? 1;
+        _total = int.tryParse(valueOf(response['total'])) ?? _accounts.length;
+        _loading = false;
+        _loadingMore = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _error = error.toString();
+        _loading = false;
+        _loadingMore = false;
+      });
+    }
+  }
+
+  Widget _avatar(StudentConnection account) {
+    final nameParts = account.name
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty)
+        .take(2);
+    final initials = nameParts.map((part) => part[0].toUpperCase()).join();
+    final imagePath = account.profilePicture;
+    final imageUrl = imagePath == null || imagePath.isEmpty
+        ? ''
+        : ApiService.imageUrlFor(imagePath);
+
+    final fallback = Text(
+      initials.isEmpty ? 'T' : initials,
+      style: const TextStyle(
+        color: TmcPalette.deepNavy,
+        fontWeight: FontWeight.w800,
+      ),
+    );
+    return CircleAvatar(
+      backgroundColor: TmcPalette.paleBlue,
+      child: imageUrl.isEmpty
+          ? fallback
+          : ClipOval(
+              child: Image.network(
+                imageUrl,
+                width: 40,
+                height: 40,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => fallback,
+              ),
+            ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final title = widget.followers ? 'Followers' : 'Following';
+
+    return Scaffold(
+      appBar: AppBar(title: Text(title)),
+      body: _loading && _accounts.isEmpty
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null && _accounts.isEmpty
+          ? ErrorMessage(message: _error!, onRetry: _loadPage)
+          : _accounts.isEmpty
+          ? EmptyMessage(
+              icon: Icons.people_outline,
+              title: 'No ${title.toLowerCase()} yet',
+              message: widget.followers
+                  ? 'People who follow your account will appear here.'
+                  : 'Students you follow will appear here.',
+            )
+          : ListView.separated(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+              itemCount: _accounts.length + (_accounts.length < _total ? 1 : 0),
+              separatorBuilder: (_, _) => const Divider(height: 1),
+              itemBuilder: (context, index) {
+                if (index == _accounts.length) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Center(
+                      child: TextButton.icon(
+                        onPressed: _loadingMore
+                            ? null
+                            : () => _loadPage(append: true),
+                        icon: _loadingMore
+                            ? const SizedBox.square(
+                                dimension: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.expand_more),
+                        label: Text(
+                          _loadingMore
+                              ? 'Loading…'
+                              : 'Load more (${_total - _accounts.length} left)',
+                        ),
+                      ),
+                    ),
+                  );
+                }
+
+                final account = _accounts[index];
+                return ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                  leading: _avatar(account),
+                  title: Text(
+                    account.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  subtitle: Text(
+                    account.course.isEmpty
+                        ? 'TMC Student'
+                        : 'TMC Student · ${account.course}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                );
+              },
+            ),
+    );
+  }
+}
+
+class _ProfileOrderCard extends StatelessWidget {
+  const _ProfileOrderCard({required this.order, required this.onTap});
+
+  final Map<String, dynamic> order;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final orderNumber = valueOf(order['order_number']);
+    final id = valueOf(order['id']);
+    final seller = asMap(order['seller']);
+    final sellerName = valueOf(seller['name']);
+    final createdAt = DateTime.tryParse(valueOf(order['created_at']));
+    final dateLabel = createdAt == null
+        ? 'Date unavailable'
+        : MaterialLocalizations.of(
+            context,
+          ).formatMediumDate(createdAt.toLocal());
+    final total = double.tryParse(valueOf(order['total_amount'])) ?? 0;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 9),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        leading: const CircleAvatar(
+          backgroundColor: TmcPalette.primarySoft,
+          child: Icon(Icons.receipt_long_outlined, color: TmcPalette.primary),
+        ),
+        title: Text(
+          orderNumber.isEmpty ? 'Order $id' : orderNumber,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontWeight: FontWeight.w800),
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(sellerName.isEmpty ? dateLabel : '$sellerName · $dateLabel'),
+              const SizedBox(height: 4),
+              Text(
+                peso(total),
+                style: const TextStyle(
+                  color: TmcPalette.primary,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
+        trailing: StatusBadge(valueOf(order['status'])),
+        onTap: onTap,
+      ),
+    );
+  }
 }
 
 class _StudentAvatar extends StatelessWidget {
-  const _StudentAvatar({required this.student});
+  const _StudentAvatar({required this.student, this.size = 84});
 
   final Student student;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
@@ -717,7 +1306,7 @@ class _StudentAvatar extends StatelessWidget {
         .take(2);
     final initials = nameParts.map((part) => part[0].toUpperCase()).join();
     final fallback = CircleAvatar(
-      radius: 42,
+      radius: size / 2,
       backgroundColor: TmcPalette.paleBlue,
       child: Text(
         initials.isEmpty ? 'T' : initials,
@@ -738,43 +1327,14 @@ class _StudentAvatar extends StatelessWidget {
       child: ClipOval(
         child: Image.network(
           url,
-          width: 84,
-          height: 84,
+          width: size,
+          height: size,
           fit: BoxFit.cover,
           errorBuilder: (_, _, _) => fallback,
         ),
       ),
     );
   }
-}
-
-class _InfoRow extends StatelessWidget {
-  const _InfoRow({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
-  final IconData icon;
-  final String label;
-  final String value;
-  @override
-  Widget build(BuildContext context) => TmcPanel(
-    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-    child: ListTile(
-      leading: Icon(icon, color: TmcPalette.navyBlue),
-      title: Text(
-        label,
-        style: const TextStyle(fontSize: 12, color: TmcPalette.darkGray),
-      ),
-      subtitle: Text(
-        value.isEmpty ? 'Not provided' : value,
-        style: const TextStyle(
-          color: TmcPalette.deepNavyBlack,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    ),
-  );
 }
 
 class ReportsPage extends StatefulWidget {
