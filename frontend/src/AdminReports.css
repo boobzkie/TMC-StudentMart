@@ -1436,9 +1436,12 @@
 .reports-chart-gridline { stroke: var(--tmc-admin-border); stroke-width: 1; stroke-dasharray: 3 5; }
 .reports-trend-series polyline { fill: none; stroke-width: 2.8; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
 .reports-trend-series circle { stroke: var(--tmc-admin-surface); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
-.reports-trend-series.listings polyline,.reports-trend-series.listings circle { stroke: var(--tmc-admin-primary); fill: var(--tmc-admin-primary); }
-.reports-trend-series.orders polyline,.reports-trend-series.orders circle { stroke: var(--tmc-admin-success); fill: var(--tmc-admin-success); }
-.reports-trend-series.complaints polyline,.reports-trend-series.complaints circle { stroke: var(--tmc-admin-warning); fill: var(--tmc-admin-warning); }
+.reports-trend-series.listings polyline { stroke: var(--tmc-admin-primary); fill: none; }
+.reports-trend-series.listings circle { stroke: var(--tmc-admin-surface); fill: var(--tmc-admin-primary); }
+.reports-trend-series.orders polyline { stroke: var(--tmc-admin-success); fill: none; }
+.reports-trend-series.orders circle { stroke: var(--tmc-admin-surface); fill: var(--tmc-admin-success); }
+.reports-trend-series.complaints polyline { stroke: var(--tmc-admin-warning); fill: none; }
+.reports-trend-series.complaints circle { stroke: var(--tmc-admin-surface); fill: var(--tmc-admin-warning); }
 
 .reports-trend-axis {
   display: flex;

@@ -13,6 +13,10 @@
   animation: transactionsPageEnter 240ms ease both;
 }
 
+.admin-layout[data-theme] .admin-content .transactions-page > .admin-page-hero {
+  margin-bottom: clamp(16px, 1.5vw, 24px) !important;
+}
+
 .transactions-page,
 .transactions-page * {
   box-sizing: border-box;

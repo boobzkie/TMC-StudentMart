@@ -38,6 +38,8 @@ test('student can update their own contact profile and explicit sharing preferen
 
     $this->putJson('/api/user/student-profile', [
         'name' => 'Updated Student Name',
+        'username' => 'updated.student',
+        'bio' => 'Books and course materials for sale.',
         'contact_number' => '09171234567',
         'course' => 'BSIT',
         'facebook_url' => 'https://facebook.com/example',
@@ -46,12 +48,16 @@ test('student can update their own contact profile and explicit sharing preferen
         'share_contact_info' => true,
     ])->assertOk()
         ->assertJsonPath('user.name', 'Updated Student Name')
+        ->assertJsonPath('user.username', 'updated.student')
+        ->assertJsonPath('user.bio', 'Books and course materials for sale.')
         ->assertJsonPath('user.share_contact_info', true)
         ->assertJsonPath('user.facebook_url', 'https://facebook.com/example');
 
     $student->refresh();
     expect($student->contact_number)->toBe('09171234567')
         ->and($student->course)->toBe('BSIT')
+        ->and($student->username)->toBe('updated.student')
+        ->and($student->bio)->toBe('Books and course materials for sale.')
         ->and($student->share_contact_info)->toBeTrue();
 });
 

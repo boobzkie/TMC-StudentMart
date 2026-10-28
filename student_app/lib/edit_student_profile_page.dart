@@ -14,6 +14,8 @@ class EditStudentProfilePage extends StatefulWidget {
 class _EditStudentProfilePageState extends State<EditStudentProfilePage> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _name;
+  late final TextEditingController _username;
+  late final TextEditingController _bio;
   late final TextEditingController _contactNumber;
   String? _course;
   late bool _shareContactInfo;
@@ -24,6 +26,8 @@ class _EditStudentProfilePageState extends State<EditStudentProfilePage> {
     super.initState();
     final student = context.read<AuthState>().user!;
     _name = TextEditingController(text: student.name);
+    _username = TextEditingController(text: student.username);
+    _bio = TextEditingController(text: student.bio);
     _contactNumber = TextEditingController(text: student.contactNumber);
     _course = courseOptions.any((option) => option.code == student.course)
         ? student.course
@@ -34,6 +38,8 @@ class _EditStudentProfilePageState extends State<EditStudentProfilePage> {
   @override
   void dispose() {
     _name.dispose();
+    _username.dispose();
+    _bio.dispose();
     _contactNumber.dispose();
     super.dispose();
   }
@@ -55,6 +61,8 @@ class _EditStudentProfilePageState extends State<EditStudentProfilePage> {
     try {
       await auth.updateProfile({
         'name': _name.text.trim(),
+        'username': _optionalValue(_username),
+        'bio': _optionalValue(_bio),
         'contact_number': _optionalValue(_contactNumber),
         'course': _course,
         'share_contact_info': _shareContactInfo,
@@ -105,6 +113,43 @@ class _EditStudentProfilePageState extends State<EditStudentProfilePage> {
                           value == null || value.trim().isEmpty
                           ? 'Enter your name.'
                           : null,
+                    ),
+                    const SizedBox(height: 10),
+                    TextFormField(
+                      controller: _username,
+                      textCapitalization: TextCapitalization.none,
+                      maxLength: 30,
+                      decoration: const InputDecoration(
+                        labelText: 'Username',
+                        prefixText: '@',
+                        helperText:
+                            'Use 3–30 letters, numbers, dots or underscores.',
+                      ),
+                      validator: (value) {
+                        final username = value?.trim().toLowerCase() ?? '';
+                        if (username.isEmpty) return null;
+                        if (username.length < 3 || username.length > 30) {
+                          return 'Username must be 3–30 characters.';
+                        }
+                        if (!RegExp(r'^[a-z0-9._]+$').hasMatch(username)) {
+                          return 'Use only letters, numbers, dots and underscores.';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 10),
+                    TextFormField(
+                      controller: _bio,
+                      minLines: 2,
+                      maxLines: 4,
+                      maxLength: 500,
+                      textCapitalization: TextCapitalization.sentences,
+                      decoration: const InputDecoration(
+                        labelText: 'Bio',
+                        alignLabelWithHint: true,
+                        helperText:
+                            'Tell other students a little about yourself.',
+                      ),
                     ),
                     const SizedBox(height: 10),
                     TextFormField(

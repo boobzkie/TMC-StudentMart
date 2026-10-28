@@ -11,13 +11,15 @@ use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\ComplaintController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\OrderOptionsController;
-use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\ProductController;
-use App\Http\Controllers\StaffDashboardController;
+use App\Http\Controllers\ProductReviewController;
+use App\Http\Controllers\SellerProfileController;
 use App\Http\Controllers\StaffComplaintController;
+use App\Http\Controllers\StaffDashboardController;
 use App\Http\Controllers\StaffInsightsController;
 use App\Http\Controllers\StaffPresenceController;
 use App\Http\Controllers\StaffRegistrationController;
@@ -151,6 +153,31 @@ Route::middleware('auth:sanctum')->group(function () {
             'status',
         ]);
 
+        Route::get('/students/{student}/profile', [
+            SellerProfileController::class,
+            'show',
+        ]);
+
+        Route::get('/students/{student}/products', [
+            ProductController::class,
+            'sellerProducts',
+        ]);
+
+        Route::get('/students/{student}/reviews', [
+            ProductReviewController::class,
+            'sellerIndex',
+        ]);
+
+        Route::get('/students/{student}/followers', [
+            StudentFollowController::class,
+            'studentFollowers',
+        ]);
+
+        Route::get('/students/{student}/following', [
+            StudentFollowController::class,
+            'studentFollowing',
+        ]);
+
         Route::post('/students/{student}/follow', [
             StudentFollowController::class,
             'follow',
@@ -186,6 +213,16 @@ Route::middleware('auth:sanctum')->group(function () {
             ProductController::class,
             'show',
         ]);
+
+        Route::get('/products/{product}/reviews', [
+            ProductReviewController::class,
+            'index',
+        ]);
+
+        Route::post('/products/{product}/reviews', [
+            ProductReviewController::class,
+            'store',
+        ])->middleware('throttle:10,1');
 
         Route::post('/products', [
             ProductController::class,

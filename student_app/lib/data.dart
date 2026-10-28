@@ -339,6 +339,47 @@ class ApiService {
   Future<Map<String, dynamic>> myFollowStats() async =>
       asMap(await get('/user/follow-stats'));
 
+  Future<Map<String, dynamic>> sellerProfile(int studentId) async =>
+      asMap(await get('/students/$studentId/profile'));
+
+  Future<Map<String, dynamic>> sellerProducts(
+    int studentId, {
+    int page = 1,
+  }) async => asMap(await get('/students/$studentId/products?page=$page'));
+
+  Future<Map<String, dynamic>> sellerReviews(
+    int studentId, {
+    int page = 1,
+  }) async => asMap(await get('/students/$studentId/reviews?page=$page'));
+
+  Future<Map<String, dynamic>> studentConnections(
+    int studentId, {
+    required bool followers,
+    int page = 1,
+  }) async => asMap(
+    await get(
+      '/students/$studentId/${followers ? 'followers' : 'following'}?page=$page',
+    ),
+  );
+
+  Future<Map<String, dynamic>> productReviews(
+    int productId, {
+    int page = 1,
+  }) async => asMap(await get('/products/$productId/reviews?page=$page'));
+
+  Future<Map<String, dynamic>> submitProductReview(
+    int productId, {
+    required int rating,
+    String? title,
+    required String comment,
+  }) async => asMap(
+    await post('/products/$productId/reviews', {
+      'rating': rating,
+      'title': title,
+      'comment': comment,
+    }),
+  );
+
   Future<dynamic> sendProduct({
     required Map<String, String> fields,
     List<XFile> images = const [],
@@ -505,6 +546,8 @@ class Student {
     this.course = '',
     this.status = '',
     this.role = '',
+    this.username = '',
+    this.bio = '',
     this.profilePicture,
     this.facebookUrl = '',
     this.instagramUrl = '',
@@ -520,6 +563,8 @@ class Student {
   final String course;
   final String status;
   final String role;
+  final String username;
+  final String bio;
   final String? profilePicture;
   final String facebookUrl;
   final String instagramUrl;
@@ -535,6 +580,8 @@ class Student {
     course: valueOf(json['course']),
     status: valueOf(json['status']),
     role: valueOf(json['role']),
+    username: valueOf(json['username']),
+    bio: valueOf(json['bio']),
     profilePicture: json['profile_picture']?.toString(),
     facebookUrl: valueOf(json['facebook_url']),
     instagramUrl: valueOf(json['instagram_url']),
@@ -656,6 +703,10 @@ class Product {
     this.image,
     this.images = const [],
     this.sellerName = '',
+    this.sellerUsername = '',
+    this.sellerBio = '',
+    this.sellerCourse = '',
+    this.sellerProfilePicture,
     this.sellerStudentId = '',
     this.sellerContactNumber = '',
     this.sellerFacebookUrl = '',
@@ -680,6 +731,10 @@ class Product {
   final String? image;
   final List<ProductImage> images;
   final String sellerName;
+  final String sellerUsername;
+  final String sellerBio;
+  final String sellerCourse;
+  final String? sellerProfilePicture;
   final String sellerStudentId;
   final String sellerContactNumber;
   final String sellerFacebookUrl;
@@ -753,6 +808,10 @@ class Product {
       image: coverImage,
       images: allImages,
       sellerName: valueOf(seller['name']),
+      sellerUsername: valueOf(seller['username']),
+      sellerBio: valueOf(seller['bio']),
+      sellerCourse: valueOf(seller['course']),
+      sellerProfilePicture: seller['profile_picture']?.toString(),
       sellerStudentId: valueOf(seller['student_id']),
       sellerContactNumber: valueOf(seller['contact_number']),
       sellerFacebookUrl: valueOf(seller['facebook_url']),
@@ -1062,6 +1121,8 @@ class CartState extends ChangeNotifier {
       'tmc_student_checkout_attempt_v1_';
   final Map<String, CartEntry> _entries = {};
   int? _currentUserId;
+  bool isLoaded = false;
+  String? loadError;
   List<CartEntry> get entries => _entries.values.toList(growable: false);
   int get itemCount =>
       _entries.values.fold(0, (total, entry) => total + entry.quantity);
@@ -1081,38 +1142,49 @@ class CartState extends ChangeNotifier {
   }
 
   Future<void> load() async {
+    isLoaded = false;
+    loadError = null;
+    notifyListeners();
     try {
       final raw = await storage.read(key: _key);
       if (raw != null) {
         final decoded = jsonDecode(raw);
-        if (decoded is List) {
-          _entries.clear();
-          var removedOwnProduct = false;
-          for (final item in decoded) {
-            final row = asMap(item);
-            final product = Product.fromJson(asMap(row['product']));
-            final rawVariant = row['variant'];
-            final variant = rawVariant is Map
-                ? ProductVariant.fromJson(asMap(rawVariant))
-                : null;
-            final quantity = int.tryParse(valueOf(row['quantity'])) ?? 1;
-            if (product.id > 0 && quantity > 0) {
-              if (_currentUserId != null &&
-                  isOwnProduct(product, _currentUserId!)) {
-                removedOwnProduct = true;
-              } else {
-                final entry = CartEntry(product, quantity, variant: variant);
-                _entries[entry.key] = entry;
-              }
+        if (decoded is! List) {
+          throw const FormatException('Saved cart must be a list.');
+        }
+        final restored = <String, CartEntry>{};
+        var removedOwnProduct = false;
+        for (final item in decoded) {
+          final row = asMap(item);
+          final product = Product.fromJson(asMap(row['product']));
+          final rawVariant = row['variant'];
+          final variant = rawVariant is Map
+              ? ProductVariant.fromJson(asMap(rawVariant))
+              : null;
+          final quantity = int.tryParse(valueOf(row['quantity'])) ?? 1;
+          if (product.id > 0 && quantity > 0) {
+            if (_currentUserId != null &&
+                isOwnProduct(product, _currentUserId!)) {
+              removedOwnProduct = true;
+            } else {
+              final entry = CartEntry(product, quantity, variant: variant);
+              restored[entry.key] = entry;
             }
           }
-          if (removedOwnProduct) await _save();
         }
+        _entries
+          ..clear()
+          ..addAll(restored);
+        if (removedOwnProduct) await _save();
       }
+    } on FormatException {
+      loadError = 'Saved cart data could not be read. Retry to load it again.';
     } catch (_) {
-      _entries.clear();
+      loadError = 'Saved cart could not be loaded. Your cart has been kept.';
+    } finally {
+      isLoaded = true;
+      notifyListeners();
     }
-    notifyListeners();
   }
 
   Future<void> _save() async {
@@ -1149,6 +1221,7 @@ class CartState extends ChangeNotifier {
         )
         .toList();
     await storage.write(key: _key, value: jsonEncode(rows));
+    loadError = null;
   }
 
   Future<bool> add(
@@ -1195,6 +1268,65 @@ class CartState extends ChangeNotifier {
     }
     await _save();
     notifyListeners();
+  }
+
+  Future<void> updateProduct(Product product) async {
+    var changed = false;
+    for (final entry in entries.where(
+      (item) => item.product.id == product.id,
+    )) {
+      ProductVariant? updatedVariant;
+      if (entry.variant != null) {
+        for (final candidate in product.variants) {
+          if (candidate.id == entry.variant!.id) {
+            updatedVariant = candidate;
+            break;
+          }
+        }
+        updatedVariant ??= entry.variant;
+      }
+      _entries[entry.key] = CartEntry(
+        product,
+        entry.quantity,
+        variant: updatedVariant,
+      );
+      changed = true;
+    }
+    if (changed) {
+      await _save();
+      notifyListeners();
+    }
+  }
+
+  Future<void> removeEntries(Iterable<String> keys) async {
+    var changed = false;
+    for (final key in keys.toSet()) {
+      changed = _entries.remove(key) != null || changed;
+    }
+    if (changed) {
+      await _save();
+      notifyListeners();
+    }
+  }
+
+  Future<bool> restoreEntry(CartEntry entry) async {
+    if (_entries.containsKey(entry.key) ||
+        entry.product.status != 'active' ||
+        entry.quantity > entry.availableStock ||
+        (_currentUserId != null &&
+            isOwnProduct(entry.product, _currentUserId!)) ||
+        (entry.product.variants.isNotEmpty &&
+            (entry.variant == null ||
+                !entry.product.variants.any(
+                  (variant) => variant.id == entry.variant!.id,
+                ))) ||
+        (entry.product.variants.isEmpty && entry.variant != null)) {
+      return false;
+    }
+    _entries[entry.key] = entry;
+    await _save();
+    notifyListeners();
+    return true;
   }
 
   Future<void> clear() async {

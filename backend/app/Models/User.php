@@ -4,9 +4,10 @@ namespace App\Models;
 
 use App\Notifications\ResetPasswordNotification;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
@@ -38,6 +39,8 @@ class User extends Authenticatable
         'instagram_url',
         'tiktok_url',
         'share_contact_info',
+        'username',
+        'bio',
     ];
 
     protected $hidden = [
@@ -115,6 +118,11 @@ class User extends Authenticatable
             'follower_id',
             'following_id'
         )->withTimestamps();
+    }
+
+    public function productReviews(): HasMany
+    {
+        return $this->hasMany(ProductReview::class, 'reviewer_id');
     }
 
     public function complaints()

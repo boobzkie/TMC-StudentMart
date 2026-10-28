@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Product;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -73,4 +74,70 @@ test('students cannot follow themselves, inactive accounts, or staff accounts', 
         ->assertNotFound();
 
     expect(DB::table('student_follows')->count())->toBe(0);
+});
+
+test('seller profile exposes safe profile data, paginated listings, and connection lists', function () {
+    $viewer = makeFollowStudent('PUBLIC-VIEWER');
+    $seller = makeFollowStudent('PUBLIC-SELLER', [
+        'username' => 'seller.profile',
+        'bio' => 'TMC student seller.',
+        'course' => 'BSIT',
+        'contact_number' => '09170000000',
+    ]);
+    $active = Product::create([
+        'user_id' => $seller->id,
+        'name' => 'Available book',
+        'description' => 'Active listing',
+        'price' => '120.00',
+        'category' => 'Books',
+        'status' => 'active',
+        'stock_quantity' => 2,
+    ]);
+    Product::create([
+        'user_id' => $seller->id,
+        'name' => 'Sold book',
+        'description' => 'Past listing',
+        'price' => '80.00',
+        'category' => 'Books',
+        'status' => 'sold_out',
+        'stock_quantity' => 0,
+    ]);
+    Product::create([
+        'user_id' => $seller->id,
+        'name' => 'Private archived listing',
+        'description' => 'Not public',
+        'price' => '50.00',
+        'category' => 'Books',
+        'status' => 'archived',
+        'stock_quantity' => 0,
+    ]);
+    $viewer->following()->attach($seller->id);
+    $seller->following()->attach($viewer->id);
+    Sanctum::actingAs($viewer);
+
+    $this->getJson('/api/students/'.$seller->id.'/profile')
+        ->assertOk()
+        ->assertJsonPath('student.username', 'seller.profile')
+        ->assertJsonPath('student.bio', 'TMC student seller.')
+        ->assertJsonPath('student.course', 'BSIT')
+        ->assertJsonPath('followers_count', 1)
+        ->assertJsonPath('following_count', 1)
+        ->assertJsonPath('products_count', 2)
+        ->assertJsonMissingPath('student.email')
+        ->assertJsonMissingPath('student.student_id')
+        ->assertJsonMissingPath('student.contact_number');
+
+    $this->getJson('/api/students/'.$seller->id.'/products?page=1')
+        ->assertOk()
+        ->assertJsonPath('total', 2)
+        ->assertJsonFragment(['id' => $active->id])
+        ->assertJsonMissing(['name' => 'Private archived listing']);
+
+    $this->getJson('/api/students/'.$seller->id.'/followers')
+        ->assertOk()
+        ->assertJsonPath('accounts.0.id', $viewer->id);
+
+    $this->getJson('/api/students/'.$seller->id.'/following')
+        ->assertOk()
+        ->assertJsonPath('accounts.0.id', $viewer->id);
 });

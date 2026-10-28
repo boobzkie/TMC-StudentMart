@@ -170,7 +170,7 @@ export default function AdminProducts() {
   const salesSeries = Array.isArray(stats.sales_over_time) ? stats.sales_over_time : [];
   const maxListing = Math.max(1, ...listingSeries.map((item) => value(item.listings)));
   const maxSales = Math.max(1, ...salesSeries.flatMap((item) => [value(item.sales), value(item.pending)]));
-  const makeLine = (field) => salesSeries.map((item, index) => `${salesSeries.length < 2 ? 50 : index / (salesSeries.length - 1) * 100},${94 - value(item[field]) / maxSales * 84}`).join(" ");
+  const makeLine = (field) => salesSeries.map((item, index) => `${salesSeries.length < 2 ? 50 : index / (salesSeries.length - 1) * 100},${90 - value(item[field]) / maxSales * 80}`).join(" ");
   const refreshAll = async (signal) => {
     await Promise.all([loadProducts(true, signal), loadAnalytics(signal, Boolean(signal))]);
   };
@@ -193,7 +193,7 @@ export default function AdminProducts() {
             </article>
             <article className="pm-dashboard-card">
               <div className="pm-dashboard-card-heading"><span className="pm-dashboard-icon"><ChartNoAxesColumn size={17} /></span><div><h2>Sales Overview</h2><p>Completed sales from orders</p></div><strong className="pm-sales-total">{formatPrice(stats.total_sales)}</strong></div>
-              {analyticsLoading ? <p className="pm-data-state" role="status">Loading sales activity…</p> : !salesSeries.length ? <p className="pm-data-state">{analyticsError || "No sales activity in this period."}</p> : <><svg className="pm-line-chart" viewBox="0 0 100 112" preserveAspectRatio="none" role="img" aria-label="Completed and pending order value over time"><path d="M0 94H100M0 52H100M0 10H100" className="pm-chart-gridline" /><polyline points={makeLine("sales")} className="pm-chart-line" /><polyline points={makeLine("pending")} className="pm-chart-line pm-chart-line-pending" />{salesSeries.map((item, index) => <text key={item.key || index} x={salesSeries.length < 2 ? 50 : 3 + index / (salesSeries.length - 1) * 94} y="108">{String(item.label || "").split(" ")[0]}</text>)}</svg><div className="pm-chart-legend"><i />Completed sales<i className="pending" />Pending order value</div></>}
+              {analyticsLoading ? <p className="pm-data-state" role="status">Loading sales activity…</p> : !salesSeries.length ? <p className="pm-data-state">{analyticsError || "No sales activity in this period."}</p> : <><svg className="pm-line-chart" viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label="Completed and pending order value over time"><path d="M0 90H100M0 50H100M0 10H100" className="pm-chart-gridline" /><polyline points={makeLine("sales")} className="pm-chart-line" /><polyline points={makeLine("pending")} className="pm-chart-line pm-chart-line-pending" /></svg><div className="pm-chart-axis" style={{ gridTemplateColumns: `repeat(${salesSeries.length}, minmax(0, 1fr))` }}>{salesSeries.map((item, index) => <span key={item.key || index}>{String(item.label || "").split(" ")[0]}</span>)}</div><div className="pm-chart-legend"><i />Completed sales<i className="pending" />Pending order value</div></>}
             </article>
           </div>
         </section>

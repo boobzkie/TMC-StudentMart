@@ -10,6 +10,10 @@
   padding-bottom: 40px;
 }
 
+.admin-layout[data-theme] .admin-content .sellers-page > .admin-page-hero {
+  margin-bottom: clamp(16px, 1.5vw, 24px) !important;
+}
+
 /* ============================================================
    HERO
 ============================================================ */

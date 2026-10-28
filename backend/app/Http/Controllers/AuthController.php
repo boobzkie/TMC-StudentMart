@@ -6,6 +6,7 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
@@ -292,6 +293,8 @@ class AuthController extends Controller
 
         $allowedFields = [
             'name',
+            'username',
+            'bio',
             'contact_number',
             'course',
             'facebook_url',
@@ -313,8 +316,24 @@ class AuthController extends Controller
             ]);
         }
 
+        if ($request->has('username')) {
+            $request->merge([
+                'username' => strtolower(trim((string) $request->input('username'))),
+            ]);
+        }
+
         $validated = $request->validate([
             'name' => ['sometimes', 'required', 'string', 'max:255'],
+            'username' => [
+                'sometimes',
+                'nullable',
+                'string',
+                'min:3',
+                'max:30',
+                'regex:/^[a-z0-9._]+$/',
+                Rule::unique('users', 'username')->ignore($user->id),
+            ],
+            'bio' => ['sometimes', 'nullable', 'string', 'max:500'],
             'contact_number' => ['sometimes', 'nullable', 'string', 'max:30'],
             'course' => ['sometimes', 'nullable', 'string', 'in:'.implode(',', self::COURSES)],
             'facebook_url' => ['sometimes', 'nullable', 'url', 'max:2048'],
@@ -431,6 +450,8 @@ class AuthController extends Controller
         return [
             'id' => $user->id,
             'name' => $user->name,
+            'username' => $user->username,
+            'bio' => $user->bio,
             'student_id' => $user->student_id,
             'email' => $user->email,
             'contact_number' => $user->contact_number,

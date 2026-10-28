@@ -62,6 +62,11 @@ class Product extends Model
         return $this->hasMany(Complaint::class, 'product_id');
     }
 
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(ProductReview::class);
+    }
+
     public function moderationEvents(): HasMany
     {
         return $this->hasMany(ProductModerationEvent::class)->latest('created_at');

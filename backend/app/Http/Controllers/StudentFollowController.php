@@ -95,6 +95,20 @@ class StudentFollowController extends Controller
         return $this->connectionList($viewer, $viewer->following());
     }
 
+    public function studentFollowers(Request $request, User $student): JsonResponse
+    {
+        $this->ensureActiveStudent($student);
+
+        return $this->connectionList($request->user(), $student->followers());
+    }
+
+    public function studentFollowing(Request $request, User $student): JsonResponse
+    {
+        $this->ensureActiveStudent($student);
+
+        return $this->connectionList($request->user(), $student->following());
+    }
+
     private function connectionList(User $viewer, BelongsToMany $relation): JsonResponse
     {
         $page = $this->activeStudentRelation($relation)
@@ -135,12 +149,14 @@ class StudentFollowController extends Controller
         abort_unless($student->isStudent() && $student->isActive(), 404);
     }
 
-    /** @return array{id: int, name: string, course: ?string, profile_picture: ?string} */
+    /** @return array{id: int, name: string, username: string, bio: ?string, course: ?string, profile_picture: ?string} */
     private function publicStudent(User $student): array
     {
         return [
             'id' => (int) $student->getKey(),
             'name' => (string) $student->name,
+            'username' => $student->username ?: 'student'.$student->getKey(),
+            'bio' => $student->bio,
             'course' => $student->course,
             'profile_picture' => $student->profile_picture,
         ];

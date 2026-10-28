@@ -8,6 +8,7 @@ use App\Models\Category;
 use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\ProductVariant;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -28,7 +29,7 @@ class ProductController extends Controller
     public function index(Request $request): JsonResponse
     {
         $visibleSoldOutCutoff = now()->subHour();
-        $query = Product::with(['user:id,name,student_id,contact_number,share_contact_info,facebook_url,instagram_url,tiktok_url', 'images', 'categoryRecord:id,name', 'variants' => fn ($query) => $query->where('is_active', true)])
+        $query = Product::with(['user:id,name,username,bio,course,profile_picture,student_id,contact_number,share_contact_info,facebook_url,instagram_url,tiktok_url', 'images', 'categoryRecord:id,name', 'variants' => fn ($query) => $query->where('is_active', true)])
             ->where(function ($query) use ($visibleSoldOutCutoff): void {
                 $query->whereRaw('LOWER(status) = ?', ['active'])
                     ->orWhere(function ($soldOut) use ($visibleSoldOutCutoff): void {
@@ -77,7 +78,7 @@ class ProductController extends Controller
     public function myProducts(Request $request): JsonResponse
     {
         $products = Product::where('user_id', $request->user()->id)
-            ->with(['user:id,name,student_id,contact_number,share_contact_info,facebook_url,instagram_url,tiktok_url', 'images', 'categoryRecord:id,name', 'variants' => fn ($query) => $query->where('is_active', true)])
+            ->with(['user:id,name,username,bio,course,profile_picture,student_id,contact_number,share_contact_info,facebook_url,instagram_url,tiktok_url', 'images', 'categoryRecord:id,name', 'variants' => fn ($query) => $query->where('is_active', true)])
             ->orderByDesc('created_at')
             ->get()
             ->map(fn (Product $product) => $this->productData($product));
@@ -150,7 +151,7 @@ class ProductController extends Controller
                     ]);
                 }
 
-                return $product->load(['user:id,name,student_id,contact_number,share_contact_info,facebook_url,instagram_url,tiktok_url', 'images', 'categoryRecord:id,name', 'variants' => fn ($query) => $query->where('is_active', true)]);
+                return $product->load(['user:id,name,username,bio,course,profile_picture,student_id,contact_number,share_contact_info,facebook_url,instagram_url,tiktok_url', 'images', 'categoryRecord:id,name', 'variants' => fn ($query) => $query->where('is_active', true)]);
             });
         } catch (Throwable $exception) {
             Storage::disk('public')->delete($storedPaths);
@@ -167,9 +168,6 @@ class ProductController extends Controller
     public function show(Request $request, Product $product): JsonResponse
     {
         $isActive = strtolower((string) $product->status) === 'active';
-        $isRecentlySoldOut = strtolower((string) $product->status) === 'sold_out'
-            && $product->sold_out_at !== null
-            && $product->sold_out_at->greaterThan(now()->subHour());
         $isOwner = (int) $product->user_id === (int) $request->user()->id;
         $isArchived = strtolower((string) $product->status) === 'archived';
 
@@ -180,18 +178,46 @@ class ProductController extends Controller
             ], 404);
         }
 
-        if (! $isActive && ! $isRecentlySoldOut && ! $isOwner) {
+        if (! $isActive && strtolower((string) $product->status) !== 'sold_out' && ! $isOwner) {
             return response()->json([
                 'success' => false,
                 'message' => 'Product not found.',
             ], 404);
         }
 
-        $product->load(['user:id,name,student_id,contact_number,share_contact_info,facebook_url,instagram_url,tiktok_url', 'images', 'categoryRecord:id,name']);
+        $product->load(['user:id,name,username,bio,course,profile_picture,student_id,contact_number,share_contact_info,facebook_url,instagram_url,tiktok_url', 'images', 'categoryRecord:id,name']);
 
         return response()->json([
             'success' => true,
             'product' => $this->productData($product),
+        ]);
+    }
+
+    public function sellerProducts(Request $request, User $student): JsonResponse
+    {
+        abort_unless($student->isStudent() && $student->isActive(), 404);
+
+        $products = Product::query()
+            ->where('user_id', $student->id)
+            ->whereIn('status', ['active', 'sold_out'])
+            ->with([
+                'user:id,name,username,bio,course,profile_picture,student_id,contact_number,share_contact_info,facebook_url,instagram_url,tiktok_url',
+                'images',
+                'categoryRecord:id,name',
+                'variants' => fn ($query) => $query->where('is_active', true),
+            ])
+            ->orderByRaw("CASE WHEN status = 'active' THEN 0 ELSE 1 END")
+            ->orderByDesc('created_at')
+            ->paginate(12);
+
+        return response()->json([
+            'success' => true,
+            'products' => $products->getCollection()
+                ->map(fn (Product $product): array => $this->productData($product))
+                ->values(),
+            'total' => $products->total(),
+            'current_page' => $products->currentPage(),
+            'last_page' => $products->lastPage(),
         ]);
     }
 
@@ -386,7 +412,7 @@ class ProductController extends Controller
                     ]);
                 }
 
-                return $product->fresh()->load(['user:id,name,student_id,contact_number,share_contact_info,facebook_url,instagram_url,tiktok_url', 'images', 'categoryRecord:id,name', 'variants' => fn ($query) => $query->where('is_active', true)]);
+                return $product->fresh()->load(['user:id,name,username,bio,course,profile_picture,student_id,contact_number,share_contact_info,facebook_url,instagram_url,tiktok_url', 'images', 'categoryRecord:id,name', 'variants' => fn ($query) => $query->where('is_active', true)]);
             });
         } catch (Throwable $exception) {
             Storage::disk('public')->delete($storedPaths);
@@ -538,7 +564,7 @@ class ProductController extends Controller
                 ]);
             }
 
-            return $lockedProduct->fresh()->load(['user:id,name,student_id,contact_number,share_contact_info,facebook_url,instagram_url,tiktok_url', 'images', 'categoryRecord:id,name']);
+            return $lockedProduct->fresh()->load(['user:id,name,username,bio,course,profile_picture,student_id,contact_number,share_contact_info,facebook_url,instagram_url,tiktok_url', 'images', 'categoryRecord:id,name']);
         });
 
         return response()->json([
@@ -558,7 +584,7 @@ class ProductController extends Controller
         }
 
         $product->load([
-            'user:id,name,student_id,contact_number,share_contact_info,facebook_url,instagram_url,tiktok_url',
+            'user:id,name,username,bio,course,profile_picture,student_id,contact_number,share_contact_info,facebook_url,instagram_url,tiktok_url',
             'images',
             'categoryRecord:id,name',
             'historyEvents.actor:id,name',
@@ -681,7 +707,7 @@ class ProductController extends Controller
                 ]);
             }
 
-            return $lockedProduct->fresh()->load(['user:id,name,student_id,contact_number,share_contact_info,facebook_url,instagram_url,tiktok_url', 'images', 'categoryRecord:id,name']);
+            return $lockedProduct->fresh()->load(['user:id,name,username,bio,course,profile_picture,student_id,contact_number,share_contact_info,facebook_url,instagram_url,tiktok_url', 'images', 'categoryRecord:id,name']);
         });
 
         return response()->json([
@@ -787,7 +813,7 @@ class ProductController extends Controller
     private function productData(Product $product): array
     {
         $viewerIsOwner = (int) Auth::id() === (int) $product->user_id;
-        $product->loadMissing(['user:id,name,student_id,contact_number,share_contact_info,facebook_url,instagram_url,tiktok_url', 'images', 'categoryRecord:id,name', 'variants' => fn ($query) => $query->where('is_active', true)]);
+        $product->loadMissing(['user:id,name,username,bio,course,profile_picture,student_id,contact_number,share_contact_info,facebook_url,instagram_url,tiktok_url', 'images', 'categoryRecord:id,name', 'variants' => fn ($query) => $query->where('is_active', true)]);
         if ($viewerIsOwner) {
             $product->loadMissing(['latestModerationEvent', 'warnings.actor:id,name']);
         }
@@ -796,6 +822,10 @@ class ProductController extends Controller
         $data['user'] = $seller ? [
             'id' => $seller->id,
             'name' => $seller->name,
+            'username' => $seller->username ?: 'student'.$seller->id,
+            'bio' => $seller->bio,
+            'course' => $seller->course,
+            'profile_picture' => $seller->profile_picture,
             'student_id' => $seller->student_id,
         ] : null;
         if ($seller?->share_contact_info) {

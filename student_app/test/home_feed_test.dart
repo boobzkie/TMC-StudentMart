@@ -80,7 +80,15 @@ void main() {
   ) async {
     _setPhoneViewport(tester);
     await _pumpHome(tester, [
-      _product(id: 4, name: 'Used calculator', sellerId: 40),
+      _product(
+        id: 4,
+        name: 'Used calculator',
+        sellerId: 40,
+        images: const [
+          ProductImage(path: '/calculator-front.jpg'),
+          ProductImage(path: '/calculator-back.jpg'),
+        ],
+      ),
     ]);
 
     await tester.tap(find.byTooltip('Details'));
@@ -88,13 +96,26 @@ void main() {
     expect(find.text('Product details'), findsWidgets);
     expect(find.text('Used calculator'), findsNWidgets(2));
 
+    expect(
+      find.bySemanticsLabel('Open product images full screen'),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const ValueKey('product-gallery-open-viewer')));
+    await tester.pumpAndSettle();
+    expect(find.text('1 / 2'), findsOneWidget);
+    await tester.tap(find.byTooltip('Next image'));
+    await tester.pumpAndSettle();
+    expect(find.text('2 / 2'), findsOneWidget);
+    await tester.tap(find.byTooltip('Close image viewer'));
+    await tester.pumpAndSettle();
+
     await tester.pageBack();
     await tester.pumpAndSettle();
     await tester.tap(find.text('Sold by Seller 40'));
     await tester.pumpAndSettle();
 
     expect(find.text('Seller profile'), findsOneWidget);
-    expect(find.text('Active listings (1)'), findsOneWidget);
+    expect(find.text('Listings'), findsNWidgets(2));
     expect(find.text('TMC Student · BSIT'), findsOneWidget);
   });
 
@@ -126,6 +147,53 @@ void main() {
     expect(find.text('Two-image listing'), findsOneWidget);
   });
 
+  testWidgets('verified buyers can submit a product review from details', (
+    tester,
+  ) async {
+    _setPhoneViewport(tester);
+    final harness = await _pumpHome(tester, [
+      _product(id: 7, name: 'Verified review listing'),
+    ], canReview: true);
+
+    await tester.tap(find.byTooltip('Details'));
+    await tester.pumpAndSettle();
+    expect(
+      harness.requests.any(
+        (request) => request.url.path.endsWith('/products/7/reviews'),
+      ),
+      isTrue,
+    );
+    await tester.scrollUntilVisible(
+      find.text('Submit verified review'),
+      400,
+      scrollable: find.byType(Scrollable).last,
+    );
+    expect(find.text('Verified buyer reviews'), findsOneWidget);
+    expect(find.text('Submit verified review'), findsOneWidget);
+    expect(find.text('Your rating'), findsOneWidget);
+
+    await tester.enterText(
+      find.byType(TextFormField).last,
+      'Received in great condition.',
+    );
+    await tester.tap(find.text('Submit verified review'));
+    await tester.pumpAndSettle();
+
+    final reviewRequest = harness.requests.singleWhere(
+      (request) =>
+          request.method == 'POST' && request.url.path.endsWith('/reviews'),
+    );
+    expect(jsonDecode(reviewRequest.body), {
+      'rating': 5,
+      'title': null,
+      'comment': 'Received in great condition.',
+    });
+    expect(
+      find.text('Your verified buyer review was submitted.'),
+      findsWidgets,
+    );
+  });
+
   testWidgets('Home feed lays out without overflow on tablet and desktop', (
     tester,
   ) async {
@@ -146,6 +214,32 @@ void main() {
     }
     addTearDown(tester.view.resetPhysicalSize);
   });
+
+  testWidgets('Product details fits phone, tablet, and desktop widths', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await _pumpHome(tester, [
+      _product(id: 8, name: 'Responsive detail listing'),
+    ]);
+    await tester.tap(find.byTooltip('Details'));
+    await tester.pumpAndSettle();
+
+    for (final size in const [
+      Size(1280, 800),
+      Size(900, 900),
+      Size(720, 900),
+      Size(620, 844),
+      Size(420, 844),
+      Size(360, 800),
+    ]) {
+      tester.view.physicalSize = size;
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull, reason: 'Viewport: $size');
+    }
+    addTearDown(tester.view.resetPhysicalSize);
+  });
 }
 
 void _setPhoneViewport(WidgetTester tester) {
@@ -157,8 +251,9 @@ void _setPhoneViewport(WidgetTester tester) {
 
 Future<_HomeHarness> _pumpHome(
   WidgetTester tester,
-  List<Product> products,
-) async {
+  List<Product> products, {
+  bool canReview = false,
+}) async {
   final requests = <http.Request>[];
   final client = MockClient((request) async {
     requests.add(request);
@@ -167,6 +262,92 @@ Future<_HomeHarness> _pumpHome(
         ? int.tryParse(pathSegments[pathSegments.length - 2]) ?? 0
         : 0;
     final following = request.method == 'POST';
+    if (request.method == 'GET' && request.url.path.endsWith('/profile')) {
+      return http.Response(
+        jsonEncode({
+          'success': true,
+          'student': {
+            'id': sellerId,
+            'name': 'Seller $sellerId',
+            'username': 'seller$sellerId',
+            'bio': 'A helpful TMC seller.',
+            'course': 'BSIT',
+            'profile_picture': null,
+            'joined_at': '2026-01-01',
+          },
+          'followers_count': 5,
+          'following_count': 2,
+          'products_count': 1,
+          'reviews_count': 0,
+          'average_rating': 0,
+          'is_following': false,
+          'is_self': false,
+        }),
+        200,
+        headers: {'content-type': 'application/json'},
+      );
+    }
+    if (request.method == 'GET' &&
+        request.url.path.endsWith('/products') &&
+        request.url.path.contains('/students/')) {
+      return http.Response(
+        jsonEncode({
+          'success': true,
+          'products': products.map(_productJson).toList(),
+          'total': products.length,
+          'current_page': 1,
+          'last_page': 1,
+        }),
+        200,
+        headers: {'content-type': 'application/json'},
+      );
+    }
+    if (request.method == 'POST' && request.url.path.endsWith('/reviews')) {
+      return http.Response(
+        jsonEncode({
+          'success': true,
+          'message': 'Your verified buyer review has been submitted.',
+          'review': {
+            'id': 1,
+            'rating': 5,
+            'title': null,
+            'comment': 'Received in great condition.',
+            'reviewer': {'id': 1, 'name': 'Test Buyer'},
+          },
+        }),
+        201,
+        headers: {'content-type': 'application/json'},
+      );
+    }
+    if (request.method == 'GET' && request.url.path.contains('/reviews')) {
+      return http.Response(
+        jsonEncode({
+          'success': true,
+          'reviews': <Map<String, Object?>>[],
+          'total': 0,
+          'current_page': 1,
+          'last_page': 1,
+          'average_rating': 0,
+          'can_review': canReview,
+          'already_reviewed': false,
+          'eligibility_message': 'Complete an order to review.',
+        }),
+        200,
+        headers: {'content-type': 'application/json'},
+      );
+    }
+    if (request.method == 'GET' && request.url.path.contains('/products/')) {
+      final id = int.tryParse(pathSegments.last) ?? 0;
+      final matches = products.where((item) => item.id == id);
+      if (matches.isNotEmpty) {
+        final product = matches.first;
+        return http.Response(
+          jsonEncode({'success': true, 'product': _productJson(product)}),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }
+    }
     if (request.url.path.endsWith('/follow') &&
         (request.method == 'GET' || request.method == 'POST')) {
       return http.Response(
@@ -243,6 +424,38 @@ Product _product({
   attributes: const {'condition': 'Used - Good', 'brand': 'TMC'},
   images: images,
 );
+
+Map<String, Object?> _productJson(Product product) => {
+  'id': product.id,
+  'name': product.name,
+  'description': product.description,
+  'price': product.price,
+  'category': product.category,
+  'status': product.status,
+  'image': product.image,
+  'images': product.images
+      .map(
+        (image) => {
+          'id': image.id,
+          'path': image.path,
+          'sort_order': image.sortOrder,
+          'is_primary': image.isPrimary,
+        },
+      )
+      .toList(),
+  'stock_quantity': product.stockQuantity,
+  'attributes': product.attributes,
+  'variants': const [],
+  'user_id': product.userId,
+  'user': {
+    'id': product.userId,
+    'name': product.sellerName,
+    'username': product.sellerUsername,
+    'bio': product.sellerBio,
+    'course': product.sellerCourse,
+    'profile_picture': product.sellerProfilePicture,
+  },
+};
 
 class _HomeHarness {
   const _HomeHarness({required this.requests, required this.cart});

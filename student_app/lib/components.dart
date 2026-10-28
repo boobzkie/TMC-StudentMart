@@ -191,11 +191,13 @@ class ProductPhoto extends StatelessWidget {
     required this.product,
     this.height = 145,
     this.imagePath,
+    this.fit = BoxFit.cover,
   });
 
   final Product product;
   final double height;
   final String? imagePath;
+  final BoxFit fit;
 
   @override
   Widget build(BuildContext context) {
@@ -218,7 +220,7 @@ class ProductPhoto extends StatelessWidget {
             )
           : Image.network(
               url,
-              fit: BoxFit.cover,
+              fit: fit,
               errorBuilder: (_, _, _) => Center(
                 child: Icon(
                   Icons.broken_image_outlined,
@@ -253,6 +255,15 @@ class ProductGallery extends StatefulWidget {
 class _ProductGalleryState extends State<ProductGallery> {
   int _page = 0;
 
+  Future<void> _openViewer(List<ProductImage> images) =>
+      Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          fullscreenDialog: true,
+          builder: (_) =>
+              _ProductImageViewer(images: images, initialPage: _page),
+        ),
+      );
+
   @override
   Widget build(BuildContext context) {
     final images = widget.product.images.isNotEmpty
@@ -261,58 +272,236 @@ class _ProductGalleryState extends State<ProductGallery> {
         ? const <ProductImage>[]
         : <ProductImage>[ProductImage(path: widget.product.image!)];
 
-    if (images.length <= 1) {
-      return ProductPhoto(
-        product: widget.product,
-        height: widget.height,
-        imagePath: images.isEmpty ? null : images.first.path,
-      );
-    }
-
     return SizedBox(
       height: widget.height,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(TmcRadius.lg),
         child: Stack(
           children: [
-            PageView.builder(
-              itemCount: images.length,
-              onPageChanged: (index) => setState(() => _page = index),
-              itemBuilder: (context, index) => ProductPhoto(
+            if (images.length > 1)
+              PageView.builder(
+                itemCount: images.length,
+                onPageChanged: (index) => setState(() => _page = index),
+                itemBuilder: (context, index) => ProductPhoto(
+                  product: widget.product,
+                  imagePath: images[index].path,
+                  height: widget.height,
+                  fit: BoxFit.contain,
+                ),
+              )
+            else
+              ProductPhoto(
                 product: widget.product,
-                imagePath: images[index].path,
                 height: widget.height,
+                imagePath: images.isEmpty ? null : images.first.path,
+                fit: BoxFit.contain,
+              ),
+            Positioned.fill(
+              child: Semantics(
+                button: images.isNotEmpty,
+                label: 'Open product images full screen',
+                child: GestureDetector(
+                  key: const ValueKey('product-gallery-open-viewer'),
+                  behavior: HitTestBehavior.translucent,
+                  onTap: images.isEmpty ? null : () => _openViewer(images),
+                  child: const SizedBox.expand(),
+                ),
               ),
             ),
-            Positioned(
-              right: 10,
-              bottom: 10,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: .62),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 5,
+            if (images.isNotEmpty)
+              Positioned(
+                top: 10,
+                right: 10,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: .55),
+                    borderRadius: BorderRadius.circular(TmcRadius.pill),
                   ),
-                  child: Text(
-                    '${_page + 1} / ${images.length}',
-                    style: const TextStyle(
+                  child: const Padding(
+                    padding: EdgeInsets.all(7),
+                    child: Icon(
+                      Icons.zoom_out_map,
                       color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
+                      size: 17,
                     ),
                   ),
                 ),
               ),
-            ),
+            if (images.length > 1)
+              Positioned(
+                right: 10,
+                bottom: 10,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: .62),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    child: Text(
+                      '${_page + 1} / ${images.length}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
     );
   }
+}
+
+class _ProductImageViewer extends StatefulWidget {
+  const _ProductImageViewer({required this.images, required this.initialPage});
+
+  final List<ProductImage> images;
+  final int initialPage;
+
+  @override
+  State<_ProductImageViewer> createState() => _ProductImageViewerState();
+}
+
+class _ProductImageViewerState extends State<_ProductImageViewer> {
+  late final PageController _controller = PageController(
+    initialPage: widget.initialPage,
+  );
+  late int _page = widget.initialPage;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: Colors.black,
+    body: SafeArea(
+      child: Stack(
+        children: [
+          PageView.builder(
+            controller: _controller,
+            itemCount: widget.images.length,
+            onPageChanged: (index) => setState(() => _page = index),
+            itemBuilder: (context, index) {
+              final url = ApiService.imageUrlFor(widget.images[index].path);
+              if (url.isEmpty) {
+                return const Center(
+                  child: Icon(
+                    Icons.broken_image_outlined,
+                    color: Colors.white70,
+                    size: 52,
+                  ),
+                );
+              }
+              return Center(
+                child: InteractiveViewer(
+                  minScale: 1,
+                  maxScale: 4,
+                  child: Image.network(
+                    url,
+                    fit: BoxFit.contain,
+                    loadingBuilder: (context, child, progress) =>
+                        progress == null
+                        ? child
+                        : const Center(
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                            ),
+                          ),
+                    errorBuilder: (_, _, _) => const Center(
+                      child: Icon(
+                        Icons.broken_image_outlined,
+                        color: Colors.white70,
+                        size: 52,
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+          Positioned(
+            top: 8,
+            left: 8,
+            child: IconButton(
+              tooltip: 'Close image viewer',
+              onPressed: () => Navigator.of(context).pop(),
+              icon: const Icon(Icons.close, color: Colors.white),
+            ),
+          ),
+          Positioned(
+            top: 20,
+            left: 0,
+            right: 0,
+            child: IgnorePointer(
+              child: Center(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    borderRadius: BorderRadius.circular(TmcRadius.pill),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    child: Text(
+                      '${_page + 1} / ${widget.images.length}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          if (_page > 0)
+            Positioned(
+              left: 8,
+              top: 0,
+              bottom: 0,
+              child: Center(
+                child: IconButton.filledTonal(
+                  tooltip: 'Previous image',
+                  onPressed: () => _controller.previousPage(
+                    duration: TmcMotion.standard,
+                    curve: Curves.easeOut,
+                  ),
+                  icon: const Icon(Icons.chevron_left),
+                ),
+              ),
+            ),
+          if (_page < widget.images.length - 1)
+            Positioned(
+              right: 8,
+              top: 0,
+              bottom: 0,
+              child: Center(
+                child: IconButton.filledTonal(
+                  tooltip: 'Next image',
+                  onPressed: () => _controller.nextPage(
+                    duration: TmcMotion.standard,
+                    curve: Curves.easeOut,
+                  ),
+                  icon: const Icon(Icons.chevron_right),
+                ),
+              ),
+            ),
+        ],
+      ),
+    ),
+  );
 }
 
 class StatusBadge extends StatelessWidget {

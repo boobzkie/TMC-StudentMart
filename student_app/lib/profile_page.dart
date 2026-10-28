@@ -7,9 +7,10 @@ import 'package:provider/provider.dart';
 import 'components.dart';
 import 'data.dart';
 import 'edit_student_profile_page.dart';
-import 'marketplace_page.dart';
 import 'order_details_page.dart';
 import 'orders_page.dart';
+import 'product_details_page.dart';
+import 'seller_profile_page.dart';
 import 'sell_page.dart';
 import 'tmc_theme.dart';
 
@@ -24,6 +25,14 @@ class CartPage extends StatefulWidget {
 
 class _CartPageState extends State<CartPage> {
   bool _placingOrder = false;
+  bool _editing = false;
+  bool _cartRefreshStarted = false;
+  bool _refreshingCart = false;
+  String? _refreshError;
+  CartEntry? _recentlyRemoved;
+  Set<String>? _selectedKeys;
+  Set<String> _knownEntryKeys = {};
+  final Set<int> _unavailableProductIds = {};
 
   Future<Map<String, dynamic>?> _chooseOrderOptions(ApiService api) async {
     final response = asMap(await api.get('/order-options'));
@@ -113,6 +122,7 @@ class _CartPageState extends State<CartPage> {
                 const SizedBox(height: 14),
                 DropdownButtonFormField<int>(
                   initialValue: pickupLocationId,
+                  isExpanded: true,
                   decoration: const InputDecoration(
                     labelText: 'Pickup location',
                   ),
@@ -171,39 +181,242 @@ class _CartPageState extends State<CartPage> {
     );
   }
 
-  Future<void> _placeOrder(CartState cart) async {
-    if (_placingOrder || cart.entries.isEmpty) return;
-    final student = context.read<AuthState>().user;
-    if (student == null) return;
+  void _scheduleCartRefresh(CartState cart) {
+    if (!cart.isLoaded || _cartRefreshStarted) return;
+    _cartRefreshStarted = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_refreshCartProducts());
+    });
+  }
 
-    if (cart.entries.any((entry) => isOwnProduct(entry.product, student.id))) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'You cannot purchase your own product. Remove it from your cart.',
-          ),
-        ),
-      );
+  Future<void> _refreshCartProducts() async {
+    if (_refreshingCart) return;
+    final cart = context.read<CartState>();
+    if (cart.entries.isEmpty) {
+      if (mounted) {
+        setState(() {
+          _refreshError = null;
+          _refreshingCart = false;
+        });
+      }
       return;
     }
 
-    if (cart.entries.any(
-      (entry) =>
-          entry.product.status != 'active' ||
-          entry.quantity > entry.availableStock,
-    )) {
-      final unavailable = cart.entries.any(
-        (entry) => entry.product.status != 'active',
-      );
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            unavailable
-                ? 'Product is no longer available.'
-                : 'One or more items are no longer available in that quantity. Refresh the marketplace and update your cart.',
-          ),
+    setState(() {
+      _refreshingCart = true;
+      _refreshError = null;
+    });
+    final unavailable = Set<int>.from(_unavailableProductIds);
+    String? refreshError;
+    final productIds = cart.entries.map((entry) => entry.product.id).toSet();
+    for (final productId in productIds) {
+      try {
+        final payload = asMap(
+          await context.read<ApiService>().get('/products/$productId'),
+        );
+        final rawProduct = asMap(payload['product']);
+        if (payload['success'] == false || rawProduct.isEmpty) {
+          unavailable.add(productId);
+          continue;
+        }
+        final product = Product.fromJson(rawProduct);
+        if (product.id != productId) {
+          unavailable.add(productId);
+          continue;
+        }
+        unavailable.remove(productId);
+        await cart.updateProduct(product);
+      } on ApiException catch (error) {
+        if (error.statusCode == 403 || error.statusCode == 404) {
+          unavailable.add(productId);
+        } else {
+          refreshError ??= error.toString();
+        }
+      } catch (error) {
+        refreshError ??= error.toString();
+      }
+    }
+    if (!mounted) return;
+    setState(() {
+      _unavailableProductIds
+        ..clear()
+        ..addAll(unavailable);
+      _refreshError = refreshError;
+      _refreshingCart = false;
+    });
+  }
+
+  bool _isEntryAvailable(CartEntry entry, int currentUserId) {
+    final product = entry.product;
+    if (_unavailableProductIds.contains(product.id) ||
+        product.status.toLowerCase() != 'active' ||
+        entry.quantity < 1 ||
+        entry.availableStock < entry.quantity ||
+        isOwnProduct(product, currentUserId)) {
+      return false;
+    }
+    if (product.variants.isEmpty) return entry.variant == null;
+    return entry.variant != null &&
+        product.variants.any(
+          (variant) =>
+              variant.id == entry.variant!.id &&
+              variant.stockQuantity >= entry.quantity,
+        );
+  }
+
+  bool _isEntrySelected(CartEntry entry, int currentUserId) =>
+      _isEntryAvailable(entry, currentUserId) &&
+      (_selectedKeys == null || _selectedKeys!.contains(entry.key));
+
+  void _syncSelectedKeys(List<CartEntry> entries, int currentUserId) {
+    final currentKeys = entries.map((entry) => entry.key).toSet();
+    if (_selectedKeys != null) {
+      _selectedKeys!.removeWhere((key) => !currentKeys.contains(key));
+      for (final entry in entries) {
+        if (!_knownEntryKeys.contains(entry.key) &&
+            _isEntryAvailable(entry, currentUserId)) {
+          _selectedKeys!.add(entry.key);
+        }
+      }
+    }
+    _knownEntryKeys = currentKeys;
+  }
+
+  List<CartEntry> _selectedEntries(
+    List<CartEntry> entries,
+    int currentUserId,
+  ) => entries
+      .where((entry) => _isEntrySelected(entry, currentUserId))
+      .toList(growable: false);
+
+  void _toggleEntry(
+    CartEntry entry,
+    bool selected,
+    CartState cart,
+    int userId,
+  ) {
+    if (!_isEntryAvailable(entry, userId)) {
+      _showMessage('This item is unavailable and cannot be checked out.');
+      return;
+    }
+    final next =
+        _selectedKeys ??
+        cart.entries
+            .where((item) => _isEntryAvailable(item, userId))
+            .map((item) => item.key)
+            .toSet();
+    if (selected) {
+      next.add(entry.key);
+    } else {
+      next.remove(entry.key);
+    }
+    setState(() => _selectedKeys = next);
+  }
+
+  void _toggleGroup(List<CartEntry> entries, CartState cart, int userId) {
+    final available = entries
+        .where((entry) => _isEntryAvailable(entry, userId))
+        .toList(growable: false);
+    if (available.isEmpty) return;
+    final allSelected = available.every(
+      (entry) => _isEntrySelected(entry, userId),
+    );
+    final next =
+        _selectedKeys ??
+        cart.entries
+            .where((entry) => _isEntryAvailable(entry, userId))
+            .map((entry) => entry.key)
+            .toSet();
+    for (final entry in available) {
+      if (allSelected) {
+        next.remove(entry.key);
+      } else {
+        next.add(entry.key);
+      }
+    }
+    setState(() => _selectedKeys = next);
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _removeEntry(CartEntry entry, CartState cart) async {
+    await cart.setQuantity(entry.key, 0);
+    _selectedKeys?.remove(entry.key);
+    if (!mounted) return;
+    setState(() => _recentlyRemoved = entry);
+  }
+
+  Future<void> _restoreEntry(CartEntry entry, CartState cart) async {
+    final restored = await cart.restoreEntry(entry);
+    if (!mounted) return;
+    if (restored) {
+      setState(() {
+        _selectedKeys?.add(entry.key);
+        if (_recentlyRemoved?.key == entry.key) _recentlyRemoved = null;
+      });
+    } else {
+      _showMessage('This item cannot be restored because its stock changed.');
+    }
+  }
+
+  Widget _buildUndoNotice(CartState cart) {
+    final entry = _recentlyRemoved;
+    if (entry == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: TmcPanel(
+        padding: const EdgeInsets.fromLTRB(12, 4, 6, 4),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                '${entry.product.name} removed',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+            TextButton.icon(
+              onPressed: _placingOrder
+                  ? null
+                  : () => unawaited(_restoreEntry(entry, cart)),
+              icon: const Icon(Icons.undo_rounded, size: 18),
+              label: const Text('Undo'),
+            ),
+          ],
         ),
+      ),
+    );
+  }
+
+  Future<void> _increaseQuantity(CartEntry entry, CartState cart) async {
+    if (entry.quantity >= entry.availableStock) {
+      _showMessage(
+        'Only ${entry.availableStock} unit(s) are currently available.',
       );
+      return;
+    }
+    await cart.setQuantity(entry.key, entry.quantity + 1);
+  }
+
+  Future<void> _placeOrder(
+    CartState cart,
+    List<CartEntry> selectedEntries,
+  ) async {
+    if (_placingOrder || selectedEntries.isEmpty) return;
+    final student = context.read<AuthState>().user;
+    if (student == null) return;
+
+    if (_refreshingCart || _refreshError != null) {
+      _showMessage('Refresh your cart items before checkout.');
+      return;
+    }
+    if (selectedEntries.any((entry) => !_isEntryAvailable(entry, student.id))) {
+      _showMessage('One or more selected items are no longer available.');
       return;
     }
 
@@ -216,7 +429,7 @@ class _CartPageState extends State<CartPage> {
         setState(() => _placingOrder = false);
         return;
       }
-      final items = cart.entries
+      final items = selectedEntries
           .map(
             (entry) => <String, Object?>{
               'product_id': entry.product.id,
@@ -240,11 +453,12 @@ class _CartPageState extends State<CartPage> {
       );
       final created = response['orders'];
       final orderCount = created is List ? created.length : 1;
-      await cart.clear();
+      await cart.removeEntries(selectedEntries.map((entry) => entry.key));
       await cart.completeCheckoutAttempt(
         buyerId: student.id,
         idempotencyKey: idempotencyKey,
       );
+      _selectedKeys?.removeAll(selectedEntries.map((entry) => entry.key));
       if (!mounted) return;
       setState(() => _placingOrder = false);
       await showDialog<void>(
@@ -274,240 +488,646 @@ class _CartPageState extends State<CartPage> {
     } catch (error) {
       if (!mounted) return;
       setState(() => _placingOrder = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error.toString())));
+      _showMessage(error.toString());
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final cart = context.watch<CartState>();
-    if (cart.entries.isEmpty) {
-      return Column(
-        children: [
-          const Expanded(
-            child: EmptyMessage(
-              icon: Icons.shopping_cart_outlined,
-              title: 'Your cart is empty',
-              message:
-                  'Add items from active marketplace listings. Your cart is saved on this device.',
+  void _openSellerProfile(int sellerId) {
+    if (sellerId <= 0) return;
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => SellerProfilePage(
+          sellerId: sellerId,
+          onOpenProduct: (product) => Navigator.of(context).push<void>(
+            MaterialPageRoute<void>(
+              builder: (_) => ProductDetailsPage(productId: product.id),
             ),
           ),
-          if (widget.onBrowse != null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-              child: SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: widget.onBrowse,
-                  icon: const Icon(Icons.storefront_outlined),
-                  label: const Text('Browse listings'),
-                ),
+        ),
+      ),
+    );
+  }
+
+  Widget _refreshNotice(CartState cart) {
+    final message = cart.loadError ?? _refreshError;
+    if (message == null) return const SizedBox.shrink();
+    final storageError = cart.loadError != null;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: TmcPanel(
+        color: TmcPalette.warningSoft,
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            const Icon(Icons.info_outline, color: TmcPalette.warning),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                storageError
+                    ? message
+                    : 'Could not confirm current item details. Your cart is saved; retry before checkout.',
+                style: const TextStyle(color: TmcPalette.deepNavy),
               ),
             ),
-        ],
-      );
-    }
+            TextButton(
+              onPressed: _refreshingCart
+                  ? null
+                  : storageError
+                  ? cart.load
+                  : _refreshCartProducts,
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
-    return Column(
-      children: [
-        Expanded(
-          child: ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: cart.entries.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 10),
-            itemBuilder: (context, index) {
-              final entry = cart.entries[index];
-              final product = entry.product;
-              return Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(11),
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 76,
-                        child: ProductPhoto(product: product, height: 76),
+  Widget _buildCartItem(CartEntry entry, CartState cart, int userId) {
+    final product = entry.product;
+    final available = _isEntryAvailable(entry, userId);
+    final statusMessage =
+        _unavailableProductIds.contains(product.id) ||
+            product.status.toLowerCase() != 'active'
+        ? 'Product is no longer available.'
+        : isOwnProduct(product, userId)
+        ? 'You cannot order your own listing.'
+        : entry.availableStock <= 0
+        ? 'Stock is unavailable.'
+        : entry.quantity > entry.availableStock
+        ? 'Only ${entry.availableStock} unit(s) remain. Reduce the quantity or remove this item.'
+        : null;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 9),
+      child: TmcPanel(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Checkbox(
+                  value: _isEntrySelected(entry, userId),
+                  onChanged: available && !_placingOrder
+                      ? (value) =>
+                            _toggleEntry(entry, value ?? false, cart, userId)
+                      : null,
+                  semanticLabel: 'Select ${product.name}',
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 11),
+                    child: Text(
+                      product.name,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: TmcPalette.deepNavy,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
                       ),
-                      const SizedBox(width: 11),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              product.name,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            if (entry.optionLabel.isNotEmpty) ...[
-                              const SizedBox(height: 3),
-                              Text(
-                                entry.optionLabel,
-                                style: const TextStyle(
-                                  color: TmcPalette.navyBlue,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                            const SizedBox(height: 4),
-                            Text(
-                              peso(product.price),
-                              style: const TextStyle(
-                                color: TmcPalette.navyBlue,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            const SizedBox(height: 3),
-                            Text(
-                              entry.availableStock <= 0
-                                  ? 'Stock unavailable'
-                                  : '${entry.availableStock} available for this option',
-                              style: const TextStyle(
-                                color: TmcPalette.darkGray,
-                                fontSize: 11,
-                              ),
-                            ),
-                            if (product.status != 'active')
-                              const Text(
-                                'Product is no longer available.',
-                                style: TextStyle(
-                                  color: TmcPalette.error,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            const SizedBox(height: 6),
-                            Row(
-                              children: [
-                                _QuantityButton(
-                                  icon: Icons.remove,
-                                  onTap: _placingOrder
-                                      ? null
-                                      : () => cart.setQuantity(
-                                          entry.key,
-                                          entry.quantity - 1,
-                                        ),
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                  ),
-                                  child: Text(
-                                    entry.quantity.toString(),
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
-                                ),
-                                _QuantityButton(
-                                  icon: Icons.add,
-                                  onTap:
-                                      _placingOrder ||
-                                          product.status != 'active' ||
-                                          entry.quantity >= entry.availableStock
-                                      ? null
-                                      : () => cart.setQuantity(
-                                          entry.key,
-                                          entry.quantity + 1,
-                                        ),
-                                ),
-                              ],
-                            ),
-                          ],
+                    ),
+                  ),
+                ),
+                if (_editing)
+                  IconButton(
+                    tooltip: 'Remove ${product.name}',
+                    onPressed: _placingOrder
+                        ? null
+                        : () => unawaited(_removeEntry(entry, cart)),
+                    icon: const Icon(
+                      Icons.delete_outline,
+                      color: TmcPalette.error,
+                    ),
+                  ),
+              ],
+            ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: 86,
+                  height: 86,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(TmcRadius.md),
+                    child: ProductPhoto(product: product, height: 86),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        product.category.isEmpty
+                            ? 'Marketplace listing'
+                            : product.category,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: TmcPalette.textMuted,
+                          fontSize: 12,
                         ),
                       ),
-                      IconButton(
-                        tooltip: 'Remove item',
-                        onPressed: _placingOrder
-                            ? null
-                            : () => cart.setQuantity(entry.key, 0),
-                        icon: const Icon(
-                          Icons.delete_outline,
-                          color: TmcPalette.error,
+                      if (entry.optionLabel.isNotEmpty) ...[
+                        const SizedBox(height: 3),
+                        Text(
+                          'Option: ${entry.optionLabel}',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: TmcPalette.primary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 5),
+                      Text(
+                        '${peso(product.price)} each',
+                        style: const TextStyle(
+                          color: TmcPalette.primary,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        statusMessage ??
+                            '${entry.availableStock} available for this option',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: available
+                              ? TmcPalette.textMuted
+                              : TmcPalette.error,
+                          fontSize: 12,
+                          fontWeight: available
+                              ? FontWeight.w400
+                              : FontWeight.w700,
                         ),
                       ),
                     ],
                   ),
                 ),
-              );
-            },
-          ),
-        ),
-        SafeArea(
-          top: false,
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
-            decoration: const BoxDecoration(
-              color: TmcPalette.white,
-              border: Border(top: BorderSide(color: TmcPalette.lightGray)),
+              ],
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+            const SizedBox(height: 11),
+            Row(
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Cart estimate',
-                      style: TextStyle(fontWeight: FontWeight.w600),
+                Expanded(
+                  child: Text(
+                    'Subtotal ${peso(entry.subtotal)}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: TmcPalette.deepNavy,
+                      fontWeight: FontWeight.w800,
                     ),
-                    Text(
-                      peso(cart.total),
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Choose an Admin-configured payment method and pickup point when placing the order. The app does not collect or verify payment.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 11, color: TmcPalette.darkGray),
-                ),
-                const SizedBox(height: 10),
-                FilledButton.icon(
-                  onPressed: _placingOrder ? null : () => _placeOrder(cart),
-                  icon: _placingOrder
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.shopping_bag_outlined),
-                  label: Text(
-                    _placingOrder
-                        ? 'Sending request...'
-                        : 'Place order request',
                   ),
+                ),
+                const SizedBox(width: 8),
+                _QuantityButton(
+                  icon: Icons.remove,
+                  tooltip: 'Decrease quantity for ${product.name}',
+                  onTap: _placingOrder || entry.quantity <= 1
+                      ? null
+                      : () => unawaited(
+                          cart.setQuantity(entry.key, entry.quantity - 1),
+                        ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Semantics(
+                    label: 'Quantity ${entry.quantity}',
+                    child: Text(
+                      entry.quantity.toString(),
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                ),
+                _QuantityButton(
+                  icon: Icons.add,
+                  tooltip: 'Increase quantity for ${product.name}',
+                  onTap: _placingOrder || product.status != 'active'
+                      ? null
+                      : () => unawaited(_increaseQuantity(entry, cart)),
                 ),
               ],
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSellerGroup(
+    int sellerId,
+    List<CartEntry> entries,
+    CartState cart,
+    int userId,
+  ) {
+    final sellerName = entries.first.product.sellerName.trim().isEmpty
+        ? 'TMC Student seller'
+        : entries.first.product.sellerName.trim();
+    final available = entries
+        .where((entry) => _isEntryAvailable(entry, userId))
+        .toList(growable: false);
+    final selected = available
+        .where((entry) => _isEntrySelected(entry, userId))
+        .toList(growable: false);
+    final allSelected =
+        available.isNotEmpty && selected.length == available.length;
+    final checkboxValue = allSelected
+        ? true
+        : selected.isEmpty
+        ? false
+        : null;
+    final sellerSubtotal = selected.fold<double>(
+      0,
+      (total, entry) => total + entry.subtotal,
+    );
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TmcPanel(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              children: [
+                Checkbox(
+                  value: checkboxValue,
+                  tristate: true,
+                  onChanged: available.isEmpty || _placingOrder
+                      ? null
+                      : (_) => _toggleGroup(entries, cart, userId),
+                  semanticLabel: 'Select all items from $sellerName',
+                ),
+                Expanded(
+                  child: TextButton.icon(
+                    onPressed: sellerId > 0
+                        ? () => _openSellerProfile(sellerId)
+                        : null,
+                    icon: const Icon(Icons.storefront_outlined, size: 19),
+                    label: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        sellerName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                  ),
+                ),
+                if (selected.isNotEmpty)
+                  Text(
+                    peso(sellerSubtotal),
+                    style: const TextStyle(
+                      color: TmcPalette.primary,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          for (final entry in entries) _buildCartItem(entry, cart, userId),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildItemList(
+    CartState cart,
+    int userId,
+    Map<int, List<CartEntry>> groupedEntries,
+  ) {
+    final available = cart.entries
+        .where((entry) => _isEntryAvailable(entry, userId))
+        .toList(growable: false);
+    final selected = _selectedEntries(cart.entries, userId);
+    final allSelected =
+        available.isNotEmpty && selected.length == available.length;
+    final checkboxValue = allSelected
+        ? true
+        : selected.isEmpty
+        ? false
+        : null;
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+      children: [
+        _buildUndoNotice(cart),
+        _refreshNotice(cart),
+        if (_refreshingCart) ...[
+          const LinearProgressIndicator(),
+          const SizedBox(height: 10),
+        ],
+        TmcPanel(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          child: Row(
+            children: [
+              Checkbox(
+                value: checkboxValue,
+                tristate: true,
+                onChanged: available.isEmpty || _placingOrder
+                    ? null
+                    : (_) => _toggleGroup(cart.entries, cart, userId),
+                semanticLabel: 'Select all available cart items',
+              ),
+              Expanded(
+                child: Text(
+                  'Select all available items',
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ),
+              Text(
+                '${selected.length}/${available.length}',
+                style: const TextStyle(
+                  color: TmcPalette.textMuted,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
           ),
         ),
+        if (_editing)
+          const Padding(
+            padding: EdgeInsets.fromLTRB(4, 9, 4, 0),
+            child: Text(
+              'Tap a remove icon to delete an item. You can undo each removal.',
+              style: TextStyle(color: TmcPalette.textMuted, fontSize: 12),
+            ),
+          ),
+        const SizedBox(height: 14),
+        for (final group in groupedEntries.entries)
+          _buildSellerGroup(group.key, group.value, cart, userId),
       ],
+    );
+  }
+
+  Widget _buildSummary(
+    CartState cart,
+    List<CartEntry> selected,
+    int selectedQuantity, {
+    required bool compact,
+  }) {
+    final subtotal = selected.fold<double>(
+      0,
+      (total, entry) => total + entry.subtotal,
+    );
+    final blocked =
+        _placingOrder ||
+        _refreshingCart ||
+        _refreshError != null ||
+        cart.loadError != null ||
+        selected.isEmpty;
+    final content = TmcPanel(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            'Order summary',
+            style: TextStyle(
+              color: TmcPalette.deepNavy,
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(child: Text('Selected items ($selectedQuantity)')),
+              Text(peso(subtotal)),
+            ],
+          ),
+          const SizedBox(height: 9),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 11),
+            child: Divider(height: 1),
+          ),
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Estimated total',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+              ),
+              Text(
+                peso(subtotal),
+                style: const TextStyle(
+                  color: TmcPalette.primary,
+                  fontSize: 19,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'This estimate uses current listing prices. Pickup and payment arrangements are chosen for the order request. No payment is collected or verified in the app.',
+            style: TextStyle(color: TmcPalette.textMuted, fontSize: 12),
+          ),
+          if (selected.isEmpty && cart.entries.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            const Text(
+              'Select at least one available item to continue.',
+              style: TextStyle(color: TmcPalette.textMuted, fontSize: 12),
+            ),
+          ],
+          const SizedBox(height: 13),
+          SizedBox(
+            height: TmcControlSize.filledButtonHeight,
+            child: FilledButton.icon(
+              onPressed: blocked ? null : () => _placeOrder(cart, selected),
+              icon: _placingOrder
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.shopping_bag_outlined),
+              label: Text(
+                _placingOrder
+                    ? 'Sending order request…'
+                    : selectedQuantity > 0
+                    ? 'Proceed to Checkout ($selectedQuantity)'
+                    : 'Proceed to Checkout',
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (!compact) return content;
+    return SafeArea(
+      top: false,
+      child: Container(
+        width: double.infinity,
+        decoration: const BoxDecoration(
+          color: TmcPalette.pageBackground,
+          border: Border(top: BorderSide(color: TmcPalette.border)),
+        ),
+        padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
+        child: content,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cart = context.watch<CartState>();
+    final userId = context.watch<AuthState>().user?.id ?? 0;
+    final compactLayout = MediaQuery.sizeOf(context).width < 960;
+    _syncSelectedKeys(cart.entries, userId);
+    _scheduleCartRefresh(cart);
+    final selected = _selectedEntries(cart.entries, userId);
+    final selectedQuantity = selected.fold<int>(
+      0,
+      (total, entry) => total + entry.quantity,
+    );
+    final groupedEntries = <int, List<CartEntry>>{};
+    for (final entry in cart.entries) {
+      groupedEntries.putIfAbsent(entry.product.userId, () => []).add(entry);
+    }
+    final summary = _buildSummary(
+      cart,
+      selected,
+      selectedQuantity,
+      compact: compactLayout,
+    );
+
+    return Scaffold(
+      backgroundColor: TmcPalette.pageBackground,
+      appBar: AppBar(
+        leading: Navigator.of(context).canPop()
+            ? IconButton(
+                tooltip: 'Back',
+                onPressed: () => Navigator.of(context).maybePop(),
+                icon: const Icon(Icons.arrow_back_rounded),
+              )
+            : null,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('My Cart'),
+            Text(
+              '${cart.itemCount} ${cart.itemCount == 1 ? 'item' : 'items'}',
+              style: const TextStyle(
+                color: TmcPalette.textMuted,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+        actions: cart.entries.isEmpty || !cart.isLoaded
+            ? null
+            : [
+                TextButton(
+                  onPressed: () => setState(() => _editing = !_editing),
+                  child: Text(_editing ? 'Done' : 'Edit'),
+                ),
+              ],
+      ),
+      bottomNavigationBar:
+          compactLayout && cart.isLoaded && cart.entries.isNotEmpty
+          ? summary
+          : null,
+      body: !cart.isLoaded
+          ? const Center(child: CircularProgressIndicator())
+          : cart.entries.isEmpty
+          ? cart.loadError != null
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(18),
+                      child: ErrorMessage(
+                        message: cart.loadError!,
+                        onRetry: cart.load,
+                      ),
+                    ),
+                  )
+                : Column(
+                    children: [
+                      _buildUndoNotice(cart),
+                      const Expanded(
+                        child: EmptyMessage(
+                          icon: Icons.shopping_cart_outlined,
+                          title: 'Your cart is empty.',
+                          message:
+                              'Discover products from fellow students and add your favorites to your cart.',
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: FilledButton.icon(
+                            onPressed:
+                                widget.onBrowse ??
+                                () => Navigator.of(context).maybePop(),
+                            icon: const Icon(Icons.storefront_outlined),
+                            label: const Text('Browse Products'),
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
+          : Builder(
+              builder: (context) {
+                final list = _buildItemList(cart, userId, groupedEntries);
+                if (compactLayout) return list;
+                return Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 1360),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(flex: 7, child: list),
+                          const SizedBox(width: 18),
+                          SizedBox(
+                            width: 350,
+                            child: SingleChildScrollView(child: summary),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
     );
   }
 }
 
 class _QuantityButton extends StatelessWidget {
-  const _QuantityButton({required this.icon, required this.onTap});
+  const _QuantityButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+  });
   final IconData icon;
+  final String tooltip;
   final VoidCallback? onTap;
   @override
   Widget build(BuildContext context) => SizedBox(
-    width: 29,
-    height: 29,
+    width: TmcControlSize.minimumTapTarget,
+    height: TmcControlSize.minimumTapTarget,
     child: IconButton.filledTonal(
+      tooltip: tooltip,
       padding: EdgeInsets.zero,
-      visualDensity: VisualDensity.compact,
       onPressed: onTap,
-      icon: Icon(icon, size: 17),
+      icon: Icon(icon, size: 18),
     ),
   );
 }
@@ -908,7 +1528,7 @@ class _ProfilePageState extends State<ProfilePage> {
               imageHeight: 104,
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute<void>(
-                  builder: (_) => ProductDetailsPage(product: product),
+                  builder: (_) => ProductDetailsPage(productId: product.id),
                 ),
               ),
             );
