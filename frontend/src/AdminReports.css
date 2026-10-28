@@ -1506,7 +1506,8 @@
 .reports-type-badge.orders { color: var(--tmc-admin-info); background: var(--tmc-admin-info-soft); }
 .reports-type-badge.finance { color: var(--tmc-admin-warning); background: var(--tmc-admin-warning-soft); }
 .reports-type-badge.analytics { color: var(--tmc-admin-primary); background: var(--tmc-admin-accent-soft); }
-.reports-view-link { display: inline-flex; min-height: 30px; min-width: 58px; align-items: center; justify-content: center; border: 1px solid var(--tmc-admin-border); border-radius: 7px; color: var(--tmc-admin-primary); background: var(--tmc-admin-surface); font-size: 12px; font-weight: 700; }
+.reports-view-link { display: inline-flex; min-height: 34px; min-width: 104px; align-items: center; justify-content: center; gap: 7px; padding: 0 10px; border: 1px solid var(--tmc-admin-border); border-radius: 8px; color: var(--tmc-admin-primary); background: var(--tmc-admin-surface); font-size: 12px; font-weight: 700; white-space: nowrap; transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease; }
+.reports-view-link:hover { border-color: var(--tmc-admin-accent-border); color: var(--tmc-admin-primary-hover); background: var(--tmc-admin-accent-soft); text-decoration: none; }
 .reports-table-empty,.reports-empty-state { display: grid; justify-items: center; gap: 8px; padding: 24px; color: var(--tmc-admin-secondary); text-align: center; }
 .reports-empty-state { border: 1px dashed var(--tmc-admin-border); border-radius: 12px; background: var(--tmc-admin-surface); }
 .reports-empty-state strong { color: var(--tmc-admin-text); font-size: 15px; }

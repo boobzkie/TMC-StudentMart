@@ -1,7 +1,7 @@
 ﻿import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { API_URL } from "./utils/api";
-import { ArrowRight, ChartColumn, Eye, EyeOff, LockKeyhole, Mail, Package, ShieldCheck, UsersRound } from "lucide-react";
+import { ArrowRight, ChartColumn, Eye, EyeOff, LockKeyhole, Mail, Package, ShieldCheck, Settings, UsersRound, BriefcaseBusiness, Zap } from "lucide-react";
 import "./Login.css";
 
 function Login() {
@@ -137,20 +137,17 @@ function Login() {
           </Link>
         </header>
 
-        <aside className="auth-promo-panel" aria-labelledby="brand-heading">
+        <aside className="auth-promo-panel" id="portal-features" aria-labelledby="brand-heading">
           <div className="auth-promo-copy">
-            <span className="auth-promo-eyebrow">
-              <ShieldCheck size={16} aria-hidden="true" /> SECURE PORTAL
-            </span>
-            <span className="auth-promo-kicker">ADMIN &amp; STAFF PORTAL</span>
-            <h2 id="brand-heading">Marketplace<br />management,<br /><span>all in one place.</span></h2>
+            <h2 id="brand-heading">Manage the Campus<br />Marketplace<br /><span>with Ease.</span></h2>
             <p>
-              Manage student listings, orders, sellers, users, and marketplace activity from one secure workspace.
+              A secure and unified workspace for administrators and staff to manage users, products, orders, reports, and marketplace activity.
             </p>
             <ul className="auth-promo-features" aria-label="Portal capabilities">
-              <li><Package size={19} aria-hidden="true" /><span><strong>Marketplace management</strong><small>Review products, listings, and orders.</small></span></li>
-              <li><UsersRound size={19} aria-hidden="true" /><span><strong>Account oversight</strong><small>Support student, seller, and staff accounts.</small></span></li>
-              <li><ChartColumn size={19} aria-hidden="true" /><span><strong>Reports and insights</strong><small>Understand activity across the marketplace.</small></span></li>
+              <li><Package size={19} aria-hidden="true" /><span><strong>Marketplace Management</strong><small>Oversee listings, orders, and transactions.</small></span></li>
+              <li><UsersRound size={19} aria-hidden="true" /><span><strong>User &amp; Seller Accounts</strong><small>Manage student, seller, and staff accounts.</small></span></li>
+              <li><ChartColumn size={19} aria-hidden="true" /><span><strong>Reports &amp; Analytics</strong><small>Track marketplace activity and performance.</small></span></li>
+              <li><Settings size={19} aria-hidden="true" /><span><strong>System Settings</strong><small>Configure and maintain the platform.</small></span></li>
             </ul>
           </div>
 
@@ -160,6 +157,14 @@ function Login() {
           <div className="login-title">
             <h1 id="login-heading">Welcome back.</h1>
             <p>Sign in to your TMC StudentMart workspace.</p>
+          </div>
+
+          <div className="login-access-group" role="group" aria-label="Access role">
+            <span className="login-access-label">Access role</span>
+            <div className="login-access-note" aria-label="Administrator or approved staff access">
+              <BriefcaseBusiness size={18} aria-hidden="true" />
+              <span><strong>Administrator or approved Staff</strong></span>
+            </div>
           </div>
 
           {error && <div className="login-error" id="login-error" role="alert">{error}</div>}
@@ -172,7 +177,7 @@ function Login() {
                 <input
                   id="email"
                   type="email"
-                  placeholder="Enter your staff email"
+                  placeholder="e.g., studentmart.admin@tmc.edu.ph"
                   value={email}
                   onChange={(event) => {
                     setEmail(event.target.value);
@@ -233,16 +238,23 @@ function Login() {
                   <span className="button-spinner" aria-hidden="true" />
                   Signing in...
                 </>
-              ) : <>Sign in <ArrowRight size={19} aria-hidden="true" /></>}
+              ) : <>Sign In to Dashboard <ArrowRight size={19} aria-hidden="true" /></>}
             </button>
           </form>
 
           <p className="login-register-link">
-            <span>Need a staff account?</span> <Link to="/staff/register">Register as Staff</Link>
+            <span>New staff member?</span> <Link to="/staff/register">Register as Staff</Link>
           </p>
           <p className="login-student-note">
             Student accounts are managed in the TMC StudentMart mobile application.
           </p>
+
+          <ul className="login-trust-points" aria-label="Portal benefits">
+            <li><ShieldCheck size={19} aria-hidden="true" /><span>Secure access</span></li>
+            <li><Zap size={19} aria-hidden="true" /><span>Fast &amp; reliable</span></li>
+            <li><UsersRound size={19} aria-hidden="true" /><span>Admin &amp; staff</span></li>
+            <li><LockKeyhole size={19} aria-hidden="true" /><span>Role-based tools</span></li>
+          </ul>
         </section>
       </section>
     </main>

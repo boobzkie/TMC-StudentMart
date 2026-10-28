@@ -1070,8 +1070,8 @@ main.login-page[data-theme="dark"] .login-student-note { max-width: 510px; margi
 
 /* Refined campus sign-in: soft surfaces with the existing TMC campus artwork. */
 main.login-page[data-theme="light"] {
-  place-items: center;
-  padding: clamp(14px, 3vw, 36px);
+  place-items: stretch;
+  padding: 0;
   background:
     radial-gradient(ellipse at 9% 12%, rgba(123, 189, 232, 0.3), transparent 34%),
     radial-gradient(ellipse at 92% 88%, rgba(78, 142, 162, 0.15), transparent 34%),
@@ -1079,27 +1079,31 @@ main.login-page[data-theme="light"] {
 }
 
 main.login-page[data-theme="light"] .auth-shell {
-  width: min(100%, 1520px);
-  max-width: 1520px;
-  min-height: min(860px, calc(100svh - 56px));
-  grid-template-columns: minmax(0, 1.04fr) minmax(430px, 0.96fr);
-  grid-template-rows: 82px minmax(0, 1fr);
-  border: 1px solid rgba(255, 255, 255, 0.9);
-  border-radius: 28px;
+  position: relative;
+  width: 100%;
+  max-width: none;
+  min-height: 100vh;
+  min-height: 100svh;
+  grid-template-columns: minmax(0, 1.12fr) minmax(430px, 0.88fr);
+  grid-template-rows: minmax(0, 1fr);
+  border: 0;
+  border-radius: 0;
   background: #EEF5FA;
-  box-shadow: 14px 14px 32px rgba(25, 63, 91, 0.13), -10px -10px 28px rgba(255, 255, 255, 0.94);
+  box-shadow: none;
 }
 
 main.login-page[data-theme="light"] .auth-topbar {
-  z-index: 2;
+  position: absolute;
+  z-index: 3;
+  top: clamp(24px, 4vh, 42px);
+  left: clamp(30px, 5vw, 86px);
   display: flex;
   min-width: 0;
-  grid-column: 1 / -1;
   align-items: center;
   justify-content: flex-start;
-  padding: 12px clamp(20px, 3.5vw, 52px);
-  border-bottom: 1px solid rgba(10, 65, 116, 0.09);
-  background: rgba(249, 252, 254, 0.92);
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
 
 main.login-page[data-theme="light"] .auth-topbar-brand {
@@ -1128,21 +1132,21 @@ main.login-page[data-theme="light"] .auth-topbar-brand img {
 
 main.login-page[data-theme="light"] .auth-topbar-brand strong {
   display: block;
-  color: #001D39;
-  font-size: 17px;
+  color: #FFFFFF;
+  font-size: 20px;
   font-weight: 800;
   letter-spacing: -0.025em;
 }
 
 main.login-page[data-theme="light"] .auth-topbar-brand em {
-  color: #168BDB;
+  color: #24B0FF;
   font-style: normal;
 }
 
 main.login-page[data-theme="light"] .auth-topbar-brand small {
   display: block;
   margin-top: 4px;
-  color: #45647F;
+  color: #D4E8F6;
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.15em;
@@ -1151,9 +1155,9 @@ main.login-page[data-theme="light"] .auth-topbar-brand small {
 main.login-page[data-theme="light"] .auth-promo-panel {
   min-height: 0;
   grid-column: 1;
-  grid-row: 2;
+  grid-row: 1;
   justify-content: center;
-  padding: clamp(34px, 5vw, 68px);
+  padding: clamp(148px, 18vh, 196px) clamp(30px, 5vw, 84px) 48px;
   background:
     linear-gradient(112deg, rgba(0, 29, 57, 0.78), rgba(5, 54, 96, 0.64) 58%, rgba(10, 65, 116, 0.48)),
     url("/assets/tmc-campus-banner.jpg");
@@ -1166,6 +1170,18 @@ main.login-page[data-theme="light"] .auth-promo-panel::before,
 main.login-page[data-theme="light"] .auth-promo-panel::after {
   z-index: 0;
   border-color: rgba(216, 237, 251, 0.16);
+}
+
+main.login-page[data-theme="light"] .auth-promo-panel::after {
+  right: 0;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 94px;
+  border: 0;
+  border-radius: 0;
+  background: linear-gradient(100deg, rgba(12, 115, 225, 0.82), rgba(32, 181, 248, 0.64));
+  clip-path: polygon(0 48%, 13% 71%, 29% 54%, 44% 75%, 62% 48%, 79% 67%, 100% 35%, 100% 100%, 0 100%);
 }
 
 main.login-page[data-theme="light"] .auth-promo-copy {
@@ -1210,8 +1226,8 @@ main.login-page[data-theme="light"] .auth-promo-copy p {
 
 main.login-page[data-theme="light"] .auth-promo-features {
   display: grid;
-  gap: 13px;
-  margin: 28px 0 0;
+  gap: 10px;
+  margin: 24px 0 0;
   padding: 0;
   list-style: none;
 }
@@ -1258,8 +1274,9 @@ main.login-page[data-theme="light"] .auth-form-panel.login-card {
   align-self: stretch;
   justify-content: center;
   min-height: 0;
-  margin: clamp(14px, 2vw, 26px);
-  padding: clamp(28px, 4vw, 58px);
+  grid-row: 1;
+  margin: clamp(24px, 4vh, 42px) clamp(24px, 2.4vw, 42px);
+  padding: clamp(28px, 3.8vw, 60px);
   border: 1px solid rgba(255, 255, 255, 0.96);
   border-radius: 24px;
   color: #001D39;
@@ -1333,29 +1350,30 @@ main.login-page[data-theme="light"] .login-student-note {
 @media (max-width: 900px) {
   main.login-page[data-theme="light"] {
     place-items: start center;
-    padding: 18px;
+    padding: 0;
   }
 
   main.login-page[data-theme="light"] .auth-shell {
-    width: min(100%, 720px);
-    min-height: 0;
+    width: 100%;
+    min-height: 100vh;
+    min-height: 100svh;
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: 76px minmax(290px, auto) auto;
+    grid-template-rows: minmax(0, auto) auto;
   }
 
-  main.login-page[data-theme="light"] .auth-topbar { grid-row: 1; }
   main.login-page[data-theme="light"] .auth-promo-panel {
-    min-height: 300px;
+    min-height: 390px;
     grid-column: 1;
-    grid-row: 2;
-    padding: 30px clamp(24px, 6vw, 48px);
+    grid-row: 1;
+    padding: 120px clamp(28px, 6vw, 58px) 32px;
     background-size: cover, auto 210%;
   }
 
   main.login-page[data-theme="light"] .auth-form-panel.login-card {
     grid-column: 1;
-    grid-row: 3;
-    margin: 14px;
+    grid-row: 2;
+    margin: 18px auto;
+    width: min(calc(100% - 36px), 680px);
     padding: 34px clamp(24px, 6vw, 50px);
   }
 }
@@ -1363,12 +1381,12 @@ main.login-page[data-theme="light"] .login-student-note {
 @media (max-width: 560px) {
   main.login-page[data-theme="light"] { padding: 0; }
   main.login-page[data-theme="light"] .auth-shell { min-height: 100svh; border-radius: 0; }
-  main.login-page[data-theme="light"] .auth-topbar { min-height: 72px; padding-inline: 18px; }
+  main.login-page[data-theme="light"] .auth-topbar { top: 17px; left: 18px; }
   main.login-page[data-theme="light"] .auth-topbar-brand img { width: 46px; height: 46px; flex-basis: 46px; }
   main.login-page[data-theme="light"] .auth-topbar-brand strong { font-size: 15px; }
   main.login-page[data-theme="light"] .auth-topbar-brand small { font-size: 12px; }
-  main.login-page[data-theme="light"] .auth-promo-panel { min-height: 0; padding: 26px 22px; }
-  main.login-page[data-theme="light"] .auth-promo-copy h2 { font-size: clamp(30px, 8vw, 38px); }
+  main.login-page[data-theme="light"] .auth-promo-panel { min-height: 0; padding: 106px 22px 28px; }
+  main.login-page[data-theme="light"] .auth-promo-copy h2 { font-size: clamp(28px, 8vw, 36px); }
   main.login-page[data-theme="light"] .auth-promo-features { gap: 10px; margin-top: 20px; }
   main.login-page[data-theme="light"] .auth-promo-features li > svg { width: 38px; height: 38px; flex-basis: 38px; padding: 10px; }
   main.login-page[data-theme="light"] .auth-promo-features small { font-size: 12px; }
@@ -1376,4 +1394,474 @@ main.login-page[data-theme="light"] .login-student-note {
   main.login-page[data-theme="light"] .login-title { margin-bottom: 22px; }
   main.login-page[data-theme="light"] .login-title h1 { font-size: 32px; }
   main.login-page[data-theme="light"] .login-title p { font-size: 14px; }
+}
+
+/* Centered, reference-led sign-in composition. */
+main.login-page[data-theme="light"] {
+  place-items: stretch;
+  min-height: 100vh;
+  min-height: 100svh;
+  padding: 0;
+  background: #EAF3FB !important;
+}
+
+main.login-page[data-theme="light"] .auth-shell {
+  position: relative;
+  width: 100%;
+  max-width: none;
+  height: 100vh;
+  height: 100svh;
+  min-height: 700px;
+  min-height: 100svh;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  border: 0;
+  border-radius: 0;
+  background: #EAF3FB;
+  box-shadow: none;
+}
+
+main.login-page[data-theme="light"] .auth-topbar {
+  position: absolute;
+  z-index: 3;
+  top: clamp(24px, 4vh, 42px);
+  left: clamp(36px, 5vw, 90px);
+  display: block;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+main.login-page[data-theme="light"] .auth-topbar-brand {
+  gap: 28px;
+  color: #FFFFFF;
+}
+
+main.login-page[data-theme="light"] .auth-topbar-brand img {
+  width: clamp(96px, 7.8vw, 124px);
+  height: clamp(96px, 7.8vw, 124px);
+  flex-basis: clamp(96px, 7.8vw, 124px);
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: 0 4px 14px rgba(1, 17, 34, 0.3);
+  object-fit: contain;
+}
+
+main.login-page[data-theme="light"] .auth-topbar-brand > span {
+  min-height: 78px;
+  padding-left: 24px;
+  border-left: 1px solid rgba(231, 242, 251, 0.8);
+}
+
+main.login-page[data-theme="light"] .auth-topbar-brand strong {
+  font-size: clamp(27px, 2.35vw, 42px);
+  line-height: 1.1;
+}
+
+main.login-page[data-theme="light"] .auth-topbar-brand small {
+  margin-top: 8px;
+  color: #D6E6F5;
+  font-size: clamp(12px, 1vw, 17px);
+  letter-spacing: 0.2em;
+}
+
+main.login-page[data-theme="light"] .auth-topbar-nav {
+  display: none;
+}
+
+main.login-page[data-theme="light"] .auth-topbar-nav a {
+  position: relative;
+  display: inline-flex;
+  min-height: 48px;
+  align-items: center;
+  color: #F1F6FC;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+main.login-page[data-theme="light"] .auth-topbar-nav a:hover {
+  color: #6BC8FF;
+  text-decoration: none;
+}
+
+main.login-page[data-theme="light"] .auth-topbar-nav a.is-current::after {
+  position: absolute;
+  right: 0;
+  bottom: 1px;
+  left: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: #11A8F5;
+  content: "";
+}
+
+main.login-page[data-theme="light"] .auth-promo-panel {
+  grid-column: 1;
+  grid-row: 1;
+  justify-content: flex-start;
+  padding: clamp(195px, 21vh, 232px) clamp(36px, 4.5vw, 76px) 58px;
+  background:
+    linear-gradient(112deg, rgba(0, 31, 58, 0.64), rgba(3, 46, 82, 0.5) 58%, rgba(8, 53, 94, 0.4)),
+    url("/assets/tmc-campus-banner.jpg");
+  background-position: center, left bottom;
+  background-size: cover, auto 245%;
+}
+
+main.login-page[data-theme="light"] .auth-promo-copy {
+  max-width: 650px;
+}
+
+main.login-page[data-theme="light"] .auth-promo-copy h2 {
+  max-width: 680px;
+  margin: 0 0 31px;
+  font-size: clamp(45px, 4.15vw, 64px);
+  line-height: 1.08;
+}
+
+main.login-page[data-theme="light"] .auth-promo-copy h2 span {
+  color: #16A9F8;
+}
+
+main.login-page[data-theme="light"] .auth-promo-copy p {
+  max-width: 410px;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.65;
+}
+
+main.login-page[data-theme="light"] .auth-promo-features {
+  gap: 12px;
+  margin-top: 37px;
+}
+
+main.login-page[data-theme="light"] .auth-promo-features li > svg {
+  width: 52px;
+  height: 52px;
+  flex-basis: 52px;
+  border-radius: 13px;
+  background: linear-gradient(145deg, #087CE3, #0754B2);
+  box-shadow: 5px 5px 12px rgba(0, 14, 30, 0.22), -2px -2px 7px rgba(185, 230, 255, 0.13);
+}
+
+main.login-page[data-theme="light"] .auth-promo-features strong {
+  font-size: 16px;
+}
+
+main.login-page[data-theme="light"] .auth-form-panel.login-card {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: stretch;
+  width: auto;
+  min-width: 0;
+  justify-content: flex-start;
+  margin: 40px 36px 74px 0;
+  padding: 96px clamp(28px, 4.2vw, 68px) 26px;
+  border: 1px solid rgba(255, 255, 255, 0.94);
+  border-radius: 26px;
+  background:
+    radial-gradient(ellipse at 100% 0%, rgba(199, 220, 255, 0.64), transparent 30%),
+    linear-gradient(145deg, #F5FAFF 0%, #E7F0FB 100%);
+  box-shadow: 12px 14px 32px rgba(35, 72, 111, 0.16), -8px -8px 22px rgba(255, 255, 255, 0.95);
+}
+
+main.login-page[data-theme="light"] .login-title {
+  margin-bottom: 15px;
+}
+
+main.login-page[data-theme="light"] .login-title h1 {
+  font-size: clamp(38px, 3.3vw, 52px);
+  line-height: 1.08;
+  letter-spacing: -0.045em;
+}
+
+main.login-page[data-theme="light"] .login-title p {
+  margin-top: 10px;
+  font-size: 16px;
+}
+
+main.login-page[data-theme="light"] .login-access-group {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 17px;
+}
+
+main.login-page[data-theme="light"] .login-access-label {
+  color: #173B5B;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+main.login-page[data-theme="light"] .login-access-note {
+  display: flex;
+  min-height: 54px;
+  align-items: center;
+  gap: 13px;
+  margin: 0;
+  padding: 8px 15px;
+  border: 1px solid #D4E2EF;
+  border-radius: 15px;
+  color: #0A4174;
+  background: #EEF5FC;
+  box-shadow: inset 3px 3px 7px rgba(31, 70, 101, 0.07), inset -3px -3px 7px #FFFFFF;
+}
+
+main.login-page[data-theme="light"] .login-access-note > svg:first-child {
+  flex: 0 0 auto;
+  color: #0A67C3;
+}
+
+main.login-page[data-theme="light"] .login-access-note > svg:last-child {
+  display: none;
+}
+
+main.login-page[data-theme="light"] .login-access-note span,
+main.login-page[data-theme="light"] .login-access-note strong,
+main.login-page[data-theme="light"] .login-access-note small {
+  display: block;
+}
+
+main.login-page[data-theme="light"] .login-access-note strong {
+  color: #143C60;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+main.login-page[data-theme="light"] .login-access-note small {
+  margin-top: 3px;
+  color: #617D97;
+  font-size: 12px;
+}
+
+main.login-page[data-theme="light"] .login-form {
+  gap: 16px;
+}
+
+main.login-page[data-theme="light"] .login-input-wrap {
+  min-height: 58px;
+  border-radius: 16px;
+}
+
+main.login-page[data-theme="light"] .login-input-wrap input {
+  min-height: 56px;
+}
+
+main.login-page[data-theme="light"] .login-button {
+  min-height: 66px;
+  margin-top: 1px;
+  border-radius: 999px;
+  font-size: 16px;
+  box-shadow: 0 10px 22px rgba(18, 84, 197, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.24) !important;
+}
+
+main.login-page[data-theme="light"] .login-register-link {
+  margin-top: 22px;
+  font-size: 14px;
+}
+
+main.login-page[data-theme="light"] .login-student-note {
+  margin-top: 16px;
+  font-size: 12px;
+}
+
+main.login-page[data-theme="light"] .login-trust-points {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  margin: auto 0 0;
+  padding: 8px 0 0;
+  border-top: 1px solid #D7E3EE;
+  list-style: none;
+}
+
+main.login-page[data-theme="light"] .login-trust-points li {
+  display: flex;
+  min-width: 0;
+  min-height: 40px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 7px;
+  color: #143C60;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+main.login-page[data-theme="light"] .login-trust-points li + li {
+  border-left: 1px solid #D7E3EE;
+}
+
+main.login-page[data-theme="light"] .login-trust-points svg {
+  color: #0756A0;
+}
+
+main.login-page[data-theme="light"] .auth-topbar-brand:focus-visible {
+  outline: 3px solid #58B9FF;
+  outline-offset: 4px;
+}
+
+@media (max-width: 1100px) and (min-width: 901px) {
+  main.login-page[data-theme="light"] .auth-shell {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  }
+
+  main.login-page[data-theme="light"] .auth-form-panel.login-card {
+    margin: 30px 22px 40px 0;
+    padding: 70px 28px 20px;
+  }
+
+  main.login-page[data-theme="light"] .auth-promo-panel {
+    padding-inline: 34px;
+    padding-top: 180px;
+  }
+}
+
+@media (max-width: 900px) {
+  main.login-page[data-theme="light"] {
+    padding: 0;
+  }
+
+  main.login-page[data-theme="light"] .auth-shell {
+    width: 100%;
+    height: auto;
+    min-height: 100svh;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: 92px auto auto;
+    border-radius: 0;
+  }
+
+  main.login-page[data-theme="light"] .auth-topbar {
+    position: relative;
+    top: auto;
+    left: auto;
+    display: flex;
+    grid-column: 1;
+    grid-row: 1;
+    align-items: center;
+    padding: 12px clamp(20px, 5vw, 48px);
+    background: #0D1728;
+  }
+
+  main.login-page[data-theme="light"] .auth-topbar-brand img {
+    width: 62px;
+    height: 62px;
+    flex-basis: 62px;
+  }
+
+  main.login-page[data-theme="light"] .auth-topbar-brand > span {
+    min-height: auto;
+    padding-left: 14px;
+  }
+
+  main.login-page[data-theme="light"] .auth-topbar-brand strong {
+    font-size: clamp(18px, 3vw, 24px);
+  }
+
+  main.login-page[data-theme="light"] .auth-topbar-brand small {
+    font-size: 11px;
+  }
+
+  main.login-page[data-theme="light"] .auth-promo-panel {
+    min-height: 0;
+    grid-column: 1;
+    grid-row: 2;
+    padding: 66px clamp(24px, 7vw, 70px) 42px;
+    background-position: center, left bottom;
+    background-size: cover, auto 245%;
+  }
+
+  main.login-page[data-theme="light"] .auth-form-panel.login-card {
+    grid-column: 1;
+    grid-row: 3;
+    width: min(calc(100% - 48px), 680px);
+    margin: 24px auto 32px;
+    padding: 38px clamp(26px, 6vw, 54px);
+  }
+
+  main.login-page[data-theme="light"] .login-trust-points {
+    margin-top: 26px;
+  }
+}
+
+@media (max-width: 620px) {
+  main.login-page[data-theme="light"] .auth-shell {
+    grid-template-rows: 76px auto auto;
+  }
+
+  main.login-page[data-theme="light"] .auth-topbar {
+    padding-inline: 17px;
+  }
+
+  main.login-page[data-theme="light"] .auth-topbar-brand {
+    gap: 9px;
+  }
+
+  main.login-page[data-theme="light"] .auth-topbar-brand img {
+    width: 52px;
+    height: 52px;
+    flex-basis: 52px;
+  }
+
+  main.login-page[data-theme="light"] .auth-topbar-brand strong {
+    font-size: 15px;
+  }
+
+  main.login-page[data-theme="light"] .auth-topbar-brand small {
+    margin-top: 3px;
+    font-size: 9px;
+    letter-spacing: 0.12em;
+  }
+
+  main.login-page[data-theme="light"] .auth-promo-panel {
+    padding: 42px 23px 38px;
+    background-position: center, left bottom;
+    background-size: cover, auto 245%;
+  }
+
+  main.login-page[data-theme="light"] .auth-promo-copy h2 {
+    margin: 0 0 16px;
+    font-size: clamp(36px, 10vw, 48px);
+  }
+
+  main.login-page[data-theme="light"] .auth-promo-copy p {
+    font-size: 14px;
+  }
+
+  main.login-page[data-theme="light"] .auth-form-panel.login-card {
+    width: calc(100% - 28px);
+    margin: 14px auto 24px;
+    padding: 29px 21px;
+    border-radius: 22px;
+  }
+
+  main.login-page[data-theme="light"] .login-title h1 {
+    font-size: 34px;
+  }
+
+  main.login-page[data-theme="light"] .login-title p {
+    font-size: 14px;
+  }
+
+  main.login-page[data-theme="light"] .login-trust-points li {
+    font-size: 12px;
+  }
+
+  main.login-page[data-theme="light"] .auth-topbar-brand small {
+    font-size: 12px;
+    letter-spacing: 0.08em;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  main.login-page[data-theme="light"] *,
+  main.login-page[data-theme="light"] *::before,
+  main.login-page[data-theme="light"] *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }

@@ -7,6 +7,7 @@ import {
   ChevronLeft,
   CreditCard,
   ChevronRight,
+  Coins,
   FileClock,
   LayoutDashboard,
   LogOut,
@@ -53,6 +54,7 @@ const marketplaceLinks = [
   { to: "/admin/sellers", label: "Sellers", icon: Store },
   { to: "/admin/transactions", label: "Order Management", icon: CreditCard },
   { to: "/admin/order-options", label: "Payment & pickup setup", icon: SlidersHorizontal },
+  { to: "/admin/commission", label: "Commission & tax tracking", icon: Coins },
 ];
 
 const insightLinks = [

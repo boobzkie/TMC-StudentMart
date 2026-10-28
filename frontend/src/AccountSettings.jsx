@@ -87,6 +87,7 @@ export default function AccountSettings() {
   const [archivesLoading, setArchivesLoading] = useState(false);
   const [archivesError, setArchivesError] = useState("");
   const [restoringProductId, setRestoringProductId] = useState(null);
+  const [restoringStaffId, setRestoringStaffId] = useState(null);
   const [showPasswords, setShowPasswords] = useState(false);
   const [passwords, setPasswords] = useState({
     current_password: "", password: "", password_confirmation: "",
@@ -182,6 +183,34 @@ export default function AccountSettings() {
       setArchivesError(error.message || "Unable to restore product.");
     } finally {
       setRestoringProductId(null);
+    }
+  };
+
+  const handleRestoreStaff = async (staffId, staffName) => {
+    const name = staffName || "this Staff account";
+    if (!window.confirm(`Restore ${name} to pending review? The account will remain unable to sign in until an administrator approves it.`)) {
+      return;
+    }
+    setRestoringStaffId(staffId);
+    setArchivesError("");
+    try {
+      const response = await fetch(API_URL + "/admin/staff/" + staffId + "/restore", {
+        method: "PUT",
+        headers: getAuthHeaders(),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (response.status === 401) {
+        signOut();
+        return;
+      }
+      if (!response.ok) {
+        throw new Error(errorMessage(data, "Unable to restore Staff account."));
+      }
+      setArchivedStaff((current) => current.filter((member) => member.id !== staffId));
+    } catch (error) {
+      setArchivesError(error.message || "Unable to restore Staff account.");
+    } finally {
+      setRestoringStaffId(null);
     }
   };
 
@@ -398,6 +427,7 @@ export default function AccountSettings() {
   const roleLabel = user.role === "admin" ? "Administrator" : user.role === "staff" ? "Staff" : String(user.role || "Unknown");
   const statusLabel = status === "unknown" ? "Unknown" : status.charAt(0).toUpperCase() + status.slice(1);
   const staff = user.staff_profile || {};
+  const totalArchivedRecords = archivedProducts.length + archivedStaff.length;
 
   return (
     <AdminLayout title="Account Settings" subtitle="Manage your personal information and login security.">
@@ -567,20 +597,34 @@ export default function AccountSettings() {
               </form>
             ) : !isStaff ? (
               <div className="account-archives-panel">
-                <div className="account-panel-heading">
-                  <div><span className="account-settings-eyebrow">RETAINED RECORDS</span><h3>Archive management</h3><p>Review archived listings and Staff accounts while keeping their order and audit history intact.</p></div>
+                <div className="account-panel-heading account-archives-heading">
+                  <div className="account-panel-heading-main">
+                    <Archive size={21} aria-hidden="true" />
+                    <div><span className="account-settings-eyebrow">RETAINED RECORDS</span><h3>Archive management</h3><p>Review archived listings and staff records while keeping their order and audit history intact.</p></div>
+                  </div>
+                  <span className="account-archive-total"><strong>{archivesLoading ? "—" : totalArchivedRecords}</strong><small>{totalArchivedRecords === 1 ? "retained record" : "retained records"}</small></span>
                 </div>
                 {archivesError && <div className="account-settings-feedback error" role="alert">{archivesError}</div>}
                 {archivesLoading && <div className="account-settings-notice" role="status">Loading archived records…</div>}
                 <section className="account-archive-group" aria-labelledby="archived-products-heading">
                   <div className="account-archive-group-heading"><h4 id="archived-products-heading"><Package size={17} aria-hidden="true" />Archived products</h4><span>{archivedProducts.length}</span></div>
-                  {archivedProducts.length ? <div className="account-archive-list">{archivedProducts.map((product) => <article className="account-archive-item" key={`product-${product.id}`}><div className="account-archive-item-icon"><Package size={17} aria-hidden="true" /></div><div className="account-archive-item-copy"><strong>{product.name || "Unnamed product"}</strong><span>{product.category || "Uncategorized"} · Seller: {product.user?.name || "Unknown"}</span><small>Archived {archiveDate(product.archived_at)}</small></div><button type="button" className="account-archive-restore" disabled={restoringProductId === product.id} onClick={() => handleRestoreProduct(product.id)}>{restoringProductId === product.id ? "Restoring." : "Restore for review"}</button></article>)}</div> : !archivesLoading && <p className="account-archive-empty">No archived products found.</p>}
+                  <p className="account-archive-group-description">Restore a listing to return it to moderation review.</p>
+                  {archivedProducts.length ? <div className="account-archive-list">{archivedProducts.map((product) => <article className="account-archive-item" key={`product-${product.id}`}>
+                    <div className="account-archive-item-icon"><Package size={18} aria-hidden="true" /></div>
+                    <div className="account-archive-item-copy"><strong>{product.name || "Unnamed product"}</strong><span>{product.category || "Uncategorized"} <i aria-hidden="true">·</i> Seller: {product.user?.name || "Unknown"}</span><small>Archived {archiveDate(product.archived_at)}</small></div>
+                    <button type="button" className="account-archive-restore" aria-label={`Restore ${product.name || "product"} for moderation review`} aria-busy={restoringProductId === product.id} disabled={restoringProductId === product.id} onClick={() => handleRestoreProduct(product.id)}>{restoringProductId === product.id ? "Restoring…" : "Restore for review"}</button>
+                  </article>)}</div> : !archivesLoading && <div className="account-archive-empty"><Package size={20} aria-hidden="true" /><span>No archived products found.</span></div>}
                 </section>
                 <section className="account-archive-group" aria-labelledby="archived-staff-heading">
-                  <div className="account-archive-group-heading"><h4 id="archived-staff-heading"><UsersRound size={17} aria-hidden="true" />Archived Staff accounts</h4><span>{archivedStaff.length}</span></div>
-                  {archivedStaff.length ? <div className="account-archive-list">{archivedStaff.map((member) => <article className="account-archive-item" key={`staff-${member.id}`}><div className="account-archive-item-icon"><UsersRound size={17} aria-hidden="true" /></div><div className="account-archive-item-copy"><strong>{member.name || "Staff account"}</strong><span>{member.profile?.department || "Department not assigned"} · {member.email || "Email unavailable"}</span><small>Archived {archiveDate(member.profile?.archived_at)}</small></div><span className="account-archive-status">Archived</span></article>)}</div> : !archivesLoading && <p className="account-archive-empty">No archived Staff accounts found.</p>}
+                  <div className="account-archive-group-heading"><h4 id="archived-staff-heading"><UsersRound size={17} aria-hidden="true" />Archived staff accounts</h4><span>{archivedStaff.length}</span></div>
+                  <p className="account-archive-group-description">Restore an account to pending review. An administrator must approve it before Staff access is restored.</p>
+                  {archivedStaff.length ? <div className="account-archive-list">{archivedStaff.map((member) => <article className="account-archive-item" key={`staff-${member.id}`}>
+                    <div className="account-archive-item-icon"><UsersRound size={18} aria-hidden="true" /></div>
+                    <div className="account-archive-item-copy"><strong>{member.name || "Staff account"}</strong><span>{member.profile?.department || "Department not assigned"} <i aria-hidden="true">·</i> {member.email || "Email unavailable"}</span><small>Archived {archiveDate(member.profile?.archived_at)}</small></div>
+                    <button type="button" className="account-archive-restore" aria-label={`Restore ${member.name || "Staff account"} to pending review`} aria-busy={restoringStaffId === member.id} disabled={restoringStaffId === member.id} onClick={() => handleRestoreStaff(member.id, member.name)}>{restoringStaffId === member.id ? "Restoring…" : "Restore for review"}</button>
+                  </article>)}</div> : !archivesLoading && <div className="account-archive-empty"><UsersRound size={20} aria-hidden="true" /><span>No archived staff accounts found.</span></div>}
                 </section>
-                <p className="account-archive-note"><ShieldCheck size={16} aria-hidden="true" />Archived products can be restored for moderation review only; they do not become marketplace-active automatically. Staff archive remains read-only.</p>
+                <p className="account-archive-note"><ShieldCheck size={17} aria-hidden="true" /><span>Restoring a product returns it to moderation review without publishing. Restoring a Staff account returns it to pending review, clears its permissions, and keeps its sessions revoked until an administrator approves it.</span></p>
               </div>
             ) : null}
           </section>

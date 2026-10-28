@@ -422,9 +422,9 @@ export default function AdminOrderOptions() {
     <AdminLayout title="Payment & pickup setup" subtitle="Manage manual payment options, pickup points, and commission activity.">
       <main className="order-options-page">
         <AdminPageHero
-          title="Payment & Pickup Setup"
+          title="Payment & pickup setup"
           description="Manage cash on delivery settings, commission activity, and approved pickup locations for the TMC StudentMart marketplace."
-          className="sr-only"
+          icon={WalletCards}
           onRefresh={async (signal) => { await Promise.all([loadOptions(true, signal), loadAnalytics(true, signal)]); }}
           refreshing={loading || refreshing || analyticsLoading || analyticsRefreshing}
           autoRefreshIntervalMs={60_000}

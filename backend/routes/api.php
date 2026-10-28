@@ -511,6 +511,11 @@ Route::middleware('auth:sanctum')->group(function () {
                 'reopen',
             ]);
 
+            Route::put('/staff/{user}/restore', [
+                AdminStaffController::class,
+                'restore',
+            ]);
+
             Route::put('/staff/{user}/suspend', [
                 AdminStaffController::class,
                 'suspend',

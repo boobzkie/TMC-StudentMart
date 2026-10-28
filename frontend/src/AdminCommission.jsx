@@ -310,13 +310,13 @@ function AdminCommission() {
               <table className="commission-table">
                 <thead>
                   <tr>
-                    <th>Order / seller</th>
-                    <th>Completed</th>
-                    <th>Sale total</th>
-                    <th>Rate</th>
-                    <th>Commission</th>
-                    <th>Collection</th>
-                    <th>Action</th>
+                    <th scope="col">Order / seller</th>
+                    <th scope="col">Completed</th>
+                    <th scope="col">Sale total</th>
+                    <th scope="col">Rate</th>
+                    <th scope="col">Commission</th>
+                    <th scope="col">Collection</th>
+                    <th scope="col">Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -334,7 +334,7 @@ function AdminCommission() {
                       </td>
                       <td>
                         {record.status === "uncollected" ? (
-                          <button type="button" className="commission-collect-button" onClick={() => setCollectionDraft({ id: record.id, orderNumber: record.order_number, amount: record.commission_amount, reference: "", note: "" })}>
+                          <button type="button" className="commission-collect-button" aria-label={`Record commission collection for ${record.order_number}`} onClick={() => setCollectionDraft({ id: record.id, orderNumber: record.order_number, amount: record.commission_amount, reference: "", note: "" })}>
                             Record collection
                           </button>
                         ) : <span className="commission-no-action">—</span>}

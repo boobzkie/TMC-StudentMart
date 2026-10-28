@@ -337,6 +337,70 @@ class AdminStaffController extends Controller
         ]);
     }
 
+    public function restore(Request $request, User $user): JsonResponse
+    {
+        $staff = DB::transaction(function () use ($request, $user) {
+            $lockedStaff = User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
+            abort_unless($lockedStaff->role === 'staff', 404, 'Staff account not found.');
+
+            if ($lockedStaff->status !== 'archived') {
+                return null;
+            }
+
+            $profile = $lockedStaff->staffProfile()->lockForUpdate()->first();
+            if (! $profile) {
+                $profile = StaffProfile::create([
+                    'user_id' => $lockedStaff->id,
+                    'permissions' => [],
+                ]);
+            }
+
+            $previousReview = [
+                'permissions' => $profile->permissions ?? [],
+                'reviewed_by' => $profile->reviewed_by,
+                'reviewed_at' => $profile->reviewed_at?->toIso8601String(),
+                'decision_reason' => $profile->decision_reason,
+            ];
+
+            $lockedStaff->status = 'pending';
+            $lockedStaff->save();
+
+            // Restoring an archived account only returns it to review; it never restores access.
+            $profile->permissions = [];
+            $profile->reviewed_by = null;
+            $profile->reviewed_at = null;
+            $profile->decision_reason = null;
+            $profile->archived_at = null;
+            $profile->save();
+            $lockedStaff->tokens()->delete();
+
+            $this->record(
+                $profile,
+                $request->user()->id,
+                'restored_for_review',
+                'archived',
+                'pending',
+                'Archived Staff account restored to pending review; access permissions were cleared.',
+                ['previous_review' => $previousReview]
+            );
+
+            return $lockedStaff->load('staffProfile');
+        });
+
+        if (! $staff) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only archived Staff accounts can be restored.',
+            ], 422);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Staff account restored to pending review. No Staff access was granted.',
+            'staff' => $this->safeStaff($staff),
+        ]);
+    }
+
     public function suspend(Request $request, User $user): JsonResponse
     {
         return $this->changeStatus($request, $user, 'suspended');

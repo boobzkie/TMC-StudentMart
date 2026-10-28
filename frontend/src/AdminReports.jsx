@@ -10,6 +10,7 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   Activity,
   AlertCircle,
+  ArrowRight,
   CalendarDays,
   ChevronLeft,
   ChevronRight,
@@ -1059,7 +1060,17 @@ export default function AdminReports() {
                       <td>{report.scope}</td>
                       <td>{report.records == null ? "—" : report.records.toLocaleString()}</td>
                       <td>{report.updated}</td>
-                      <td><Link to={report.route} className="reports-view-link">View</Link></td>
+                      <td>
+                        <Link
+                          to={report.route}
+                          className="reports-view-link"
+                          aria-label={`View ${report.name}`}
+                          title={`Open ${report.name}`}
+                        >
+                          <span>View report</span>
+                          <ArrowRight size={14} aria-hidden="true" />
+                        </Link>
+                      </td>
                     </tr>)}
                   </tbody>
                 </table>
