@@ -227,7 +227,7 @@ test('public staff registration stores a pending application and issues no authe
     $profile = $user->staffProfile;
     expect($profile->date_of_birth->toDateString())->toBe(now()->subYears(30)->toDateString());
     expect($profile->permissions)->toBe([]);
-    Storage::disk('local')->assertExists($profile->verification_document_path);
+    expect(Storage::disk('local')->exists($profile->verification_document_path))->toBeTrue();
     $this->assertDatabaseHas('staff_application_events', ['staff_profile_id' => $profile->id, 'event' => 'submitted']);
 
     $this->postJson('/api/staff/application-status', [

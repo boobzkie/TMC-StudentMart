@@ -462,34 +462,25 @@ class _ImmersiveProductPageState extends State<_ImmersiveProductPage>
     }
 
     if (_savingFollow || snapshot.connectionState != ConnectionState.done) {
-      return SizedBox.square(
-        dimension: 36,
-        child: CircularProgressIndicator(
-          strokeWidth: 2.2,
-          color: TmcPalette.white,
-          backgroundColor: Colors.black.withValues(alpha: .35),
-        ),
+      return _roundFeedButton(
+        tooltip: 'Loading seller status',
+        icon: Icons.add_rounded,
+        onPressed: null,
+        loading: true,
       );
     }
 
     final status = asMap(snapshot.data);
     if (_apiBoolean(status['is_self'])) {
-      return const Text(
-        'You',
-        style: TextStyle(
-          color: TmcPalette.white,
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-        ),
-      );
+      return const SizedBox.shrink();
     }
 
     final isFollowing =
         _followingOverride ?? _apiBoolean(status['is_following']);
     return _roundFeedButton(
       tooltip: isFollowing ? 'Following seller' : 'Follow seller',
-      icon: isFollowing ? Icons.check : Icons.add,
-      backgroundColor: isFollowing ? TmcPalette.deepNavy : TmcPalette.primary,
+      icon: isFollowing ? Icons.check_rounded : Icons.add_rounded,
+      backgroundColor: TmcPalette.followAccent,
       onPressed: () => _toggleFollow(isFollowing),
     );
   }
@@ -497,8 +488,9 @@ class _ImmersiveProductPageState extends State<_ImmersiveProductPage>
   Widget _roundFeedButton({
     required String tooltip,
     required IconData icon,
-    required VoidCallback onPressed,
+    required VoidCallback? onPressed,
     Color? backgroundColor,
+    bool loading = false,
   }) => SizedBox.square(
     dimension: 48,
     child: IconButton.filled(
@@ -507,11 +499,19 @@ class _ImmersiveProductPageState extends State<_ImmersiveProductPage>
       style: IconButton.styleFrom(
         fixedSize: const Size(48, 48),
         padding: EdgeInsets.zero,
-        backgroundColor: backgroundColor ?? TmcPalette.primary,
+        backgroundColor: backgroundColor ?? TmcPalette.followAccent,
         foregroundColor: TmcPalette.white,
-        side: const BorderSide(color: TmcPalette.white, width: 1.2),
+        side: BorderSide.none,
       ),
-      icon: Icon(icon, size: 21),
+      icon: loading
+          ? const SizedBox.square(
+              dimension: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: TmcPalette.white,
+              ),
+            )
+          : Icon(icon, size: 23),
     ),
   );
 
@@ -520,101 +520,39 @@ class _ImmersiveProductPageState extends State<_ImmersiveProductPage>
     required String label,
     required VoidCallback? onPressed,
     bool loading = false,
-  }) => Tooltip(
-    message: label,
-    child: Semantics(
-      button: true,
-      enabled: onPressed != null,
-      label: label,
-      child: SizedBox(
-        width: 188,
-        height: 56,
-        child: Material(
-          color: Colors.black.withValues(alpha: .78),
-          borderRadius: BorderRadius.circular(TmcRadius.pill),
-          child: InkWell(
-            onTap: onPressed,
-            borderRadius: BorderRadius.circular(TmcRadius.pill),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: Row(
-                children: [
-                  SizedBox.square(
-                    dimension: 48,
-                    child: Center(
-                      child: loading
-                          ? const SizedBox.square(
-                              dimension: 22,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: TmcPalette.white,
-                              ),
-                            )
-                          : Icon(icon, size: 22, color: TmcPalette.white),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: TmcPalette.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                ],
-              ),
-            ),
-          ),
-        ),
+  }) => SizedBox.square(
+    dimension: 56,
+    child: IconButton(
+      tooltip: label,
+      onPressed: onPressed,
+      style: IconButton.styleFrom(
+        fixedSize: const Size(56, 56),
+        padding: EdgeInsets.zero,
+        foregroundColor: TmcPalette.white,
+        overlayColor: TmcPalette.white.withValues(alpha: .14),
       ),
+      icon: loading
+          ? const SizedBox.square(
+              dimension: 22,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: TmcPalette.white,
+              ),
+            )
+          : Icon(icon, size: 25),
     ),
   );
 
   Widget _sellerRail(BuildContext context, String sellerName, bool ownListing) {
     final statusFuture = widget.sellerStatus;
     if (ownListing || statusFuture == null) {
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          InkWell(
-            onTap: _openSeller,
-            customBorder: const CircleBorder(),
-            child: _sellerAvatar(sellerName, null, 48),
-          ),
-          const SizedBox(height: 5),
-          SizedBox(
-            width: 76,
-            child: Text(
-              sellerName,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: TmcPalette.white,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                shadows: [Shadow(color: Colors.black54, blurRadius: 5)],
-              ),
-            ),
-          ),
-          if (ownListing) ...[
-            const SizedBox(height: 5),
-            const Text(
-              'Your listing',
-              style: TextStyle(
-                color: TmcPalette.white,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ],
+      return InkWell(
+        onTap: _openSeller,
+        customBorder: const CircleBorder(),
+        child: _feedSellerAvatar(
+          sellerName,
+          widget.product.sellerProfilePicture,
+        ),
       );
     }
 
@@ -625,42 +563,53 @@ class _ImmersiveProductPageState extends State<_ImmersiveProductPage>
         final displayName = valueOf(student['name']).isEmpty
             ? sellerName
             : valueOf(student['name']);
-        final imagePath = student['profile_picture']?.toString();
+        final imagePath = valueOf(student['profile_picture']).isEmpty
+            ? widget.product.sellerProfilePicture
+            : student['profile_picture']?.toString();
+        final isSelf = _apiBoolean(snapshot.data?['is_self']);
 
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            InkWell(
-              onTap: _openSeller,
-              customBorder: const CircleBorder(),
-              child: _sellerAvatar(displayName, imagePath, 48),
-            ),
-            const SizedBox(height: 4),
-            _followControl(snapshot),
-            const SizedBox(height: 4),
-            InkWell(
-              onTap: _openSeller,
-              child: SizedBox(
-                width: 76,
-                child: Text(
-                  displayName,
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: TmcPalette.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    shadows: [Shadow(color: Colors.black54, blurRadius: 5)],
+        return SizedBox(
+          width: 88,
+          height: 88,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned(
+                left: 0,
+                top: 0,
+                child: Semantics(
+                  button: true,
+                  label: 'Open seller profile',
+                  child: InkWell(
+                    onTap: _openSeller,
+                    customBorder: const CircleBorder(),
+                    child: _feedSellerAvatar(displayName, imagePath),
                   ),
                 ),
               ),
-            ),
-          ],
+              if (!isSelf)
+                Positioned(
+                  right: -4,
+                  bottom: -4,
+                  child: _followControl(snapshot),
+                ),
+            ],
+          ),
         );
       },
     );
   }
+
+  Widget _feedSellerAvatar(String name, String? imagePath) => Container(
+    width: 80,
+    height: 80,
+    padding: const EdgeInsets.all(2),
+    decoration: BoxDecoration(
+      color: TmcPalette.white.withValues(alpha: .92),
+      shape: BoxShape.circle,
+    ),
+    child: ClipOval(child: _sellerAvatar(name, imagePath, 76)),
+  );
 
   Widget _productImage(String path) {
     final url = ApiService.imageUrlFor(path);
@@ -985,24 +934,7 @@ class _ImmersiveProductPageState extends State<_ImmersiveProductPage>
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            Container(
-                              width: 188,
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: .78),
-                                borderRadius: BorderRadius.circular(18),
-                                border: Border.all(
-                                  color: TmcPalette.white.withValues(alpha: .7),
-                                ),
-                              ),
-                              child: Center(
-                                child: _sellerRail(
-                                  context,
-                                  sellerName,
-                                  ownListing,
-                                ),
-                              ),
-                            ),
+                            _sellerRail(context, sellerName, ownListing),
                             const SizedBox(height: _speedDialGap),
                             _speedDialAction(
                               icon: Icons.add_shopping_cart_outlined,

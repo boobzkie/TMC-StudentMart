@@ -31,11 +31,27 @@ class NotificationsPage extends StatefulWidget {
 class _NotificationsPageState extends State<NotificationsPage> {
   late Future<dynamic> _future;
   late Future<List<Map<String, dynamic>>> _ordersFuture;
+  late Future<List<StudentConnection>> _followingPreviewFuture;
+  final List<Map<String, dynamic>> _inboxOrders = <Map<String, dynamic>>[];
   late int _selectedTab;
   int _unreadCount = 0;
-  int _pendingOrderCount = 0;
   int _notificationRequestVersion = 0;
   int _ordersRequestVersion = 0;
+  int _buyerOrdersPage = 0;
+  int _buyerOrdersLastPage = 1;
+  int _buyerOrdersTotal = 0;
+  int _sellerOrdersPage = 0;
+  int _sellerOrdersLastPage = 1;
+  int _sellerOrdersTotal = 0;
+  int _inboxOrderTotal = 0;
+  bool _loadingMoreOrders = false;
+  String? _ordersMoreError;
+  List<Map<String, dynamic>> _notifications = <Map<String, dynamic>>[];
+  int _notificationPage = 0;
+  int _notificationLastPage = 1;
+  int _notificationTotal = 0;
+  bool _loadingMoreNotifications = false;
+  String? _notificationMoreError;
   late final Set<int> _visitedTabs;
   final Set<String> _busyIds = <String>{};
 
@@ -45,6 +61,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
     _InboxTab('Orders', Icons.receipt_long_outlined),
     _InboxTab('Followers', Icons.people_outline_rounded),
     _InboxTab('Following', Icons.person_add_alt_1_outlined),
+    _InboxTab('Reviews', Icons.rate_review_outlined),
   ];
 
   @override
@@ -55,6 +72,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
     _visitedTabs = <int>{0, _selectedTab};
     _future = _load();
     _ordersFuture = _loadOrders();
+    _followingPreviewFuture = _loadFollowingPreview();
   }
 
   @override
@@ -66,56 +84,192 @@ class _NotificationsPageState extends State<NotificationsPage> {
     }
   }
 
-  Future<dynamic> _load() async {
+  Future<dynamic> _load({bool append = false}) async {
     final requestVersion = ++_notificationRequestVersion;
-    final payload = await context.read<ApiService>().get('/notifications');
+    final requestedPage = append ? _notificationPage + 1 : 1;
+    final payload = asMap(
+      await context.read<ApiService>().get(
+        '/notifications?page=$requestedPage&per_page=25',
+      ),
+    );
+    final rawNotifications = payload['notifications'];
+    final receivedNotifications = rawNotifications is List
+        ? rawNotifications.map((row) => asMap(row)).toList(growable: false)
+        : <Map<String, dynamic>>[];
+    final pagination = asMap(payload['pagination']);
     if (mounted && requestVersion == _notificationRequestVersion) {
-      final unreadCount =
-          int.tryParse(valueOf(asMap(payload)['unread_count'])) ?? 0;
+      final unreadCount = int.tryParse(valueOf(payload['unread_count'])) ?? 0;
       setState(() {
         _unreadCount = unreadCount;
+        if (append) {
+          final existingIds = _notifications
+              .map((notification) => valueOf(notification['id']))
+              .where((id) => id.isNotEmpty)
+              .toSet();
+          _notifications.addAll(
+            receivedNotifications.where(
+              (notification) => existingIds.add(valueOf(notification['id'])),
+            ),
+          );
+        } else {
+          _notifications = receivedNotifications;
+        }
+        _notificationPage =
+            int.tryParse(valueOf(pagination['current_page'])) ?? requestedPage;
+        _notificationLastPage =
+            int.tryParse(valueOf(pagination['last_page'])) ?? _notificationPage;
+        _notificationTotal =
+            int.tryParse(valueOf(pagination['total'] ?? payload['total'])) ??
+            _notifications.length;
+        _notificationMoreError = null;
       });
       widget.onUnreadCountChanged?.call(unreadCount);
     }
     return payload;
   }
 
-  Future<List<Map<String, dynamic>>> _loadOrders() async {
+  Future<void> _loadMoreNotifications() async {
+    if (_loadingMoreNotifications ||
+        _notificationPage >= _notificationLastPage) {
+      return;
+    }
+    setState(() {
+      _loadingMoreNotifications = true;
+      _notificationMoreError = null;
+    });
+    try {
+      await _load(append: true);
+    } catch (error) {
+      if (mounted) setState(() => _notificationMoreError = error.toString());
+    } finally {
+      if (mounted) setState(() => _loadingMoreNotifications = false);
+    }
+  }
+
+  Future<List<StudentConnection>> _loadFollowingPreview() async {
+    final response = await context.read<ApiService>().myConnections(
+      followers: false,
+      page: 1,
+    );
+    final rows = response['accounts'];
+    if (rows is! List) return <StudentConnection>[];
+    final seenIds = <int>{};
+    return rows
+        .map((row) => StudentConnection.fromJson(asMap(row)))
+        .where((account) => account.id > 0 && seenIds.add(account.id))
+        .toList(growable: false);
+  }
+
+  void _refreshFollowingPreview() {
+    setState(() => _followingPreviewFuture = _loadFollowingPreview());
+  }
+
+  Future<List<Map<String, dynamic>>> _loadOrders({bool append = false}) async {
     final requestVersion = ++_ordersRequestVersion;
     final api = context.read<ApiService>();
+    final buyerPage = append
+        ? _buyerOrdersPage < _buyerOrdersLastPage
+              ? _buyerOrdersPage + 1
+              : null
+        : 1;
+    final sellerPage = append
+        ? _sellerOrdersPage < _sellerOrdersLastPage
+              ? _sellerOrdersPage + 1
+              : null
+        : 1;
     final payloads = await Future.wait<dynamic>([
-      api.get('/orders'),
-      api.get('/seller/orders'),
+      buyerPage == null
+          ? Future<dynamic>.value(null)
+          : api.get('/orders?page=$buyerPage&per_page=25'),
+      sellerPage == null
+          ? Future<dynamic>.value(null)
+          : api.get('/seller/orders?page=$sellerPage&per_page=25'),
     ]);
     final byId = <String, Map<String, dynamic>>{};
-    for (final payload in payloads) {
-      final rows = asMap(payload)['orders'];
+    final knownIds = append
+        ? _inboxOrders.map((order) => valueOf(order['id'])).toSet()
+        : <String>{};
+    for (final payload in payloads.where((value) => value != null)) {
+      final response = asMap(payload);
+      final rows = response['orders'];
       if (rows is! List) continue;
       for (final row in rows) {
         final order = asMap(row);
         final id = valueOf(order['id']);
-        if (id.isNotEmpty) byId[id] = order;
+        if (id.isNotEmpty && knownIds.add(id)) byId[id] = order;
       }
     }
-    final orders = byId.values.toList()
-      ..sort((a, b) {
-        final first =
-            DateTime.tryParse(valueOf(a['updated_at'])) ??
-            DateTime.tryParse(valueOf(a['created_at']));
-        final second =
-            DateTime.tryParse(valueOf(b['updated_at'])) ??
-            DateTime.tryParse(valueOf(b['created_at']));
-        if (first == null || second == null) return 0;
-        return second.compareTo(first);
-      });
+    final buyerResponse = asMap(payloads[0]);
+    final sellerResponse = asMap(payloads[1]);
+    final buyerPagination = asMap(buyerResponse['pagination']);
+    final sellerPagination = asMap(sellerResponse['pagination']);
+    final combinedOrders = append
+        ? [..._inboxOrders, ...byId.values]
+        : byId.values.toList();
+    combinedOrders.sort((a, b) {
+      final first =
+          DateTime.tryParse(valueOf(a['updated_at'])) ??
+          DateTime.tryParse(valueOf(a['created_at']));
+      final second =
+          DateTime.tryParse(valueOf(b['updated_at'])) ??
+          DateTime.tryParse(valueOf(b['created_at']));
+      if (first == null || second == null) return 0;
+      return second.compareTo(first);
+    });
     if (mounted && requestVersion == _ordersRequestVersion) {
       setState(() {
-        _pendingOrderCount = orders
-            .where((order) => valueOf(order['status']) == 'pending')
-            .length;
+        _inboxOrders
+          ..clear()
+          ..addAll(combinedOrders);
+        if (buyerPage != null) {
+          _buyerOrdersPage =
+              int.tryParse(valueOf(buyerPagination['current_page'])) ??
+              buyerPage;
+          _buyerOrdersLastPage =
+              int.tryParse(valueOf(buyerPagination['last_page'])) ??
+              _buyerOrdersPage;
+          _buyerOrdersTotal =
+              int.tryParse(
+                valueOf(buyerPagination['total'] ?? buyerResponse['total']),
+              ) ??
+              _inboxOrders.length;
+        }
+        if (sellerPage != null) {
+          _sellerOrdersPage =
+              int.tryParse(valueOf(sellerPagination['current_page'])) ??
+              sellerPage;
+          _sellerOrdersLastPage =
+              int.tryParse(valueOf(sellerPagination['last_page'])) ??
+              _sellerOrdersPage;
+          _sellerOrdersTotal =
+              int.tryParse(
+                valueOf(sellerPagination['total'] ?? sellerResponse['total']),
+              ) ??
+              _inboxOrders.length;
+        }
+        _inboxOrderTotal = _buyerOrdersTotal + _sellerOrdersTotal;
       });
     }
-    return orders;
+    return combinedOrders;
+  }
+
+  Future<void> _loadMoreOrders() async {
+    if (_loadingMoreOrders ||
+        (_buyerOrdersPage >= _buyerOrdersLastPage &&
+            _sellerOrdersPage >= _sellerOrdersLastPage)) {
+      return;
+    }
+    setState(() {
+      _loadingMoreOrders = true;
+      _ordersMoreError = null;
+    });
+    try {
+      await _loadOrders(append: true);
+    } catch (error) {
+      if (mounted) setState(() => _ordersMoreError = error.toString());
+    } finally {
+      if (mounted) setState(() => _loadingMoreOrders = false);
+    }
   }
 
   void _refresh() {
@@ -176,8 +330,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
       final orderId = int.tryParse(valueOf(notification['order_id']));
       final productId = int.tryParse(valueOf(notification['product_id']));
+      final event = valueOf(notification['event']);
       if (orderId != null && orderId > 0) {
-        final event = valueOf(notification['event']);
         final sellerOrder =
             event == 'order_placed' || event == 'order_cancelled';
         await Navigator.of(context).push<void>(
@@ -195,11 +349,75 @@ class _NotificationsPageState extends State<NotificationsPage> {
         );
         if (mounted) _refresh();
       } else if (valueOf(notification['complaint_id']).isNotEmpty && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Complaint details are not available in the app yet.',
+        final complaintId = valueOf(notification['complaint_id']);
+        final response = asMap(
+          await context.read<ApiService>().get('/complaints/$complaintId'),
+        );
+        if (!mounted) return;
+        final complaint = asMap(response['data']);
+        await showDialog<void>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: Text(
+              valueOf(complaint['subject']).isEmpty
+                  ? 'Report update'
+                  : valueOf(complaint['subject']),
             ),
+            content: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  StatusBadge(valueOf(complaint['status'])),
+                  const SizedBox(height: 10),
+                  Text(valueOf(complaint['description'])),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('Close'),
+              ),
+            ],
+          ),
+        );
+      } else if (event.startsWith('account_') && mounted) {
+        final duration = int.tryParse(valueOf(notification['duration_days']));
+        final suspendedUntil = valueOf(notification['suspended_until']);
+        final parsedSuspensionEnd = DateTime.tryParse(suspendedUntil);
+        final displayedSuspensionEnd = parsedSuspensionEnd == null
+            ? suspendedUntil
+            : _absoluteInboxDate(parsedSuspensionEnd.toLocal());
+        await showDialog<void>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: Text(valueOf(notification['title'])),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(valueOf(notification['message'])),
+                  if (duration != null) ...[
+                    const SizedBox(height: 10),
+                    Text('Suspension duration: $duration day(s)'),
+                  ],
+                  if (displayedSuspensionEnd.isNotEmpty) ...[
+                    const SizedBox(height: 5),
+                    Text(
+                      'Access is scheduled to return: $displayedSuspensionEnd',
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('Close'),
+              ),
+            ],
           ),
         );
       }
@@ -276,6 +494,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
             ],
           ),
         ),
+        _followingPreviewStrip(),
         _categorySelector(),
         const SizedBox(height: 10),
         Expanded(
@@ -304,10 +523,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
             selected: index == _selectedTab,
             badgeCount: switch (index) {
               1 => _unreadCount,
-              2 => _pendingOrderCount,
               _ => 0,
             },
-            badgeMeaning: index == 1 ? 'unread' : 'pending',
+            badgeMeaning: 'unread',
             onTap: () => _selectTab(index),
           ),
           if (index < _tabs.length - 1) const SizedBox(width: 8),
@@ -323,13 +541,22 @@ class _NotificationsPageState extends State<NotificationsPage> {
     3 => _InboxConnectionsTab(
       key: const ValueKey('inbox-followers'),
       followers: true,
+      onFollowingChanged: _refreshFollowingPreview,
     ),
     4 => _InboxConnectionsTab(
       key: const ValueKey('inbox-following'),
       followers: false,
+      onFollowingChanged: _refreshFollowingPreview,
     ),
+    5 => _InboxReviewsTab(key: const ValueKey('inbox-reviews')),
     _ => const SizedBox.shrink(),
   };
+
+  Widget _followingPreviewStrip() => _FollowingPreviewStrip(
+    future: _followingPreviewFuture,
+    onRetry: _refreshFollowingPreview,
+    onViewAll: () => _selectTab(4),
+  );
 
   Widget _messagesUnavailable() => ListView(
     physics: const AlwaysScrollableScrollPhysics(),
@@ -399,12 +626,17 @@ class _NotificationsPageState extends State<NotificationsPage> {
         );
       }
 
-      final payload = asMap(snapshot.data);
-      final unreadCount = int.tryParse(valueOf(payload['unread_count'])) ?? 0;
-      final rawItems = payload['notifications'];
-      final notifications = rawItems is List
-          ? rawItems.map((row) => asMap(row)).toList()
-          : <Map<String, dynamic>>[];
+      final unreadCount =
+          int.tryParse(valueOf(asMap(snapshot.data)['unread_count'])) ?? 0;
+      final notificationGroups = <String, List<Map<String, dynamic>>>{};
+      for (final notification in _notifications) {
+        notificationGroups
+            .putIfAbsent(
+              _notificationGroup(valueOf(notification['event'])),
+              () => <Map<String, dynamic>>[],
+            )
+            .add(notification);
+      }
       return RefreshIndicator(
         onRefresh: _handleRefresh,
         child: ListView(
@@ -412,7 +644,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
           children: [
             _UnreadSummary(count: unreadCount),
-            if (notifications.isEmpty) ...[
+            if (_notifications.isEmpty) ...[
               const SizedBox(height: 14),
               const SizedBox(
                 height: 280,
@@ -424,14 +656,61 @@ class _NotificationsPageState extends State<NotificationsPage> {
                 ),
               ),
             ] else ...[
-              const SizedBox(height: 14),
-              for (final notification in notifications) ...[
-                _NotificationCard(
-                  notification: notification,
-                  busy: _busyIds.contains(valueOf(notification['id'])),
-                  onTap: () => _openNotification(notification),
+              for (final entry in notificationGroups.entries) ...[
+                Padding(
+                  padding: const EdgeInsets.only(top: 18, bottom: 9),
+                  child: SectionHeading(
+                    entry.key,
+                    action: Text(
+                      '${entry.value.length}',
+                      style: const TextStyle(
+                        color: TmcPalette.textMuted,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
                 ),
-                const SizedBox(height: 10),
+                for (final notification in entry.value) ...[
+                  _NotificationCard(
+                    notification: notification,
+                    busy: _busyIds.contains(valueOf(notification['id'])),
+                    onTap: () => _openNotification(notification),
+                  ),
+                  const SizedBox(height: 9),
+                ],
+              ],
+              if (_notificationMoreError != null) ...[
+                Text(
+                  'More notifications could not be loaded: $_notificationMoreError',
+                  style: const TextStyle(color: TmcPalette.error),
+                ),
+                TextButton.icon(
+                  onPressed: _loadingMoreNotifications
+                      ? null
+                      : _loadMoreNotifications,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Retry loading notifications'),
+                ),
+              ] else if (_notificationPage < _notificationLastPage) ...[
+                Center(
+                  child: OutlinedButton.icon(
+                    onPressed: _loadingMoreNotifications
+                        ? null
+                        : _loadMoreNotifications,
+                    icon: _loadingMoreNotifications
+                        ? const SizedBox.square(
+                            dimension: 17,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.expand_more),
+                    label: Text(
+                      _loadingMoreNotifications
+                          ? 'Loading…'
+                          : 'Load more notifications (${_notificationTotal - _notifications.length} remaining)',
+                    ),
+                  ),
+                ),
               ],
             ],
           ],
@@ -452,7 +731,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
           onRetry: _refreshOrders,
         );
       }
-      final orders = snapshot.data ?? const <Map<String, dynamic>>[];
+      final orders = _inboxOrders;
       return RefreshIndicator(
         onRefresh: _handleOrdersRefresh,
         child: orders.isEmpty
@@ -474,12 +753,49 @@ class _NotificationsPageState extends State<NotificationsPage> {
             : ListView.separated(
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-                itemCount: orders.length,
+                itemCount:
+                    orders.length +
+                    (_buyerOrdersPage < _buyerOrdersLastPage ||
+                            _sellerOrdersPage < _sellerOrdersLastPage
+                        ? 1
+                        : 0),
                 separatorBuilder: (_, _) => const SizedBox(height: 9),
-                itemBuilder: (context, index) => _InboxOrderCard(
-                  order: orders[index],
-                  onTap: () => _openOrder(orders[index]),
-                ),
+                itemBuilder: (context, index) {
+                  if (index == orders.length) {
+                    return Center(
+                      child: _ordersMoreError == null
+                          ? OutlinedButton.icon(
+                              onPressed: _loadingMoreOrders
+                                  ? null
+                                  : _loadMoreOrders,
+                              icon: _loadingMoreOrders
+                                  ? const SizedBox.square(
+                                      dimension: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(Icons.expand_more),
+                              label: Text(
+                                _loadingMoreOrders
+                                    ? 'Loading…'
+                                    : 'Load more orders (${_inboxOrderTotal - orders.length} remaining)',
+                              ),
+                            )
+                          : TextButton.icon(
+                              onPressed: _loadingMoreOrders
+                                  ? null
+                                  : _loadMoreOrders,
+                              icon: const Icon(Icons.refresh),
+                              label: const Text('Retry loading orders'),
+                            ),
+                    );
+                  }
+                  return _InboxOrderCard(
+                    order: orders[index],
+                    onTap: () => _openOrder(orders[index]),
+                  );
+                },
               ),
       );
     },
@@ -706,9 +1022,175 @@ class _InboxOrderCard extends StatelessWidget {
   }
 }
 
+class _FollowingPreviewStrip extends StatelessWidget {
+  const _FollowingPreviewStrip({
+    required this.future,
+    required this.onRetry,
+    required this.onViewAll,
+  });
+
+  final Future<List<StudentConnection>> future;
+  final VoidCallback onRetry;
+  final VoidCallback onViewAll;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+    child: FutureBuilder<List<StudentConnection>>(
+      future: future,
+      builder: (context, snapshot) {
+        final accounts = snapshot.data ?? const <StudentConnection>[];
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Following',
+                    style: TextStyle(
+                      color: TmcPalette.deepNavy,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                TextButton(onPressed: onViewAll, child: const Text('View all')),
+              ],
+            ),
+            if (snapshot.connectionState != ConnectionState.done)
+              _loadingRow()
+            else if (snapshot.hasError)
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Following could not be loaded.',
+                      style: TextStyle(
+                        color: TmcPalette.textMuted,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: onRetry,
+                    icon: const Icon(Icons.refresh, size: 17),
+                    label: const Text('Retry'),
+                  ),
+                ],
+              )
+            else if (accounts.isEmpty)
+              TmcPanel(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                color: TmcPalette.paleBlue.withValues(alpha: .42),
+                child: const Row(
+                  children: [
+                    Icon(Icons.people_outline, color: TmcPalette.primary),
+                    SizedBox(width: 9),
+                    Expanded(
+                      child: Text(
+                        'Students you follow will appear here.',
+                        style: TextStyle(
+                          color: TmcPalette.textMuted,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              SizedBox(
+                height: 82,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
+                  itemCount: accounts.length,
+                  separatorBuilder: (_, _) => const SizedBox(width: 12),
+                  itemBuilder: (context, index) {
+                    final account = accounts[index];
+                    return Semantics(
+                      button: true,
+                      label: 'Open ${account.name}’s profile',
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () =>
+                              _openInboxStudentProfile(context, account),
+                          borderRadius: BorderRadius.circular(TmcRadius.md),
+                          child: SizedBox(
+                            width: 66,
+                            child: Column(
+                              children: [
+                                _studentAvatar(account, size: 48),
+                                const SizedBox(height: 5),
+                                Text(
+                                  account.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    color: TmcPalette.deepNavy,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+          ],
+        );
+      },
+    ),
+  );
+
+  Widget _loadingRow() => SizedBox(
+    height: 82,
+    child: Row(
+      children: [
+        for (var index = 0; index < 4; index++) ...[
+          Expanded(
+            child: Column(
+              children: [
+                CircleAvatar(
+                  radius: 24,
+                  backgroundColor: TmcPalette.borderSoft,
+                ),
+                const SizedBox(height: 6),
+                Container(
+                  height: 8,
+                  width: 42,
+                  decoration: BoxDecoration(
+                    color: TmcPalette.borderSoft,
+                    borderRadius: BorderRadius.circular(TmcRadius.pill),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    ),
+  );
+}
+
 class _InboxConnectionsTab extends StatefulWidget {
-  const _InboxConnectionsTab({super.key, required this.followers});
+  const _InboxConnectionsTab({
+    super.key,
+    required this.followers,
+    this.onFollowingChanged,
+  });
   final bool followers;
+  final VoidCallback? onFollowingChanged;
 
   @override
   State<_InboxConnectionsTab> createState() => _InboxConnectionsTabState();
@@ -820,6 +1302,7 @@ class _InboxConnectionsTabState extends State<_InboxConnectionsTab> {
           ),
         ),
       );
+      widget.onFollowingChanged?.call();
     } catch (error) {
       if (!mounted) return;
       setState(() => _busyIds.remove(account.id));
@@ -851,53 +1334,11 @@ class _InboxConnectionsTabState extends State<_InboxConnectionsTab> {
   }
 
   void _openProfile(StudentConnection account) {
-    Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
-        builder: (_) => SellerProfilePage(
-          sellerId: account.id,
-          onOpenProduct: (product) => Navigator.of(context).push<void>(
-            MaterialPageRoute<void>(
-              builder: (_) => ProductDetailsPage(productId: product.id),
-            ),
-          ),
-        ),
-      ),
-    );
+    _openInboxStudentProfile(context, account);
   }
 
   Widget _avatar(StudentConnection account) {
-    final initials = account.name
-        .trim()
-        .split(RegExp(r'\s+'))
-        .where((part) => part.isNotEmpty)
-        .take(2)
-        .map((part) => part[0].toUpperCase())
-        .join();
-    final imagePath = account.profilePicture;
-    final imageUrl = imagePath == null || imagePath.isEmpty
-        ? ''
-        : ApiService.imageUrlFor(imagePath);
-    final fallback = Text(
-      initials.isEmpty ? 'T' : initials,
-      style: const TextStyle(
-        color: TmcPalette.deepNavy,
-        fontWeight: FontWeight.w800,
-      ),
-    );
-    return CircleAvatar(
-      backgroundColor: TmcPalette.paleBlue,
-      child: imageUrl.isEmpty
-          ? fallback
-          : ClipOval(
-              child: Image.network(
-                imageUrl,
-                width: 40,
-                height: 40,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => fallback,
-              ),
-            ),
-    );
+    return _studentAvatar(account, size: 40);
   }
 
   @override
@@ -1039,6 +1480,327 @@ class _InboxConnectionsTabState extends State<_InboxConnectionsTab> {
                 );
               },
             ),
+    );
+  }
+}
+
+class _InboxReviewsTab extends StatefulWidget {
+  const _InboxReviewsTab({super.key});
+
+  @override
+  State<_InboxReviewsTab> createState() => _InboxReviewsTabState();
+}
+
+class _InboxReviewsTabState extends State<_InboxReviewsTab> {
+  final List<Map<String, dynamic>> _reviews = <Map<String, dynamic>>[];
+  int _page = 0;
+  int _lastPage = 1;
+  int _total = 0;
+  bool _loading = false;
+  bool _loadingMore = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadPage());
+  }
+
+  Future<void> _loadPage({bool append = false}) async {
+    if (_loading || _loadingMore) return;
+    final studentId = context.read<AuthState>().user?.id;
+    if (studentId == null || studentId <= 0) {
+      setState(() {
+        _error = 'Sign in again to view your reviews.';
+        _loading = false;
+      });
+      return;
+    }
+
+    final requestedPage = append ? _page + 1 : 1;
+    setState(() {
+      _error = null;
+      if (append) {
+        _loadingMore = true;
+      } else {
+        _loading = true;
+      }
+    });
+    try {
+      final response = await context.read<ApiService>().sellerReviews(
+        studentId,
+        page: requestedPage,
+      );
+      final rawReviews = response['reviews'];
+      final reviews = rawReviews is List
+          ? rawReviews.map((row) => asMap(row)).toList(growable: false)
+          : <Map<String, dynamic>>[];
+      if (!mounted) return;
+      setState(() {
+        if (append) {
+          final knownIds = _reviews
+              .map((review) => valueOf(review['id']))
+              .where((id) => id.isNotEmpty)
+              .toSet();
+          _reviews.addAll(
+            reviews.where((review) => knownIds.add(valueOf(review['id']))),
+          );
+        } else {
+          _reviews
+            ..clear()
+            ..addAll(reviews);
+        }
+        _page =
+            int.tryParse(valueOf(response['current_page'])) ?? requestedPage;
+        _lastPage = int.tryParse(valueOf(response['last_page'])) ?? _page;
+        _total = int.tryParse(valueOf(response['total'])) ?? _reviews.length;
+        _loading = false;
+        _loadingMore = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _error = error.toString();
+        _loading = false;
+        _loadingMore = false;
+      });
+    }
+  }
+
+  Future<void> _openReviewProduct(Map<String, dynamic> review) async {
+    final productId = int.tryParse(valueOf(asMap(review['product'])['id']));
+    if (productId == null || productId <= 0) return;
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => ProductDetailsPage(productId: productId),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading && _reviews.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_error != null && _reviews.isEmpty) {
+      return ErrorMessage(message: _error!, onRetry: _loadPage);
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadPage,
+      child: _reviews.isEmpty
+          ? ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+              children: const [
+                SizedBox(
+                  height: 280,
+                  child: EmptyMessage(
+                    icon: Icons.rate_review_outlined,
+                    title: 'No reviews yet',
+                    message:
+                        'Verified reviews for your marketplace listings will appear here.',
+                  ),
+                ),
+              ],
+            )
+          : ListView.separated(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              itemCount: _reviews.length + (_page < _lastPage ? 1 : 0),
+              separatorBuilder: (_, _) => const SizedBox(height: 9),
+              itemBuilder: (context, index) {
+                if (index == _reviews.length) {
+                  return Center(
+                    child: TextButton.icon(
+                      onPressed: _loadingMore
+                          ? null
+                          : () => _loadPage(append: true),
+                      icon: _loadingMore
+                          ? const SizedBox.square(
+                              dimension: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Icon(
+                              _error == null
+                                  ? Icons.expand_more
+                                  : Icons.refresh,
+                            ),
+                      label: Text(
+                        _loadingMore
+                            ? 'Loading…'
+                            : _error != null
+                            ? 'Retry loading more reviews'
+                            : 'Load more reviews (${_total - _reviews.length} remaining)',
+                      ),
+                    ),
+                  );
+                }
+                final review = _reviews[index];
+                return _InboxReviewCard(
+                  review: review,
+                  onTap: () => _openReviewProduct(review),
+                );
+              },
+            ),
+    );
+  }
+}
+
+class _InboxReviewCard extends StatelessWidget {
+  const _InboxReviewCard({required this.review, required this.onTap});
+
+  final Map<String, dynamic> review;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final reviewer = asMap(review['reviewer']);
+    final product = asMap(review['product']);
+    final name = valueOf(reviewer['name']).isEmpty
+        ? 'TMC Student'
+        : valueOf(reviewer['name']);
+    final rating = int.tryParse(valueOf(review['rating'])) ?? 0;
+    final title = valueOf(review['title']);
+    final comment = valueOf(review['comment']);
+    final date = _receivedAt(valueOf(review['created_at']));
+    final productName = valueOf(product['name']);
+    final account = StudentConnection(
+      id: int.tryParse(valueOf(reviewer['id'])) ?? 0,
+      name: name,
+      course: '',
+      isFollowing: false,
+      profilePicture: reviewer['profile_picture']?.toString(),
+    );
+
+    return TmcPanel(
+      padding: EdgeInsets.zero,
+      child: Semantics(
+        button: true,
+        label: 'Review by $name, rated $rating out of 5, for $productName',
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(TmcRadius.lg),
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(TmcRadius.lg),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      _studentAvatar(account, size: 42),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: TmcPalette.deepNavy,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            if (date.isNotEmpty)
+                              Text(
+                                date,
+                                style: const TextStyle(
+                                  color: TmcPalette.textSoft,
+                                  fontSize: 12,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      Semantics(
+                        label: '$rating out of 5 stars',
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.star_rounded,
+                              size: 18,
+                              color: TmcPalette.warning,
+                            ),
+                            Text(
+                              '$rating/5',
+                              style: const TextStyle(
+                                color: TmcPalette.deepNavy,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (title.isNotEmpty || comment.isNotEmpty) ...[
+                    const SizedBox(height: 11),
+                    if (title.isNotEmpty)
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: TmcPalette.deepNavy,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    if (comment.isNotEmpty) ...[
+                      if (title.isNotEmpty) const SizedBox(height: 3),
+                      Text(
+                        comment,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: TmcPalette.textMuted,
+                          fontSize: 13,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                  ],
+                  if (productName.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.inventory_2_outlined,
+                          size: 16,
+                          color: TmcPalette.primary,
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            productName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: TmcPalette.primary,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        const Icon(
+                          Icons.chevron_right_rounded,
+                          color: TmcPalette.textSoft,
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -1206,19 +1968,128 @@ IconData _notificationIcon(String event) => switch (event) {
   'order_ready_for_pickup' => Icons.storefront_outlined,
   'order_completed' => Icons.done_all,
   'order_cancelled' => Icons.cancel_outlined,
+  'product_warning' => Icons.warning_amber_outlined,
+  'product_suspended' => Icons.block_outlined,
+  'account_warning' => Icons.policy_outlined,
+  'account_suspended' => Icons.gpp_bad_outlined,
+  'complaint_status_changed' => Icons.support_agent_outlined,
   _ => Icons.notifications_none,
 };
+
+String _notificationGroup(String event) {
+  if (event.startsWith('order_') || event == 'seller_response_overdue') {
+    return 'Orders';
+  }
+  if (event.startsWith('product_') ||
+      event.startsWith('listing_') ||
+      const {
+        'auto_archived',
+        'admin_archived',
+        'admin_restored',
+        'seller_archived',
+        'stock_adjusted',
+        'variant_stock_adjusted',
+        'variant_deactivated',
+        'sold_out',
+        'restocked',
+      }.contains(event)) {
+    return 'Listing updates';
+  }
+  if (event.startsWith('account_')) return 'Account updates';
+  if (event == 'complaint_status_changed') return 'Support updates';
+  return 'System updates';
+}
 
 String _receivedAt(String raw) {
   final date = DateTime.tryParse(raw)?.toLocal();
   if (date == null) return '';
   final difference = DateTime.now().difference(date);
-  if (difference.isNegative || difference.inMinutes < 1) return 'Just now';
+  if (difference.isNegative) return _absoluteInboxDate(date);
+  if (difference.inMinutes < 1) return 'Just now';
   if (difference.inMinutes < 60) {
     final minutes = difference.inMinutes;
     return '${minutes}m ago';
   }
   if (difference.inHours < 24) return '${difference.inHours}h ago';
   if (difference.inDays < 7) return '${difference.inDays}d ago';
-  return '${date.month}/${date.day}/${date.year}';
+  return _absoluteInboxDate(date);
+}
+
+String _absoluteInboxDate(DateTime date) {
+  const months = <String>[
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  final hour = date.hour % 12 == 0 ? 12 : date.hour % 12;
+  final minute = date.minute.toString().padLeft(2, '0');
+  final suffix = date.hour < 12 ? 'AM' : 'PM';
+  return '${months[date.month - 1]} ${date.day}, ${date.year} · $hour:$minute $suffix';
+}
+
+Widget _studentAvatar(StudentConnection account, {required double size}) {
+  final initials = account.name
+      .trim()
+      .split(RegExp(r'\s+'))
+      .where((part) => part.isNotEmpty)
+      .take(2)
+      .map((part) => part[0].toUpperCase())
+      .join();
+  final imagePath = account.profilePicture;
+  final imageUrl = imagePath == null || imagePath.isEmpty
+      ? ''
+      : ApiService.imageUrlFor(imagePath);
+  final fallback = Center(
+    child: FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Text(
+        initials.isEmpty ? 'T' : initials,
+        style: const TextStyle(
+          color: TmcPalette.deepNavy,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    ),
+  );
+
+  return CircleAvatar(
+    radius: size / 2,
+    backgroundColor: TmcPalette.paleBlue,
+    child: imageUrl.isEmpty
+        ? fallback
+        : ClipOval(
+            child: Image.network(
+              imageUrl,
+              width: size,
+              height: size,
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) => fallback,
+            ),
+          ),
+  );
+}
+
+void _openInboxStudentProfile(BuildContext context, StudentConnection account) {
+  if (account.id <= 0) return;
+  Navigator.of(context).push<void>(
+    MaterialPageRoute<void>(
+      builder: (_) => SellerProfilePage(
+        sellerId: account.id,
+        onOpenProduct: (product) => Navigator.of(context).push<void>(
+          MaterialPageRoute<void>(
+            builder: (_) => ProductDetailsPage(productId: product.id),
+          ),
+        ),
+      ),
+    ),
+  );
 }

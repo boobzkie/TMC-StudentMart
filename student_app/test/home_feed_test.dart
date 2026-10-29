@@ -63,6 +63,12 @@ void main() {
 
     expect(find.byTooltip('Add to cart'), findsOneWidget);
     expect(find.byTooltip('Details'), findsOneWidget);
+    expect(find.byIcon(Icons.add_shopping_cart_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.info_outline), findsOneWidget);
+    expect(find.text('Add to cart'), findsNothing);
+    expect(find.text('Details'), findsNothing);
+    expect(find.text('Seller 20'), findsNothing);
+    expect(find.text('Your listing'), findsNothing);
     expect(
       find.byKey(const ValueKey('feed-speed-dial-backdrop')),
       findsOneWidget,
@@ -143,6 +149,36 @@ void main() {
     expect(find.text('Seller profile'), findsOneWidget);
     expect(find.text('Listings'), findsNWidgets(2));
     expect(find.text('TMC Student · BSIT'), findsOneWidget);
+  });
+
+  testWidgets('Seller profile follows from the avatar overlay', (tester) async {
+    _setPhoneViewport(tester);
+    final harness = await _pumpHome(tester, [
+      _product(id: 41, name: 'Seller follow listing', sellerId: 40),
+    ]);
+
+    await tester.tap(find.byTooltip('Product actions'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Details'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Sold by Seller 40'));
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('Follow seller'), findsOneWidget);
+    expect(find.text('Follow'), findsNothing);
+
+    await tester.tap(find.byTooltip('Follow seller'));
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('Unfollow seller'), findsOneWidget);
+    expect(
+      harness.requests.where(
+        (request) =>
+            request.method == 'POST' &&
+            request.url.path.endsWith('/students/40/follow'),
+      ),
+      hasLength(1),
+    );
   });
 
   testWidgets('Product photos open a swipeable full-screen image viewer', (
@@ -285,6 +321,7 @@ Future<_HomeHarness> _pumpHome(
   WidgetTester tester,
   List<Product> products, {
   bool canReview = false,
+  int currentUserId = 1,
 }) async {
   final requests = <http.Request>[];
   final client = MockClient((request) async {
@@ -313,7 +350,7 @@ Future<_HomeHarness> _pumpHome(
           'reviews_count': 0,
           'average_rating': 0,
           'is_following': false,
-          'is_self': false,
+          'is_self': sellerId == currentUserId,
         }),
         200,
         headers: {'content-type': 'application/json'},
@@ -408,8 +445,8 @@ Future<_HomeHarness> _pumpHome(
   });
   final api = ApiService(client: client);
   final auth = AuthState(api)
-    ..user = const Student(
-      id: 1,
+    ..user = Student(
+      id: currentUserId,
       name: 'Test Buyer',
       email: 'buyer@example.test',
       role: 'student',

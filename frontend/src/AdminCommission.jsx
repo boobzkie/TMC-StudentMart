@@ -72,6 +72,7 @@ function AdminCommission() {
   const [savingRate, setSavingRate] = useState(false);
   const [deactivatingRateId, setDeactivatingRateId] = useState(null);
   const [savingCollection, setSavingCollection] = useState(false);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const requestSequenceRef = useRef(0);
@@ -119,6 +120,7 @@ function AdminCommission() {
       setRates(Array.isArray(payload.rates) ? payload.rates : []);
       setRecords(Array.isArray(payload.records) ? payload.records : []);
       setTax(payload.tax || { status: "unconfigured", message: "Tax is not configured." });
+      setHasLoaded(true);
     } catch (loadError) {
       if (!signal?.aborted && loadError?.name !== "AbortError" && requestSequence === requestSequenceRef.current) {
         setError(loadError.message || "Unable to load commission records.");
@@ -274,6 +276,9 @@ function AdminCommission() {
     }
   };
 
+  const metricsPending = loading && !hasLoaded;
+  const metricsUnavailable = !loading && !hasLoaded;
+
   return (
     <AdminLayout title="Commission">
       <div className="commission-page">
@@ -292,10 +297,34 @@ function AdminCommission() {
         {success && <div className="commission-alert success" role="status">{success}</div>}
 
         <section className="commission-overview-grid" aria-label="Commission summary">
-          <MetricCard icon={Coins} label="Commission earned" value={formatCurrency(summary.total_earned)} />
-          <MetricCard icon={CheckCircle2} label="Commission collected" value={formatCurrency(summary.total_collected)} />
-          <MetricCard icon={Clock3} label="Awaiting collection" value={formatCurrency(summary.total_uncollected)} />
-          <MetricCard icon={BadgePercent} label="Active rate" value={currentRate ? formatRate(currentRate.rate_percent) : "Not configured"} />
+          <MetricCard
+            icon={Coins}
+            label="Commission earned"
+            value={metricsPending ? "Loading…" : metricsUnavailable ? "Unavailable" : formatCurrency(summary.total_earned)}
+            description="Recorded from completed orders"
+            loading={metricsPending}
+          />
+          <MetricCard
+            icon={CheckCircle2}
+            label="Commission collected"
+            value={metricsPending ? "Loading…" : metricsUnavailable ? "Unavailable" : formatCurrency(summary.total_collected)}
+            description="Amounts confirmed as received"
+            loading={metricsPending}
+          />
+          <MetricCard
+            icon={Clock3}
+            label="Awaiting collection"
+            value={metricsPending ? "Loading…" : metricsUnavailable ? "Unavailable" : formatCurrency(summary.total_uncollected)}
+            description="Recorded but not yet received"
+            loading={metricsPending}
+          />
+          <MetricCard
+            icon={BadgePercent}
+            label="Active rate"
+            value={metricsPending ? "Loading…" : metricsUnavailable ? "Unavailable" : currentRate ? formatRate(currentRate.rate_percent) : "Not configured"}
+            description="Used for future completed orders"
+            loading={metricsPending}
+          />
         </section>
 
         <section className="commission-panel commission-config-panel">
@@ -304,7 +333,15 @@ function AdminCommission() {
               <span className="commission-eyebrow">ADMIN POLICY</span>
               <h3>Commission rate</h3>
             </div>
-            <span className="commission-current-rate">{currentRate ? `Current: ${formatRate(currentRate.rate_percent)}` : "No rate active"}</span>
+            <span className="commission-current-rate">
+              {metricsPending
+                ? "Loading rate…"
+                : metricsUnavailable
+                  ? "Rate unavailable"
+                  : currentRate
+                    ? `Current: ${formatRate(currentRate.rate_percent)}`
+                    : "No rate active"}
+            </span>
           </div>
           <p className="commission-muted-copy">A new rate takes effect immediately for orders completed from that time forward. Existing rate snapshots are kept unchanged. Commission is based on the order total and is recorded when the seller completes the handover.</p>
           <form className="commission-rate-form" onSubmit={saveRate}>
@@ -339,8 +376,26 @@ function AdminCommission() {
               </button>
             )}
           </form>
-          <div className="commission-history-heading"><strong>Rate history</strong><span>Updates add a version; deactivation preserves history.</span></div>
-          {rates.length > 0 ? (
+          <div className="commission-rate-guidance" role="note">
+            <ShieldCheck size={17} aria-hidden="true" />
+            <p>
+              <strong>Recommendation:</strong> Verify each rate against the
+              approved TMC finance policy before activating it. A change applies
+              to future completed orders only.
+            </p>
+          </div>
+          <div className="commission-history-heading">
+            <strong>Rate history</strong>
+            <span>
+              Audit history cannot be deleted. Only the active rate can be
+              deactivated; past order snapshots remain unchanged.
+            </span>
+          </div>
+          {metricsPending ? (
+            <p className="commission-inline-empty" role="status">Loading rate history…</p>
+          ) : metricsUnavailable ? (
+            <p className="commission-inline-empty" role="status">Rate history is unavailable. Refresh the page to try again.</p>
+          ) : rates.length > 0 ? (
             <div className="commission-rate-list">
               {rates.map((rate) => (
                 <div className="commission-rate-row" key={rate.id}>
@@ -362,8 +417,8 @@ function AdminCommission() {
                       <button
                         type="button"
                         className="commission-rate-action deactivate"
-                        aria-label={`Deactivate active commission rate ${formatRate(rate.rate_percent)}`}
-                        title="Deactivate active rate"
+                        aria-label={`Deactivate ${formatRate(rate.rate_percent)} for future orders`}
+                        title="Deactivate rate for future orders"
                         onClick={() => deactivateRate(rate)}
                         disabled={savingRate || deactivatingRateId !== null}
                       >
@@ -380,10 +435,24 @@ function AdminCommission() {
         <section className="commission-panel commission-tax-notice" aria-label="Tax configuration status">
           <AlertTriangle size={21} />
           <div>
-            <strong>Tax treatment is unresolved</strong>
-            <p>{tax.message} No tax is added to orders, withheld, or reported as collected. Configure tax only after the applicable rule and responsible party are approved.</p>
+            <strong>
+              {metricsPending
+                ? "Loading tax status"
+                : metricsUnavailable
+                  ? "Tax status unavailable"
+                  : "Tax treatment is unresolved"}
+            </strong>
+            <p>
+              {metricsPending
+                ? "Tax information will appear when commission records finish loading."
+                : metricsUnavailable
+                  ? "Tax information could not be loaded. Refresh the page to try again."
+                  : `${tax.message} No tax is added to orders, withheld, or reported as collected. Configure tax only after the applicable rule and responsible party are approved.`}
+            </p>
           </div>
-          <span className="commission-status-badge status-unconfigured">Not configured</span>
+          <span className="commission-status-badge status-unconfigured">
+            {metricsPending ? "Loading" : metricsUnavailable ? "Unavailable" : "Not configured"}
+          </span>
         </section>
 
         <section className="commission-panel commission-records-panel">
@@ -392,12 +461,20 @@ function AdminCommission() {
               <span className="commission-eyebrow">ORDER LEDGER</span>
               <h3>Completed order commissions</h3>
             </div>
-            <span className="commission-current-rate">{summary.completed_orders} completed orders</span>
+            <span className="commission-current-rate">
+              {metricsPending
+                ? "Loading order count…"
+                : metricsUnavailable
+                  ? "Order count unavailable"
+                  : `${summary.completed_orders} completed orders`}
+            </span>
           </div>
           <p className="commission-muted-copy">Mark a commission collected only after the amount has actually been received. The collector and timestamp are saved for audit.</p>
 
           {loading ? (
             <div className="commission-table-message" role="status">Loading commission records…</div>
+          ) : !hasLoaded ? (
+            <div className="commission-table-message" role="status">Commission records are unavailable. Refresh the page to try again.</div>
           ) : records.length === 0 ? (
             <div className="commission-table-message">No completed orders yet. Commission records will appear after an order is completed.</div>
           ) : (
@@ -474,11 +551,15 @@ function AdminCommission() {
   );
 }
 
-function MetricCard({ icon: Icon, label, value }) {
+function MetricCard({ icon: Icon, label, value, description, loading = false }) {
   return (
-    <article className="commission-overview-card">
-      <div className="commission-overview-icon blue"><Icon size={20} /></div>
-      <div><span>{label}</span><strong>{value}</strong></div>
+    <article className="commission-overview-card" aria-busy={loading}>
+      <div className="commission-overview-icon blue"><Icon size={20} aria-hidden="true" /></div>
+      <div>
+        <span>{label}</span>
+        <strong>{value}</strong>
+        <small>{description}</small>
+      </div>
     </article>
   );
 }

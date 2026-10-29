@@ -33,6 +33,7 @@ abstract final class TmcPalette {
   static const warningSoft = Color(0xFFFEF3C7);
   static const error = Color(0xFFB91C1C);
   static const errorSoft = Color(0xFFFEE2E2);
+  static const followAccent = Color(0xFFE83E66);
   // Use a deeper blue for small informational text to retain AA contrast.
   static const information = Color(0xFF0369A1);
   static const informationSoft = Color(0xFFE0F2FE);

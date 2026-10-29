@@ -279,7 +279,7 @@ class _SellerProfilePageState extends State<SellerProfilePage> {
     ),
   );
 
-  Widget _profileHeader(Map<String, dynamic> payload) {
+  Widget _profileHeader(Map<String, dynamic> payload, int currentUserId) {
     final student = asMap(payload['student']);
     final name = valueOf(student['name']).isEmpty
         ? 'TMC Student Seller'
@@ -287,7 +287,9 @@ class _SellerProfilePageState extends State<SellerProfilePage> {
     final username = valueOf(student['username']);
     final course = valueOf(student['course']);
     final joined = valueOf(student['joined_at']);
-    final isSelf = payload['is_self'] == true;
+    final isSelf =
+        payload['is_self'] == true ||
+        (currentUserId > 0 && currentUserId == widget.sellerId);
     final isFollowing = _followingOverride ?? payload['is_following'] == true;
 
     return TmcPanel(
@@ -295,11 +297,16 @@ class _SellerProfilePageState extends State<SellerProfilePage> {
       padding: const EdgeInsets.all(16),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final wide = constraints.maxWidth >= 560;
           final identity = Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _avatar(name, student['profile_picture']?.toString(), 76),
+              _profileAvatar(
+                name,
+                student['profile_picture']?.toString(),
+                76,
+                isFollowing: isFollowing,
+                showFollow: !isSelf,
+              ),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
@@ -352,23 +359,12 @@ class _SellerProfilePageState extends State<SellerProfilePage> {
                   ],
                 ),
               ),
-              if (wide && !isSelf) ...[
-                const SizedBox(width: 12),
-                _followButton(isFollowing),
-              ],
             ],
           );
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               identity,
-              if (!wide && !isSelf) ...[
-                const SizedBox(height: 12),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: _followButton(isFollowing),
-                ),
-              ],
               const SizedBox(height: 14),
               Wrap(
                 spacing: 8,
@@ -431,22 +427,69 @@ class _SellerProfilePageState extends State<SellerProfilePage> {
     );
   }
 
-  Widget _followButton(bool isFollowing) => FilledButton.icon(
-    onPressed: _followingBusy ? null : () => _toggleFollow(isFollowing),
-    icon: _followingBusy
-        ? const SizedBox.square(
-            dimension: 17,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          )
-        : Icon(isFollowing ? Icons.check : Icons.add),
-    label: Text(
-      _followingBusy
-          ? 'Updating…'
-          : isFollowing
-          ? 'Following'
-          : 'Follow',
-    ),
-  );
+  Widget _profileAvatar(
+    String name,
+    String? path,
+    double size, {
+    required bool isFollowing,
+    required bool showFollow,
+  }) {
+    final avatar = _avatar(name, path, size);
+    if (!showFollow) return avatar;
+
+    final tooltip = _followingBusy
+        ? 'Updating follow status'
+        : isFollowing
+        ? 'Unfollow seller'
+        : 'Follow seller';
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        avatar,
+        Positioned(
+          right: -5,
+          bottom: -5,
+          child: IconButton.filled(
+            tooltip: tooltip,
+            onPressed: _followingBusy ? null : () => _toggleFollow(isFollowing),
+            icon: _followingBusy
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(
+                      color: TmcPalette.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                : AnimatedSwitcher(
+                    duration: TmcMotion.fast,
+                    child: Icon(
+                      isFollowing ? Icons.check_rounded : Icons.add_rounded,
+                      key: ValueKey<bool>(isFollowing),
+                      size: 21,
+                    ),
+                  ),
+            style: IconButton.styleFrom(
+              minimumSize: const Size(
+                TmcControlSize.minimumTapTarget,
+                TmcControlSize.minimumTapTarget,
+              ),
+              maximumSize: const Size(
+                TmcControlSize.minimumTapTarget,
+                TmcControlSize.minimumTapTarget,
+              ),
+              padding: EdgeInsets.zero,
+              tapTargetSize: MaterialTapTargetSize.padded,
+              backgroundColor: TmcPalette.followAccent,
+              foregroundColor: TmcPalette.white,
+              shape: const CircleBorder(),
+              elevation: 1,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 
   Widget _productSection(int currentUserId) {
     if (_isLoadingProducts && _products.isEmpty) {
@@ -663,7 +706,7 @@ class _SellerProfilePageState extends State<SellerProfilePage> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
             children: [
-              _profileHeader(payload),
+              _profileHeader(payload, currentUserId),
               const SizedBox(height: 18),
               SegmentedButton<bool>(
                 segments: const [

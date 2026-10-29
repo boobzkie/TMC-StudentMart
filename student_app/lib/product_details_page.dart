@@ -6,6 +6,7 @@ import "components.dart";
 import "data.dart";
 import "profile_page.dart";
 import "seller_profile_page.dart";
+import "sell_page.dart";
 import "tmc_theme.dart";
 
 String _attributeLabel(String key) => key
@@ -270,6 +271,26 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
     }
   }
 
+  bool _hasAvailableStock(Product product) {
+    if (product.variants.isNotEmpty) {
+      return product.variants.any((variant) => variant.stockQuantity > 0);
+    }
+    return product.stockQuantity > 0;
+  }
+
+  bool _isUnavailable(Product product) =>
+      product.status.trim().toLowerCase() != "active" ||
+      !_hasAvailableStock(product);
+
+  Future<void> _editListing(Product product) async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => ProductFormPage(product: product),
+      ),
+    );
+    if (mounted) _refresh();
+  }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<Product>(
@@ -324,10 +345,8 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
   }
 
   Widget _buildProductView(BuildContext context, Product product) {
-    final soldOut =
-        product.status.toLowerCase() == "sold_out" ||
-        product.stockQuantity <= 0;
-    final summary = _productSummary(product, soldOut);
+    final unavailable = _isUnavailable(product);
+    final summary = _productSummary(product, unavailable);
     final buyingDetails = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -351,7 +370,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
         ],
         if (product.variants.isNotEmpty) ...[
           const SizedBox(height: 14),
-          _variantsSection(product, soldOut),
+          _variantsSection(product, unavailable),
         ],
         const SizedBox(height: 12),
         OutlinedButton.icon(
@@ -433,7 +452,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
     );
   }
 
-  Widget _productSummary(Product product, bool soldOut) => TmcPanel(
+  Widget _productSummary(Product product, bool unavailable) => TmcPanel(
     padding: const EdgeInsets.all(18),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -537,17 +556,38 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                 ),
               ),
             ),
-            _stockBadge(product, soldOut),
+            _stockBadge(product, unavailable),
           ],
         ),
       ],
     ),
   );
 
-  Widget _stockBadge(Product product, bool soldOut) {
-    final stock = _selectedVariant?.stockQuantity ?? product.stockQuantity;
-    final label = soldOut || stock <= 0 ? "Sold out" : "$stock available";
-    final color = soldOut || stock <= 0 ? TmcPalette.error : TmcPalette.success;
+  Widget _stockBadge(Product product, bool unavailable) {
+    final status = product.status.trim().toLowerCase();
+    final selectedVariantOutOfStock =
+        _selectedVariant != null && _selectedVariant!.stockQuantity <= 0;
+    final stock =
+        _selectedVariant?.stockQuantity ??
+        (product.variants.isEmpty
+            ? product.stockQuantity
+            : product.variants.fold<int>(
+                0,
+                (total, variant) => total + variant.stockQuantity,
+              ));
+    final isOutOfStock =
+        status == "sold_out" ||
+        (status == "active" &&
+            (!_hasAvailableStock(product) || selectedVariantOutOfStock));
+    final inventoryUnavailable = unavailable || selectedVariantOutOfStock;
+    final label = isOutOfStock
+        ? "Out of stock"
+        : unavailable
+        ? "Unavailable"
+        : product.variants.isNotEmpty && _selectedVariant == null
+        ? "$stock available across options"
+        : "$stock available";
+    final color = inventoryUnavailable ? TmcPalette.error : TmcPalette.success;
     return DecoratedBox(
       decoration: BoxDecoration(
         color: color.withValues(alpha: .10),
@@ -655,7 +695,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
     ),
   );
 
-  Widget _variantsSection(Product product, bool soldOut) => Column(
+  Widget _variantsSection(Product product, bool unavailable) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       const SectionHeading("Options"),
@@ -674,7 +714,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                     .join(" · "),
               ),
               value: selected,
-              onChanged: soldOut || variant.stockQuantity <= 0
+              onChanged: unavailable || variant.stockQuantity <= 0
                   ? null
                   : (value) {
                       if (value == true) {
@@ -701,11 +741,32 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
 
   Widget _purchaseBar(Product product) {
     final userId = context.watch<AuthState>().user?.id ?? 0;
-    final soldOut =
-        product.status.toLowerCase() == "sold_out" ||
-        product.stockQuantity <= 0 ||
-        (_selectedVariant != null && _selectedVariant!.stockQuantity <= 0);
     final ownListing = isOwnProduct(product, userId);
+    final selectedOptionOutOfStock =
+        _selectedVariant != null && _selectedVariant!.stockQuantity <= 0;
+    final unavailable = _isUnavailable(product) || selectedOptionOutOfStock;
+    final status = product.status.trim().toLowerCase();
+    final unavailableMessage = selectedOptionOutOfStock
+        ? "The selected option is out of stock."
+        : status == "sold_out" ||
+              (status == "active" && !_hasAvailableStock(product))
+        ? "This listing is out of stock."
+        : "This listing is currently unavailable.";
+    final ownerMessage = switch (status) {
+      "active" =>
+        _hasAvailableStock(product)
+            ? "Only you can manage this listing."
+            : "Your listing is out of stock.",
+      "sold_out" => "Your listing is out of stock.",
+      "pending" => "Your listing is awaiting review.",
+      "rejected" =>
+        product.rejectionReason?.trim().isNotEmpty == true
+            ? product.rejectionReason!.trim()
+            : "Review your listing details before submitting it again.",
+      "archived" => "Archived listings cannot be edited.",
+      _ => "Your listing is not currently available to buyers.",
+    };
+    final canEdit = status != "archived";
     return SafeArea(
       top: false,
       child: Container(
@@ -721,23 +782,135 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
             ),
           ],
         ),
-        child: SizedBox(
-          height: 48,
-          width: double.infinity,
-          child: FilledButton.icon(
-            onPressed: ownListing || soldOut ? null : () => _addToCart(product),
-            icon: const Icon(Icons.add_shopping_cart_outlined),
-            label: Text(
-              ownListing
-                  ? "Your listing"
-                  : soldOut
-                  ? "Sold out"
-                  : product.variants.isNotEmpty && _selectedVariant == null
-                  ? "Choose option"
-                  : "Add to cart",
-            ),
-          ),
-        ),
+        child: ownListing
+            ? LayoutBuilder(
+                builder: (context, constraints) {
+                  final ownership = Row(
+                    children: [
+                      Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                          color: TmcPalette.primarySoft,
+                          borderRadius: BorderRadius.circular(TmcRadius.md),
+                        ),
+                        child: const Icon(
+                          Icons.storefront_outlined,
+                          color: TmcPalette.primary,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text(
+                              "Your listing",
+                              style: TextStyle(fontWeight: FontWeight.w800),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              ownerMessage,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: TmcPalette.textMuted,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                  final editButton = canEdit
+                      ? OutlinedButton.icon(
+                          key: const ValueKey("product-details-edit-listing"),
+                          onPressed: () => _editListing(product),
+                          icon: const Icon(Icons.edit_outlined),
+                          label: const Text("Edit listing"),
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size(48, 48),
+                            padding: const EdgeInsets.symmetric(horizontal: 13),
+                          ),
+                        )
+                      : null;
+                  if (constraints.maxWidth < 390) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ownership,
+                        if (editButton != null) ...[
+                          const SizedBox(height: 9),
+                          editButton,
+                        ],
+                      ],
+                    );
+                  }
+                  return Row(
+                    children: [
+                      Expanded(child: ownership),
+                      if (editButton != null) ...[
+                        const SizedBox(width: 12),
+                        editButton,
+                      ],
+                    ],
+                  );
+                },
+              )
+            : unavailable
+            ? Semantics(
+                liveRegion: true,
+                label: unavailableMessage,
+                child: Container(
+                  constraints: const BoxConstraints(minHeight: 48),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: TmcPalette.errorSoft,
+                    borderRadius: BorderRadius.circular(TmcRadius.md),
+                    border: Border.all(
+                      color: TmcPalette.error.withValues(alpha: .2),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.inventory_2_outlined,
+                        color: TmcPalette.error,
+                        size: 19,
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          unavailableMessage,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: TmcPalette.error,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            : SizedBox(
+                height: 48,
+                width: double.infinity,
+                child: FilledButton.icon(
+                  key: const ValueKey("product-details-add-to-cart"),
+                  onPressed: () => _addToCart(product),
+                  icon: const Icon(Icons.add_shopping_cart_outlined),
+                  label: Text(
+                    product.variants.isNotEmpty && _selectedVariant == null
+                        ? "Choose option"
+                        : "Add to cart",
+                  ),
+                ),
+              ),
       ),
     );
   }

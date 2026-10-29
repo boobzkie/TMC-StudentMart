@@ -939,3 +939,77 @@
 .pm-kpi-grid { gap: 16px; }
 .pm-line-chart { height: 152px; }
 .pm-dashboard-card:nth-child(3) .pm-line-chart { height: 130px; }
+
+/* The shared dialog behavior keeps detail review fixed over the existing page. */
+.pm-modal-backdrop {
+  display: flex;
+  align-items: stretch;
+  justify-content: flex-end;
+  overflow: hidden;
+  padding: 0;
+  overscroll-behavior: contain;
+  backdrop-filter: blur(3px);
+}
+
+.pm-detail-modal {
+  display: flex;
+  width: min(100%, 520px);
+  height: 100%;
+  max-height: 100vh;
+  flex-direction: column;
+  overflow-y: auto;
+  border-radius: 22px 0 0 22px;
+  overscroll-behavior: contain;
+  animation: pm-detail-drawer-in 190ms ease-out;
+}
+
+.pm-detail-modal header {
+  position: sticky;
+  z-index: 1;
+  top: 0;
+  flex: 0 0 auto;
+  gap: 16px;
+  background: var(--tmc-admin-surface, #fff);
+}
+
+.pm-detail-modal header h2 {
+  margin-top: 4px;
+  color: var(--tmc-admin-text, #162b49);
+}
+
+.pm-detail-eyebrow {
+  color: var(--tmc-admin-primary, #0a4174);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.pm-detail-modal header button {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  border-radius: 11px;
+}
+
+.pm-detail-modal dl {
+  grid-template-columns: minmax(108px, 0.4fr) minmax(0, 1fr);
+  gap: 14px 18px;
+  padding: 24px;
+  line-height: 1.55;
+}
+
+@keyframes pm-detail-drawer-in {
+  from { opacity: 0.7; transform: translateX(18px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@media (max-width: 520px) {
+  .pm-detail-modal { width: 100%; border-radius: 18px 0 0 18px; }
+  .pm-detail-modal header { padding: 17px; }
+  .pm-detail-modal dl { grid-template-columns: 1fr; gap: 5px; padding: 18px; }
+  .pm-detail-modal dd + dt { margin-top: 10px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pm-detail-modal { animation: none; }
+}

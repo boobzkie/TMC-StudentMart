@@ -14,13 +14,33 @@ class NotificationController extends Controller
             return $denied;
         }
 
+        $validated = $request->validate([
+            'page' => ['sometimes', 'integer', 'min:1'],
+            'per_page' => ['sometimes', 'integer', 'min:1', 'max:50'],
+        ]);
         $user = $request->user();
-        $notifications = $user->notifications()
-            ->latest()
-            ->limit(100)
-            ->get();
+        $query = $user->notifications()
+            ->orderByDesc('created_at')
+            ->orderByDesc('id');
+        $pagination = null;
 
-        return response()->json([
+        if (array_key_exists('page', $validated) || array_key_exists('per_page', $validated)) {
+            $perPage = (int) ($validated['per_page'] ?? 25);
+            $page = $query->paginate($perPage, ['*'], 'page', (int) ($validated['page'] ?? 1));
+            $notifications = $page->getCollection();
+            $total = $page->total();
+            $pagination = [
+                'current_page' => $page->currentPage(),
+                'last_page' => $page->lastPage(),
+                'per_page' => $page->perPage(),
+                'total' => $total,
+            ];
+        } else {
+            $notifications = $query->limit(100)->get();
+            $total = $notifications->count();
+        }
+
+        $payload = [
             'success' => true,
             'unread_count' => $user->unreadNotifications()->count(),
             'notifications' => $notifications->map(function ($notification): array {
@@ -37,12 +57,20 @@ class NotificationController extends Controller
                     'product_id' => isset($data['product_id']) ? (int) $data['product_id'] : null,
                     'warning_id' => isset($data['warning_id']) ? (int) $data['warning_id'] : null,
                     'complaint_id' => isset($data['complaint_id']) ? (int) $data['complaint_id'] : null,
+                    'duration_days' => isset($data['duration_days']) ? (int) $data['duration_days'] : null,
+                    'suspended_until' => isset($data['suspended_until']) ? (string) $data['suspended_until'] : null,
                     'created_at' => $notification->created_at,
                     'read_at' => $notification->read_at,
                 ];
             })->values(),
-            'total' => $notifications->count(),
-        ]);
+            'total' => $total,
+        ];
+
+        if ($pagination !== null) {
+            $payload['pagination'] = $pagination;
+        }
+
+        return response()->json($payload);
     }
 
     public function markRead(Request $request, string $notificationId): JsonResponse

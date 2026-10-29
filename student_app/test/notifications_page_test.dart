@@ -66,6 +66,20 @@ void main() {
         }
 
         if (request.method == 'GET' &&
+            request.url.path.endsWith('/user/following')) {
+          return http.Response(
+            jsonEncode({
+              'success': true,
+              'accounts': [],
+              'total': 0,
+              'current_page': 1,
+              'last_page': 1,
+            }),
+            200,
+          );
+        }
+
+        if (request.method == 'GET' &&
             request.url.path.endsWith('/seller/orders')) {
           return http.Response(
             jsonEncode({
@@ -220,10 +234,90 @@ void main() {
           return http.Response(
             jsonEncode({
               'success': true,
-              'accounts': [],
+              'accounts': [
+                {
+                  'id': 28,
+                  'name': 'Mia Santos',
+                  'course': 'BSCS',
+                  'profile_picture': null,
+                  'is_following': true,
+                },
+              ],
+              'total': 1,
+              'current_page': 1,
+              'last_page': 1,
+            }),
+            200,
+          );
+        }
+        if (request.method == 'GET' &&
+            request.url.path.endsWith('/students/9/reviews')) {
+          return http.Response(
+            jsonEncode({
+              'success': true,
+              'reviews': [
+                {
+                  'id': 63,
+                  'rating': 5,
+                  'title': 'Great textbook',
+                  'comment': 'The listing matched the description.',
+                  'created_at': '2026-10-27T08:00:00.000000Z',
+                  'reviewer': {
+                    'id': 44,
+                    'name': 'Roby Reyes',
+                    'profile_picture': null,
+                  },
+                  'product': {
+                    'id': 18,
+                    'name': 'Biology textbook',
+                    'price': '125.00',
+                    'image': null,
+                  },
+                },
+              ],
+              'total': 1,
+              'current_page': 1,
+              'last_page': 1,
+              'average_rating': 5,
+            }),
+            200,
+          );
+        }
+        if (request.method == 'GET' &&
+            request.url.path.endsWith('/students/28/profile')) {
+          return http.Response(
+            jsonEncode({
+              'success': true,
+              'student': {
+                'id': 28,
+                'name': 'Mia Santos',
+                'username': 'mia.santos',
+                'course': 'BSCS',
+                'profile_picture': null,
+              },
+              'followers_count': 1,
+              'following_count': 0,
+              'products_count': 0,
+              'reviews_count': 0,
+              'average_rating': 0,
+              'is_following': true,
+              'is_self': false,
+            }),
+            200,
+          );
+        }
+        if (request.method == 'GET' &&
+            (request.url.path.endsWith('/students/28/products') ||
+                request.url.path.endsWith('/students/28/reviews'))) {
+          return http.Response(
+            jsonEncode({
+              'success': true,
+              'products': [],
+              'reviews': [],
               'total': 0,
               'current_page': 1,
               'last_page': 1,
+              'average_rating': 0,
             }),
             200,
           );
@@ -268,11 +362,20 @@ void main() {
         'Orders',
         'Followers',
         'Following',
+        'Reviews',
       ]) {
         expect(find.text(label), findsOneWidget);
       }
+      expect(find.text('Mia Santos'), findsOneWidget);
+      expect(find.text('Add story'), findsNothing);
       expect(find.text('2'), findsOneWidget);
-      expect(find.text('1'), findsOneWidget);
+
+      await tester.tap(find.text('Mia Santos'));
+      await tester.pumpAndSettle();
+      expect(requestedPaths, contains('/api/students/28/profile'));
+      expect(find.text('Mia Santos'), findsOneWidget);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
 
       await tester.ensureVisible(find.text('Orders'));
       await tester.tap(find.text('Orders'));
@@ -295,6 +398,13 @@ void main() {
       await tester.tap(find.text('Following'));
       await tester.pumpAndSettle();
       expect(requestedPaths, contains('/api/user/following'));
+
+      await tester.ensureVisible(find.text('Reviews'));
+      await tester.tap(find.text('Reviews'));
+      await tester.pumpAndSettle();
+      expect(find.text('Great textbook'), findsOneWidget);
+      expect(find.text('Roby Reyes'), findsOneWidget);
+      expect(requestedPaths, contains('/api/students/9/reviews'));
     },
   );
 }

@@ -3,7 +3,7 @@
   display: grid;
   width: 100%;
   max-width: 1500px;
-  grid-template-columns: minmax(0, 1.2fr) minmax(300px, 0.8fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
   gap: 16px;
   margin: 0 auto;
@@ -92,6 +92,12 @@
   line-height: 1.15;
 }
 
+.commission-overview-card small {
+  color: var(--tmc-admin-secondary);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
 .commission-panel {
   padding: 20px;
 }
@@ -152,6 +158,7 @@
 
 .commission-rate-form {
   display: flex;
+  flex-wrap: wrap;
   align-items: end;
   gap: 10px;
   padding: 14px;
@@ -169,6 +176,12 @@
   color: var(--tmc-admin-text);
   font-size: 13px;
   font-weight: 700;
+}
+
+.commission-rate-form > button {
+  max-width: 100%;
+  flex: 0 1 auto;
+  white-space: nowrap;
 }
 
 .commission-rate-form input,
@@ -252,6 +265,7 @@
 
 .commission-history-heading {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
   gap: 10px;
@@ -270,6 +284,43 @@
   font-size: 12px;
 }
 
+.commission-history-heading span {
+  flex: 1 1 260px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
+.commission-rate-guidance {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--tmc-admin-info-soft);
+  border-radius: 10px;
+  color: var(--tmc-admin-secondary);
+  background: var(--tmc-admin-info-soft);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.commission-rate-guidance svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+  color: var(--tmc-admin-info);
+}
+
+.commission-rate-guidance p {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.commission-rate-guidance strong {
+  color: var(--tmc-admin-text);
+}
+
 .commission-rate-list {
   display: grid;
   gap: 8px;
@@ -277,13 +328,17 @@
 
 .commission-rate-row {
   display: grid;
-  grid-template-columns: minmax(80px, 0.45fr) minmax(140px, 1fr) minmax(120px, 1fr) auto;
+  grid-template-columns: minmax(64px, 0.3fr) minmax(0, 1fr) minmax(0, 1fr) auto;
   align-items: center;
-  gap: 8px 14px;
+  gap: 8px 10px;
   padding: 10px 12px;
   border: 1px solid var(--tmc-admin-border);
   border-radius: 10px;
   background: var(--tmc-admin-surface-muted);
+}
+
+.commission-rate-row > * {
+  min-width: 0;
 }
 
 .commission-rate-row strong {
@@ -292,7 +347,12 @@
 }
 
 .commission-rate-row small {
+  overflow-wrap: anywhere;
   text-align: right;
+}
+
+.commission-rate-row > span {
+  overflow-wrap: anywhere;
 }
 
 .commission-rate-actions {
@@ -352,9 +412,9 @@
 
 .commission-tax-notice {
   display: grid;
-  grid-template-columns: 42px minmax(0, 1fr);
-  align-content: start;
-  align-items: start;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  align-content: center;
+  align-items: center;
   gap: 12px;
   border-color: var(--tmc-admin-warning-soft);
   background: var(--tmc-admin-warning-soft);
@@ -389,8 +449,8 @@
 }
 
 .commission-tax-notice .commission-status-badge {
-  grid-column: 2;
-  justify-self: start;
+  grid-column: 3;
+  justify-self: end;
 }
 
 .commission-status-badge {
@@ -707,6 +767,10 @@
     text-align: left;
   }
 
+  .commission-history-heading span {
+    text-align: left;
+  }
+
   .commission-rate-actions {
     justify-content: flex-start;
   }
@@ -720,6 +784,11 @@
     width: 36px;
     height: 36px;
     padding: 8px;
+  }
+
+  .commission-tax-notice .commission-status-badge {
+    grid-column: 2;
+    justify-self: start;
   }
 
   .commission-current-rate {

@@ -6,6 +6,7 @@ use App\Models\PickupLocation;
 use App\Models\Product;
 use App\Models\ProductImage;
 use App\Models\User;
+use App\Notifications\AccountEnforcementNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 
@@ -171,6 +172,76 @@ test('admin can mark COD orders paid without changing order status and repeated 
     $this->assertDatabaseCount('orders', 1);
 });
 
+test('seller dashboard reports paid revenue separately and paginates only the seller orders', function () {
+    $buyer = makeOrderFlowUser('student', 'sales-dashboard-buyer');
+    $seller = makeOrderFlowUser('student', 'sales-dashboard-seller');
+    $otherSeller = makeOrderFlowUser('student', 'sales-dashboard-other');
+    $completedProduct = makeOrderFlowProduct($seller, ['name' => 'Completed item', 'price' => '125.50']);
+    $paidProduct = makeOrderFlowProduct($seller, ['name' => 'Paid item', 'price' => '80.00']);
+    $closedProduct = makeOrderFlowProduct($seller, ['name' => 'Closed item', 'price' => '35.25']);
+    $cancelledProduct = makeOrderFlowProduct($seller, ['name' => 'Cancelled item', 'price' => '45.00']);
+    $otherProduct = makeOrderFlowProduct($otherSeller, ['name' => 'Other seller item', 'price' => '60.00']);
+    Sanctum::actingAs($buyer);
+
+    $orderId = postOrderWithDefaultOptions($this, [
+        'items' => [['product_id' => $completedProduct->id, 'quantity' => 1]],
+    ])->assertCreated()->json('orders.0.id');
+    $paidOrderId = postOrderWithDefaultOptions($this, [
+        'items' => [['product_id' => $paidProduct->id, 'quantity' => 1]],
+    ])->assertCreated()->json('orders.0.id');
+    $closedOrderId = postOrderWithDefaultOptions($this, [
+        'items' => [['product_id' => $closedProduct->id, 'quantity' => 1]],
+    ])->assertCreated()->json('orders.0.id');
+    $cancelledOrderId = postOrderWithDefaultOptions($this, [
+        'items' => [['product_id' => $cancelledProduct->id, 'quantity' => 1]],
+    ])->assertCreated()->json('orders.0.id');
+    postOrderWithDefaultOptions($this, [
+        'items' => [['product_id' => $otherProduct->id, 'quantity' => 1]],
+    ])->assertCreated();
+
+    Order::query()->whereKey($orderId)->update(['status' => 'completed']);
+    Order::query()->whereKey($paidOrderId)->update(['payment_status' => 'paid']);
+    Order::query()->whereKey($closedOrderId)->update([
+        'status' => 'declined',
+        'payment_status' => 'paid',
+    ]);
+    Order::query()->whereKey($cancelledOrderId)->update([
+        'status' => 'cancelled',
+        'payment_status' => 'paid',
+    ]);
+
+    Sanctum::actingAs($seller);
+    $response = $this->getJson('/api/seller/orders?dashboard=1&page=1&per_page=1')
+        ->assertOk()
+        ->assertJsonCount(1, 'orders')
+        ->assertJsonPath('total', 4)
+        ->assertJsonPath('pagination.total', 4)
+        ->assertJsonPath('pagination.per_page', 1)
+        ->assertJsonPath('summary.total_orders', 3)
+        ->assertJsonPath('summary.pending_orders', 1)
+        ->assertJsonPath('summary.completed_orders', 1)
+        ->assertJsonPath('summary.gross_order_value', '205.50')
+        ->assertJsonPath('summary.completed_order_value', '125.50')
+        ->assertJsonPath('summary.paid_revenue', '80.00')
+        ->assertJsonPath('summary.open_order_value', '80.00')
+        ->assertJsonPath('summary.status_counts.declined', 1)
+        ->assertJsonPath('summary.status_counts.cancelled', 1)
+        ->assertJsonPath('summary.average_completed_order_value', '125.50');
+
+    expect(collect($response->json('orders'))->pluck('seller.id')->unique()->all())
+        ->toBe([$seller->id]);
+});
+
+test('seller dashboard preserves the existing invalid status filter behavior and validates new query parameters', function () {
+    $seller = makeOrderFlowUser('student', 'sales-dashboard-validation');
+    Sanctum::actingAs($seller);
+
+    $this->getJson('/api/seller/orders?status=unknown')->assertOk()->assertJsonCount(0, 'orders');
+    $this->getJson('/api/seller/orders?per_page=51')->assertUnprocessable();
+    $this->getJson('/api/seller/orders?from=2026-10-30T00:00:00Z&to=2026-10-01T00:00:00Z')
+        ->assertUnprocessable();
+});
+
 test('checkout rejects inactive listings and inactive sellers', function () {
     $buyer = makeOrderFlowUser('student', 'buyer-inactive');
     $inactiveListing = makeOrderFlowProduct(
@@ -226,6 +297,46 @@ test('buyers and sellers can only see their own order records', function () {
     Sanctum::actingAs($otherStudent);
     $this->getJson('/api/seller/orders')->assertOk()->assertJsonCount(0, 'orders');
     $this->putJson('/api/seller/orders/'.$orderId, ['status' => 'confirmed'])->assertForbidden();
+});
+
+test('buyer order history supports optional seller-safe pagination', function () {
+    $buyer = makeOrderFlowUser('student', 'order-pagination-buyer');
+    $otherBuyer = makeOrderFlowUser('student', 'order-pagination-other');
+    $seller = makeOrderFlowUser('student', 'order-pagination-seller');
+    $firstProduct = makeOrderFlowProduct($seller, ['name' => 'First order item']);
+    $secondProduct = makeOrderFlowProduct($seller, ['name' => 'Second order item']);
+    Sanctum::actingAs($buyer);
+    $firstOrderId = postOrderWithDefaultOptions($this, [
+        'items' => [['product_id' => $firstProduct->id, 'quantity' => 1]],
+    ])->assertCreated()->json('orders.0.id');
+    $secondOrderId = postOrderWithDefaultOptions($this, [
+        'items' => [['product_id' => $secondProduct->id, 'quantity' => 1]],
+    ])->assertCreated()->json('orders.0.id');
+
+    $firstPage = $this->getJson('/api/orders?page=1&per_page=1')
+        ->assertOk()
+        ->assertJsonCount(1, 'orders')
+        ->assertJsonPath('pagination.total', 2)
+        ->assertJsonPath('pagination.per_page', 1);
+    $secondPage = $this->getJson('/api/orders?page=2&per_page=1')
+        ->assertOk()
+        ->assertJsonCount(1, 'orders')
+        ->assertJsonPath('pagination.current_page', 2);
+    $pageOrderIds = [
+        $firstPage->json('orders.0.id'),
+        $secondPage->json('orders.0.id'),
+    ];
+    expect($pageOrderIds[0])->not->toBe($pageOrderIds[1])
+        ->and($pageOrderIds)->toContain($firstOrderId)
+        ->and($pageOrderIds)->toContain($secondOrderId);
+
+    Sanctum::actingAs($otherBuyer);
+    $this->getJson('/api/orders?page=1&per_page=1')
+        ->assertOk()
+        ->assertJsonCount(0, 'orders')
+        ->assertJsonPath('pagination.total', 0);
+
+    $this->getJson('/api/orders?per_page=51')->assertUnprocessable();
 });
 
 test('seller transitions require pickup readiness before completing an order', function () {
@@ -409,6 +520,44 @@ test('order request notifications are stored once for the seller and can be mark
 
     Sanctum::actingAs(makeOrderFlowUser('admin', 'notifications-admin'));
     $this->getJson('/api/notifications')->assertForbidden();
+});
+
+test('inbox notifications paginate within the authenticated account and include enforcement details', function () {
+    $student = makeOrderFlowUser('student', 'inbox-pagination-student');
+    $otherStudent = makeOrderFlowUser('student', 'inbox-pagination-other');
+    $student->notify(new AccountEnforcementNotification('warning', 'Listing policy reminder.'));
+    $student->notify(new AccountEnforcementNotification(
+        'suspension',
+        'Repeated listing violations.',
+        3,
+        '2026-10-31T12:00:00+08:00',
+    ));
+    $otherStudent->notify(new AccountEnforcementNotification('warning', 'Private account notice.'));
+    Sanctum::actingAs($student);
+
+    $firstPage = $this->getJson('/api/notifications?page=1&per_page=1')
+        ->assertOk()
+        ->assertJsonPath('unread_count', 2)
+        ->assertJsonPath('pagination.total', 2)
+        ->assertJsonPath('pagination.per_page', 1)
+        ->assertJsonCount(1, 'notifications');
+    $secondPage = $this->getJson('/api/notifications?page=2&per_page=1')
+        ->assertOk()
+        ->assertJsonPath('pagination.current_page', 2)
+        ->assertJsonPath('pagination.total', 2)
+        ->assertJsonCount(1, 'notifications');
+
+    $notifications = collect([
+        ...$firstPage->json('notifications'),
+        ...$secondPage->json('notifications'),
+    ]);
+    expect($notifications->pluck('id')->unique())->toHaveCount(2)
+        ->and($notifications->pluck('message')->all())->not->toContain('Private account notice.');
+    $suspension = $notifications->firstWhere('event', 'account_suspended');
+    expect($suspension['duration_days'])->toBe(3)
+        ->and($suspension['suspended_until'])->toBe('2026-10-31T12:00:00+08:00');
+
+    $this->getJson('/api/notifications?per_page=51')->assertUnprocessable();
 });
 
 test('order lifecycle notifications go to the other order party after valid changes', function () {

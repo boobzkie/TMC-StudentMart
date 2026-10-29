@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import AdminLayout from "./components/AdminLayout";
 import AdminPageHero from "./components/AdminPageHero";
+import Modal from "./ui/Modal";
 import { SortableHead } from "./ui/Table";
 import { API_URL, SERVER_URL, getAuthHeaders, sortRows } from "./utils/api";
 import "./AdminProducts.css";
@@ -157,7 +158,11 @@ export default function AdminProducts() {
   const exportCsv = () => {
     const visible = COLUMNS.filter((key) => columns[key]);
     const rows = sorted.map((p) => ({ product: p.name, seller: sellerName(p), category: categoryName(p), price: formatPrice(p.price), quantity: value(p.stock_quantity ?? p.quantity), status: statusLabel(p.status), date: formatDate(p.created_at) }));
-    const escape = (input) => `"${String(input ?? "").replaceAll('"', '""')}"`;
+    const escape = (input) => {
+      const value = String(input ?? "");
+      const safeValue = /^[\s\uFEFF]*[=+\-@]/.test(value) ? `'${value}` : value;
+      return `"${safeValue.replaceAll('"', '""')}"`;
+    };
     const csv = [visible.map((key) => escape(LABELS[key])).join(","), ...rows.map((row) => visible.map((key) => escape(row[key])).join(","))].join("\r\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
     const link = document.createElement("a"); link.href = url; link.download = `tmc-products-${new Date().toISOString().slice(0, 10)}.csv`; link.click(); URL.revokeObjectURL(url);
@@ -218,7 +223,35 @@ export default function AdminProducts() {
           </div>
           <footer className="pm-pagination"><span>Showing {sorted.length ? (page - 1) * PAGE_SIZE + 1 : 0}–{Math.min(page * PAGE_SIZE, sorted.length)} of {sorted.length} products</span><div><button type="button" disabled={page <= 1} aria-label="Previous page" onClick={() => setPage((current) => Math.max(1, current - 1))}><ChevronLeft size={17} /></button><span>Page {page} of {totalPages}</span><button type="button" disabled={page >= totalPages} aria-label="Next page" onClick={() => setPage((current) => Math.min(totalPages, current + 1))}><ChevronRight size={17} /></button></div></footer>
         </section>
-        {details && <div className="pm-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setDetails(null); }}><section className="pm-detail-modal" role="dialog" aria-modal="true" aria-labelledby="pm-detail-title"><header><h2 id="pm-detail-title">Product details</h2><button type="button" aria-label="Close product details" onClick={() => setDetails(null)}><X size={18} /></button></header><dl><dt>Product</dt><dd>{details.name}</dd><dt>Seller</dt><dd>{sellerName(details)} {details.user?.student_id ? `(${details.user.student_id})` : ""}</dd><dt>Category</dt><dd>{categoryName(details)}</dd><dt>Price</dt><dd>{formatPrice(details.price)}</dd><dt>Quantity</dt><dd>{value(details.stock_quantity ?? details.quantity)}</dd><dt>Status</dt><dd>{statusLabel(details.status)}</dd><dt>Created</dt><dd>{formatDate(details.created_at)}</dd><dt>Description</dt><dd>{details.description || "No description provided."}</dd></dl></section></div>}
+        <Modal
+          isOpen={Boolean(details)}
+          onClose={() => setDetails(null)}
+          className="pm-detail-modal"
+          overlayClassName="pm-modal-backdrop"
+          titleId="pm-detail-title"
+          initialFocusSelector="[data-modal-close]"
+          unstyled
+        >
+          {details && <>
+            <header>
+              <div>
+                <span className="pm-detail-eyebrow">LISTING REVIEW</span>
+                <h2 id="pm-detail-title">Product details</h2>
+              </div>
+              <button type="button" data-modal-close aria-label="Close product details" onClick={() => setDetails(null)}><X size={18} /></button>
+            </header>
+            <dl>
+              <dt>Product</dt><dd>{details.name}</dd>
+              <dt>Seller</dt><dd>{sellerName(details)} {details.user?.student_id ? `(${details.user.student_id})` : ""}</dd>
+              <dt>Category</dt><dd>{categoryName(details)}</dd>
+              <dt>Price</dt><dd>{formatPrice(details.price)}</dd>
+              <dt>Quantity</dt><dd>{value(details.stock_quantity ?? details.quantity)}</dd>
+              <dt>Status</dt><dd>{statusLabel(details.status)}</dd>
+              <dt>Created</dt><dd>{formatDate(details.created_at)}</dd>
+              <dt>Description</dt><dd>{details.description || "No description provided."}</dd>
+            </dl>
+          </>}
+        </Modal>
       </div>
     </AdminLayout>
   );

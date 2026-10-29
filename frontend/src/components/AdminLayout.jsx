@@ -46,6 +46,15 @@ function readSidebarCollapsed() {
   }
 }
 
+const FOCUSABLE_SELECTOR = [
+  'a[href]',
+  'button:not([disabled])',
+  'input:not([disabled]):not([type="hidden"])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  '[tabindex]:not([tabindex="-1"])',
+].join(",");
+
 
 const marketplaceLinks = [
   { to: "/admin/products", label: "Product Management", icon: Package },
@@ -87,6 +96,7 @@ export default function AdminLayout({
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia("(max-width: 900px)").matches);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(readSidebarCollapsed);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
 
@@ -94,10 +104,76 @@ export default function AdminLayout({
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const profileMenuRef = useRef(null);
+  const mobileMenuButtonRef = useRef(null);
+  const sidebarRef = useRef(null);
   const presenceStoppedRef = useRef(false);
   const { theme, toggleTheme } = usePortalTheme();
   const role = String(storedUser.role || localStorage.getItem("role") || "").toLowerCase();
   const isStaff = role === "staff";
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 900px)");
+    const syncViewport = () => {
+      setIsMobile(mediaQuery.matches);
+      if (!mediaQuery.matches) setMobileOpen(false);
+    };
+    mediaQuery.addEventListener("change", syncViewport);
+    return () => mediaQuery.removeEventListener("change", syncViewport);
+  }, []);
+
+  useEffect(() => {
+    if (!mobileOpen || !isMobile) return undefined;
+
+    const menuButton = mobileMenuButtonRef.current;
+    const previousOverflow = document.body.style.overflow;
+    const previousPaddingRight = document.body.style.paddingRight;
+    const scrollbarWidth = Math.max(0, window.innerWidth - document.documentElement.clientWidth);
+    document.body.style.overflow = "hidden";
+    if (scrollbarWidth) document.body.style.paddingRight = `${scrollbarWidth}px`;
+
+    const focusFrame = window.requestAnimationFrame(() => {
+      sidebarRef.current?.querySelector(".admin-mobile-close")?.focus({ preventScroll: true });
+    });
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setMobileOpen(false);
+        return;
+      }
+      if (event.key !== "Tab") return;
+
+      const sidebar = sidebarRef.current;
+      if (!sidebar) return;
+      const focusable = [...sidebar.querySelectorAll(FOCUSABLE_SELECTOR)]
+        .filter((element) => element.getClientRects().length > 0);
+      if (!focusable.length) {
+        event.preventDefault();
+        sidebar.focus();
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && (document.activeElement === first || !sidebar.contains(document.activeElement))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (document.activeElement === last || !sidebar.contains(document.activeElement))) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      document.body.style.overflow = previousOverflow;
+      document.body.style.paddingRight = previousPaddingRight;
+      document.removeEventListener("keydown", handleKeyDown);
+      window.requestAnimationFrame(() => {
+        if (menuButton?.isConnected) menuButton.focus({ preventScroll: true });
+      });
+    };
+  }, [isMobile, mobileOpen]);
 
   useEffect(() => {
     let active = true;
@@ -423,7 +499,7 @@ export default function AdminLayout({
         />
       )}
 
-      <aside className="admin-icon-rail" aria-label="Quick navigation">
+      <aside className="admin-icon-rail" aria-label="Quick navigation" inert={mobileOpen}>
         <Link
           to={dashboardPath}
           className="admin-rail-brand"
@@ -470,7 +546,16 @@ export default function AdminLayout({
         </div>
       </aside>
 
-      <aside className={"admin-sidebar" + (mobileOpen ? " mobile-open" : "")}>
+      <aside
+        ref={sidebarRef}
+        id="admin-sidebar"
+        className={"admin-sidebar" + (mobileOpen ? " mobile-open" : "")}
+        role={mobileOpen && isMobile ? "dialog" : undefined}
+        aria-label={mobileOpen && isMobile ? "Main navigation" : undefined}
+        aria-modal={mobileOpen && isMobile ? true : undefined}
+        aria-hidden={isMobile && !mobileOpen ? "true" : undefined}
+        inert={isMobile && !mobileOpen}
+      >
         <div className="admin-sidebar-header">
           <Link to={dashboardPath} className="admin-brand" onClick={closeMobile}>
             <img
@@ -522,15 +607,16 @@ export default function AdminLayout({
         </nav>
       </aside>
 
-      <div className="admin-main">
+      <div className="admin-main" inert={mobileOpen && isMobile}>
         <header className="admin-header">
           <div className="admin-header-left">
             <button
               type="button"
+              ref={mobileMenuButtonRef}
               className="admin-mobile-menu"
               onClick={() => setMobileOpen(true)}
               aria-label="Open navigation"
-              aria-controls="admin-navigation"
+              aria-controls="admin-sidebar"
               aria-expanded={mobileOpen}
             >
               <Menu size={21} aria-hidden="true" />

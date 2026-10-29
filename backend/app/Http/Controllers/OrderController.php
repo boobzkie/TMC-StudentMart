@@ -14,6 +14,7 @@ use App\Notifications\OrderEventNotification;
 use App\Services\CommissionRecordingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -422,38 +423,212 @@ class OrderController extends Controller
 
     public function buyerIndex(Request $request): JsonResponse
     {
-        $orders = Order::query()
+        $validated = $request->validate([
+            'page' => ['sometimes', 'integer', 'min:1'],
+            'per_page' => ['sometimes', 'integer', 'min:1', 'max:50'],
+        ]);
+        $query = Order::query()
             ->where('buyer_id', $request->user()->id)
             ->with(['buyer:id,name,student_id', 'seller:id,name,student_id', 'items.product.images'])
-            ->latest()
-            ->limit(100)
-            ->get();
+            ->orderByDesc('created_at')
+            ->orderByDesc('id');
 
-        return response()->json([
+        $pagination = null;
+        if (array_key_exists('page', $validated) || array_key_exists('per_page', $validated)) {
+            $perPage = (int) ($validated['per_page'] ?? 25);
+            $page = $query->paginate($perPage, ['*'], 'page', (int) ($validated['page'] ?? 1));
+            $orders = $page->getCollection();
+            $total = $page->total();
+            $pagination = [
+                'current_page' => $page->currentPage(),
+                'last_page' => $page->lastPage(),
+                'per_page' => $page->perPage(),
+                'total' => $total,
+            ];
+        } else {
+            $orders = $query->limit(100)->get();
+            $total = $orders->count();
+        }
+
+        $payload = [
             'success' => true,
             'orders' => $orders->map(fn (Order $order): array => $this->orderData($order))->values(),
-            'total' => $orders->count(),
-        ]);
+            'total' => $total,
+        ];
+
+        if ($pagination !== null) {
+            $payload['pagination'] = $pagination;
+        }
+
+        return response()->json($payload);
     }
 
     public function sellerIndex(Request $request): JsonResponse
     {
-        $query = Order::query()
-            ->where('seller_id', $request->user()->id)
-            ->with(['buyer:id,name,student_id', 'seller:id,name,student_id', 'items.product.images'])
-            ->latest();
+        $validated = $request->validate([
+            'search' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'from' => ['sometimes', 'nullable', 'date'],
+            'to' => ['sometimes', 'nullable', 'date', 'after_or_equal:from'],
+            'page' => ['sometimes', 'integer', 'min:1'],
+            'per_page' => ['sometimes', 'integer', 'min:1', 'max:50'],
+            'dashboard' => ['sometimes', 'boolean'],
+        ]);
 
-        if ($request->filled('status') && in_array($request->query('status'), self::ORDER_STATUSES, true)) {
-            $query->where('status', $request->query('status'));
+        $sellerId = (int) $request->user()->id;
+        $from = isset($validated['from']) ? Carbon::parse($validated['from'])->utc() : null;
+        $to = isset($validated['to']) ? Carbon::parse($validated['to'])->utc() : null;
+        $baseQuery = Order::query()->where('seller_id', $sellerId);
+
+        if ($from !== null) {
+            $baseQuery->where('created_at', '>=', $from);
+        }
+        if ($to !== null) {
+            $baseQuery->where('created_at', '<=', $to);
         }
 
-        $orders = $query->limit(100)->get();
+        $dashboardSummary = null;
+        if ($request->boolean('dashboard')) {
+            $aggregate = (clone $baseQuery)
+                ->selectRaw(
+                    "COUNT(*) as total_orders,
+                     SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending_orders,
+                     SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed_orders,
+                     COALESCE(SUM(CASE WHEN status NOT IN ('declined', 'cancelled') THEN total_amount ELSE 0 END), 0) as gross_order_value,
+                     COALESCE(SUM(CASE WHEN status = 'completed' THEN total_amount ELSE 0 END), 0) as completed_order_value,
+                     COALESCE(SUM(CASE WHEN payment_status = 'paid' AND status NOT IN ('declined', 'cancelled') THEN total_amount ELSE 0 END), 0) as paid_revenue,
+                     COALESCE(SUM(CASE WHEN status IN ('pending', 'confirmed', 'ready_for_pickup') THEN total_amount ELSE 0 END), 0) as open_order_value"
+                )
+                ->first();
 
-        return response()->json([
+            $statusCounts = (clone $baseQuery)
+                ->selectRaw('status, COUNT(*) as total')
+                ->groupBy('status')
+                ->pluck('total', 'status');
+
+            $completedOrders = (int) ($aggregate->completed_orders ?? 0);
+            $completedValue = (string) ($aggregate->completed_order_value ?? '0');
+            $dashboardSummary = [
+                'total_orders' => (int) ($aggregate->total_orders ?? 0),
+                'pending_orders' => (int) ($aggregate->pending_orders ?? 0),
+                'completed_orders' => $completedOrders,
+                'gross_order_value' => $this->formatDashboardMoney($aggregate->gross_order_value ?? '0'),
+                'completed_order_value' => $this->formatDashboardMoney($completedValue),
+                'paid_revenue' => $this->formatDashboardMoney($aggregate->paid_revenue ?? '0'),
+                'open_order_value' => $this->formatDashboardMoney($aggregate->open_order_value ?? '0'),
+                'average_completed_order_value' => $this->averageDashboardMoney(
+                    $completedValue,
+                    $completedOrders
+                ),
+                'status_counts' => collect(self::ORDER_STATUSES)
+                    ->mapWithKeys(fn (string $status): array => [$status => (int) ($statusCounts[$status] ?? 0)])
+                    ->all(),
+            ];
+        }
+
+        $query = (clone $baseQuery)
+            ->with(['buyer:id,name,student_id', 'seller:id,name,student_id', 'items.product.images'])
+            ->orderByDesc('created_at')
+            ->orderByDesc('id');
+
+        $statusFilter = $request->query('status');
+        if (in_array($statusFilter, self::ORDER_STATUSES, true)) {
+            $query->where('status', $statusFilter);
+        }
+
+        $search = trim((string) ($validated['search'] ?? ''));
+        if ($search !== '') {
+            $term = '%'.$search.'%';
+            $query->where(function ($orders) use ($term): void {
+                $orders->where('order_number', 'like', $term)
+                    ->orWhere('buyer_name_snapshot', 'like', $term)
+                    ->orWhereHas('buyer', fn ($buyer) => $buyer->where('name', 'like', $term))
+                    ->orWhereHas('items', fn ($items) => $items->where('product_name', 'like', $term));
+            });
+        }
+
+        $paginated = array_key_exists('page', $validated) || array_key_exists('per_page', $validated);
+        $pagination = null;
+        if ($paginated) {
+            $page = (int) ($validated['page'] ?? 1);
+            $perPage = (int) ($validated['per_page'] ?? 25);
+            $paginator = $query->paginate($perPage, ['*'], 'page', $page);
+            $orders = $paginator->getCollection();
+            $total = $paginator->total();
+            $pagination = [
+                'current_page' => $paginator->currentPage(),
+                'last_page' => $paginator->lastPage(),
+                'per_page' => $paginator->perPage(),
+                'total' => $total,
+            ];
+        } else {
+            $orders = $query->limit(100)->get();
+            $total = $orders->count();
+        }
+
+        $payload = [
             'success' => true,
             'orders' => $orders->map(fn (Order $order): array => $this->orderData($order))->values(),
-            'total' => $orders->count(),
-        ]);
+            'total' => $total,
+        ];
+
+        if ($dashboardSummary !== null) {
+            $payload['summary'] = $dashboardSummary;
+        }
+        if ($pagination !== null) {
+            $payload['pagination'] = $pagination;
+        }
+
+        return response()->json($payload);
+    }
+
+    private function formatDashboardMoney(mixed $value): string
+    {
+        $amount = trim((string) $value);
+        if (! preg_match('/\A(-?)(\d+)(?:\.(\d+))?\z/', $amount, $matches)) {
+            return '0.00';
+        }
+
+        $negative = $matches[1] ?? '';
+        $whole = ltrim($matches[2], '0') ?: '0';
+        $fraction = str_pad($matches[3] ?? '', 3, '0');
+        $cents = (int) substr($fraction, 0, 2);
+        if ((int) $fraction[2] >= 5) {
+            $cents++;
+        }
+        if ($cents === 100) {
+            $cents = 0;
+            $whole = $this->incrementDashboardInteger($whole);
+        }
+
+        return $negative.$whole.'.'.str_pad((string) $cents, 2, '0', STR_PAD_LEFT);
+    }
+
+    private function averageDashboardMoney(string $amount, int $count): string
+    {
+        if ($count < 1) {
+            return '0.00';
+        }
+
+        $formatted = $this->formatDashboardMoney($amount);
+        [$whole, $fraction] = explode('.', $formatted, 2);
+        $cents = ((int) $whole * 100) + (int) $fraction;
+        $averageCents = intdiv($cents + intdiv($count, 2), $count);
+
+        return intdiv($averageCents, 100).'.'.str_pad((string) ($averageCents % 100), 2, '0', STR_PAD_LEFT);
+    }
+
+    private function incrementDashboardInteger(string $value): string
+    {
+        for ($index = strlen($value) - 1; $index >= 0; $index--) {
+            if ($value[$index] !== '9') {
+                $value[$index] = (string) ((int) $value[$index] + 1);
+
+                return $value;
+            }
+            $value[$index] = '0';
+        }
+
+        return '1'.$value;
     }
 
     public function updateBySeller(Request $request, Order $order): JsonResponse
