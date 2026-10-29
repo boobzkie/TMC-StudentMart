@@ -1,38 +1,42 @@
 import 'package:flutter/material.dart';
 
 abstract final class TmcPalette {
-  // TMC StudentMart blue and teal palette shared with the React Admin portal.
-  static const deepNavy = Color(0xFF001D39);
-  static const primary = Color(0xFF0A4174);
-  static const primaryHover = Color(0xFF49769F);
-  static const slateBlue = Color(0xFF49769F);
-  static const tealBlue = Color(0xFF4E8EA2);
-  static const mutedTeal = Color(0xFF6EA2B3);
-  static const lightBlue = Color(0xFF7BBDE8);
-  static const paleBlue = Color(0xFFBDD8E9);
+  // Shared student-app tokens. Keep page styling tied to these values so a
+  // brand adjustment is applied consistently across every screen.
+  static const deepNavy = Color(0xFF0F172A);
+  static const primary = Color(0xFF0F2C59);
+  static const primaryHover = Color(0xFF174875);
+  static const slateBlue = Color(0xFF475569);
+  static const tealBlue = Color(0xFF0284C7);
+  static const accentBlue = Color(0xFF0284C7);
+  static const mutedTeal = Color(0xFF0F766E);
+  static const lightBlue = Color(0xFF38BDF8);
+  static const paleBlue = Color(0xFFE0F2FE);
+  static const gold = Color(0xFFD97706);
 
   static const deepNavyBlack = deepNavy;
-  static const mutedGreen = tealBlue;
-  static const satinGold = mutedTeal;
-  static const white = Color(0xFFF9FCFE);
-  static const pageBackground = Color(0xFFEAF3F8);
-  static const surface = Color(0xFFF9FCFE);
-  static const border = Color(0xFFD3E3ED);
-  static const borderSoft = Color(0xFFE7F1F7);
+  static const mutedGreen = mutedTeal;
+  static const satinGold = gold;
+  static const white = Color(0xFFFFFFFF);
+  static const pageBackground = Color(0xFFF8FAFC);
+  static const surface = Color(0xFFFFFFFF);
+  static const border = Color(0xFFCBD5E1);
+  static const borderSoft = Color(0xFFE2E8F0);
   static const text = deepNavy;
   static const textMuted = slateBlue;
-  static const textSoft = Color(0xFF5E7890);
+  static const textSoft = Color(0xFF64748B);
   static const invertedText = white;
 
-  static const success = Color(0xFF45664F);
-  static const successSoft = Color(0xFFE7EFE8);
-  static const warning = Color(0xFF8B5E1A);
-  static const warningSoft = Color(0xFFF7EEDB);
-  static const error = Color(0xFFA34147);
-  static const errorSoft = Color(0xFFF8E8E8);
-  static const information = slateBlue;
-  static const informationSoft = Color(0xFFE7F1F7);
-  static const primarySoft = Color(0xFFE7F1F7);
+  static const success = Color(0xFF166534);
+  static const successSoft = Color(0xFFDCFCE7);
+  static const warning = Color(0xFF92400E);
+  static const warningSoft = Color(0xFFFEF3C7);
+  static const error = Color(0xFFB91C1C);
+  static const errorSoft = Color(0xFFFEE2E2);
+  // Use a deeper blue for small informational text to retain AA contrast.
+  static const information = Color(0xFF0369A1);
+  static const informationSoft = Color(0xFFE0F2FE);
+  static const primarySoft = Color(0xFFEFF6FF);
 
   // Backward-compatible aliases for existing pages ported to the TMC brand.
   static const navyBlue = primary;
@@ -42,7 +46,10 @@ abstract final class TmcPalette {
   static const tikTokCyan = primary;
   static const neutralSurface = pageBackground;
 }
+
 abstract final class TmcTypography {
+  // Roboto is the existing platform-safe font. Inter is not bundled in this
+  // app, so naming it here would silently fall back on most student devices.
   static const fontFamily = 'Roboto';
 
   static const labelSize = 12.0;
@@ -274,7 +281,7 @@ abstract final class TmcTheme {
           final selected = states.contains(WidgetState.selected);
           return TextStyle(
             color: selected ? TmcPalette.primary : TmcPalette.textSoft,
-            fontSize: 11,
+            fontSize: TmcTypography.labelSize,
             fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
           );
         }),

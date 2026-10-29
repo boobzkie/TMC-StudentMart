@@ -445,7 +445,7 @@ class _OrderRow extends StatelessWidget {
                         Text(
                           createdAt.isEmpty ? "" : createdAt,
                           style: const TextStyle(
-                            fontSize: 11,
+                            fontSize: 12,
                             color: TmcPalette.textSoft,
                           ),
                         ),
@@ -476,7 +476,7 @@ class _OrderRow extends StatelessWidget {
                         child: Text(
                           _statusLabel(status),
                           style: TextStyle(
-                            fontSize: 11,
+                            fontSize: 12,
                             fontWeight: FontWeight.w800,
                             color: _statusColor(status),
                           ),

@@ -3,9 +3,9 @@
 namespace App\Models;
 
 use App\Notifications\ResetPasswordNotification;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -56,6 +56,7 @@ class User extends Authenticatable
             'share_contact_info' => 'boolean',
             'email_notifications_enabled' => 'boolean',
             'in_app_notifications_enabled' => 'boolean',
+            'suspended_until' => 'datetime',
         ];
     }
 
@@ -87,6 +88,11 @@ class User extends Authenticatable
     public function staffProfile(): HasOne
     {
         return $this->hasOne(StaffProfile::class);
+    }
+
+    public function enforcementEvents(): HasMany
+    {
+        return $this->hasMany(AccountEnforcementEvent::class)->latest();
     }
 
     public function hasStaffPermission(string $permission): bool

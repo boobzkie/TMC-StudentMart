@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Services\AccountEnforcementService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -68,6 +69,8 @@ class AuthController extends Controller
             ]);
         }
 
+        app(AccountEnforcementService::class)->expireIfDue($user);
+
         if (strtolower((string) $user->status) !== 'active') {
             $status = strtolower((string) $user->status);
 
@@ -101,6 +104,10 @@ class AuthController extends Controller
     public function user(Request $request): JsonResponse
     {
         $user = $request->user();
+
+        if ($user instanceof User) {
+            app(AccountEnforcementService::class)->expireIfDue($user);
+        }
 
         abort_unless(
             $user instanceof User
@@ -458,6 +465,7 @@ class AuthController extends Controller
             'course' => $user->course,
             'role' => $user->role,
             'status' => $user->status,
+            'suspended_until' => $user->suspended_until?->toIso8601String(),
             'profile_picture' => $user->profile_picture,
 
             'facebook_url' => $user->facebook_url,

@@ -1816,7 +1816,7 @@ class _MarketplaceListItem extends StatelessWidget {
                                 color: soldOut
                                     ? TmcPalette.error
                                     : TmcPalette.textMuted,
-                                fontSize: 11,
+                                fontSize: 12,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),

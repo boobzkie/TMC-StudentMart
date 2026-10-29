@@ -317,7 +317,7 @@ class _SellPageState extends State<SellPage> {
                                           'Review note: ${product.rejectionReason}',
                                           style: const TextStyle(
                                             color: TmcPalette.error,
-                                            fontSize: 11,
+                                            fontSize: 12,
                                           ),
                                         ),
                                       ),
@@ -1130,7 +1130,7 @@ class _ProductFormPageState extends State<ProductFormPage> {
                 isCover ? 'Cover photo' : 'Set as cover',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 11),
+                style: const TextStyle(fontSize: 12),
               ),
             ),
           ),

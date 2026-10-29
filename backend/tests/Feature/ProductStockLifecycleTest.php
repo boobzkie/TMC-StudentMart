@@ -250,7 +250,7 @@ test('sold-out listings are archived after one hour without deleting them', func
     ]);
 });
 
-test('deleting a seller account archives products and keeps order history', function () {
+test('seller account deletion is rejected and preserves linked product and order history', function () {
     $admin = makeStockLifecycleUser('admin', 'account-history-admin');
     $seller = makeStockLifecycleUser('student', 'account-history-seller');
     $buyer = makeStockLifecycleUser('student', 'account-history-buyer');
@@ -261,21 +261,22 @@ test('deleting a seller account archives products and keeps order history', func
     ])->assertCreated()->json('orders.0.id');
 
     Sanctum::actingAs($admin);
-    $this->deleteJson('/api/admin/users/'.$seller->id)->assertOk();
+    $this->deleteJson('/api/admin/users/'.$seller->id)->assertForbidden();
 
     $this->assertDatabaseHas('products', [
         'id' => $product->id,
-        'user_id' => null,
-        'status' => 'archived',
+        'user_id' => $seller->id,
+        'status' => 'active',
     ]);
     $this->assertDatabaseHas('orders', [
         'id' => $orderId,
-        'seller_id' => null,
+        'seller_id' => $seller->id,
         'seller_name_snapshot' => $seller->name,
     ]);
     $this->assertDatabaseHas('order_items', ['product_id' => $product->id]);
-    $this->assertDatabaseHas('product_history_events', [
+    $this->assertDatabaseMissing('product_history_events', [
         'product_id' => $product->id,
         'event' => 'seller_account_archived',
     ]);
+    $this->assertDatabaseHas('users', ['id' => $seller->id, 'status' => 'active']);
 });

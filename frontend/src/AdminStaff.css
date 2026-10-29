@@ -284,6 +284,31 @@
 .staff-profile-access-layout .staff-review-actions,.staff-profile-access-layout > .staff-action-row,.staff-profile-access-layout > .staff-archive-row { margin-top: 0; padding-top: 13px; border-top: 1px solid var(--tmc-admin-border); }
 .staff-profile-access-layout .staff-action-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .staff-profile-access-layout .staff-archive-row { display: flex; justify-content: flex-end; }
+.staff-enforcement-form {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding: 15px;
+  border: 1px solid var(--tmc-admin-border);
+  border-radius: 12px;
+  background: var(--tmc-admin-surface-muted);
+}
+.staff-enforcement-form > header { grid-column: 1 / -1; }
+.staff-enforcement-form > header h3 { display: flex; align-items: center; gap: 7px; margin: 0; color: var(--tmc-admin-text); font-size: 15px; }
+.staff-enforcement-form > header h3 svg { color: var(--tmc-admin-primary); }
+.staff-enforcement-form > header p { margin: 4px 0 0; color: var(--tmc-admin-secondary); font-size: 13px; line-height: 1.45; }
+.staff-enforcement-form label { display: grid; gap: 6px; color: var(--tmc-admin-text); font-size: 13px; font-weight: 650; }
+.staff-enforcement-form select,.staff-enforcement-form textarea { box-sizing: border-box; width: 100%; min-height: 42px; padding: 9px 10px; border: 1px solid var(--tmc-admin-border); border-radius: 9px; color: var(--tmc-admin-text); background: var(--tmc-admin-surface); font: inherit; font-size: 13px; }
+.staff-enforcement-form textarea { min-height: 82px; resize: vertical; }
+.staff-enforcement-form .staff-enforcement-reason { grid-column: 1 / -1; }
+.staff-enforcement-form button { justify-self: start; min-height: 44px; }
+.staff-enforcement-form :is(select, textarea):focus-visible { outline: 3px solid var(--tmc-admin-focus); outline-offset: 2px; }
+.admin-layout[data-theme="dark"] .admin-content .staff-enforcement-form { background: var(--tmc-admin-surface-muted); }
+@media (max-width: 620px) {
+  .staff-enforcement-form { grid-template-columns: minmax(0, 1fr); }
+  .staff-enforcement-form .staff-enforcement-reason { grid-column: auto; }
+}
 
 .staff-profile-history-card { min-height: 260px; }
 .staff-history-table { min-width: 640px; }

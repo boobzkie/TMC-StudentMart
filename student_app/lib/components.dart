@@ -202,42 +202,64 @@ class ProductPhoto extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final url = ApiService.imageUrlFor(imagePath ?? product.image);
-    return Container(
-      height: height,
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: TmcPalette.paleBlue.withValues(alpha: .7),
-        borderRadius: BorderRadius.circular(TmcRadius.md),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: url.isEmpty
-          ? Center(
-              child: Icon(
-                Icons.shopping_bag_outlined,
-                size: 44,
-                color: TmcPalette.slateBlue,
-              ),
-            )
-          : Image.network(
-              url,
-              fit: fit,
-              errorBuilder: (_, _, _) => Center(
-                child: Icon(
-                  Icons.broken_image_outlined,
-                  size: 40,
-                  color: TmcPalette.slateBlue,
-                ),
-              ),
-              loadingBuilder: (context, child, progress) => progress == null
-                  ? child
-                  : const Center(
-                      child: SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+    final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
+
+    int? decodedSize(double logicalSize) {
+      if (!logicalSize.isFinite || logicalSize <= 0) return null;
+      return (logicalSize * devicePixelRatio).round().clamp(1, 4096).toInt();
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availableWidth = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : MediaQuery.sizeOf(context).width;
+        return Semantics(
+          image: true,
+          label: '${product.name} image',
+          child: Container(
+            height: height,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: TmcPalette.paleBlue.withValues(alpha: .7),
+              borderRadius: BorderRadius.circular(TmcRadius.md),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: url.isEmpty
+                ? Center(
+                    child: Icon(
+                      Icons.shopping_bag_outlined,
+                      size: 44,
+                      color: TmcPalette.slateBlue,
+                    ),
+                  )
+                : Image.network(
+                    url,
+                    fit: fit,
+                    cacheWidth: decodedSize(availableWidth),
+                    cacheHeight: decodedSize(height),
+                    filterQuality: FilterQuality.medium,
+                    errorBuilder: (_, _, _) => Center(
+                      child: Icon(
+                        Icons.broken_image_outlined,
+                        size: 40,
+                        color: TmcPalette.slateBlue,
                       ),
                     ),
-            ),
+                    loadingBuilder: (context, child, progress) =>
+                        progress == null
+                        ? child
+                        : const Center(
+                            child: SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          ),
+                  ),
+          ),
+        );
+      },
     );
   }
 }
@@ -533,20 +555,25 @@ class StatusBadge extends StatelessWidget {
                     : word[0].toUpperCase() + word.substring(1),
               )
               .join(' ');
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: .12),
-        border: Border.all(color: color.withValues(alpha: .26)),
-        borderRadius: BorderRadius.circular(TmcRadius.pill),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: color,
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
+    return Semantics(
+      label: 'Status: $label',
+      child: ExcludeSemantics(
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: .12),
+            border: Border.all(color: color.withValues(alpha: .26)),
+            borderRadius: BorderRadius.circular(TmcRadius.pill),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            child: Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontSize: TmcTypography.labelSize,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ),
         ),
       ),
@@ -628,7 +655,7 @@ class ProductCard extends StatelessWidget {
                               '${product.images.length} photos',
                               style: const TextStyle(
                                 color: TmcPalette.white,
-                                fontSize: 10,
+                                fontSize: TmcTypography.labelSize,
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
@@ -725,7 +752,7 @@ class ProductCard extends StatelessWidget {
                       color: product.status == 'sold_out'
                           ? TmcPalette.error
                           : TmcPalette.darkGray,
-                      fontSize: 11,
+                      fontSize: TmcTypography.labelSize,
                     ),
                   ),
                 ],
@@ -741,7 +768,7 @@ class ProductCard extends StatelessWidget {
                             icon: const Icon(Icons.arrow_forward, size: 17),
                             label: const Text('View'),
                             style: TextButton.styleFrom(
-                              minimumSize: const Size(48, 40),
+                              minimumSize: const Size(48, 44),
                               foregroundColor: TmcPalette.navyBlue,
                             ),
                           ),
@@ -763,7 +790,7 @@ class ProductCard extends StatelessWidget {
                               size: 18,
                             ),
                             style: IconButton.styleFrom(
-                              minimumSize: const Size(42, 40),
+                              minimumSize: const Size(44, 44),
                               foregroundColor: TmcPalette.navyBlue,
                               backgroundColor: TmcPalette.primarySoft,
                             ),
@@ -798,9 +825,8 @@ class ProductCard extends StatelessWidget {
                                 : 'Add to cart',
                           ),
                           style: OutlinedButton.styleFrom(
-                            minimumSize: const Size(48, 40),
+                            minimumSize: const Size(48, 44),
                             foregroundColor: TmcPalette.navyBlue,
-                            visualDensity: VisualDensity.compact,
                           ),
                         ),
                       ),
@@ -852,6 +878,8 @@ class _ProductSellerAvatar extends StatelessWidget {
         width: size,
         height: size,
         fit: BoxFit.cover,
+        cacheWidth: (size * MediaQuery.devicePixelRatioOf(context)).round(),
+        cacheHeight: (size * MediaQuery.devicePixelRatioOf(context)).round(),
         errorBuilder: (_, _, _) => fallback,
       ),
     );

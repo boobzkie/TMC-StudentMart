@@ -165,7 +165,7 @@ class _ProductHistoryPageState extends State<ProductHistoryPage> {
                                     Text(
                                       _date(entry['occurred_at']),
                                       style: const TextStyle(
-                                        fontSize: 11,
+                                        fontSize: 12,
                                         color: TmcPalette.darkGray,
                                       ),
                                     ),

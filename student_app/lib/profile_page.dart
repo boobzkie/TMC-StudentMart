@@ -1495,7 +1495,7 @@ class _ProfilePageState extends State<ProfilePage> {
                             ? null
                             : const Icon(
                                 Icons.star_rounded,
-                                color: Color(0xFFFFD15C),
+                                color: TmcPalette.gold,
                                 size: 20,
                               ),
                       ),

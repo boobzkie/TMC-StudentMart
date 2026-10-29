@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Eye, Pencil, RotateCcw, Search, ShieldCheck, Trash2, UserRound, UserX, Users, X, XCircle, BookOpen } from "lucide-react";
+import { CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Eye, Pencil, RotateCcw, Search, ShieldCheck, UserRound, Users, X, XCircle, BookOpen, ShieldAlert } from "lucide-react";
 import AdminLayout from "./components/AdminLayout";
 import AdminPageHero from "./components/AdminPageHero";
 import { SortableHead } from "./ui/Table";
@@ -25,6 +25,7 @@ const studentEditForm = (user = {}) => ({
 });
 const hasStudentEditChanges = (user, form) => Object.keys(EMPTY_EDIT).some((key) => String(form?.[key] ?? "") !== String(user?.[key] ?? ""));
 const detailValue = (value, fallback = "Not provided") => String(value ?? "").trim() || fallback;
+const statusLabel = (value) => String(value || "Unknown").replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 const statusTone = (value) => {
   const status = String(value || "").toLowerCase();
   if (status === "active") return "is-success";
@@ -180,15 +181,39 @@ function StudentDetailsModal({
   isStaff,
   editForm,
   actionLoading,
-  isCurrentUser,
   onClose,
   onCancelEdit,
   onSave,
   onEditFormChange,
   onStartEdit,
-  onStatusAction,
-  onDelete,
+  onReinstate,
+  onEnforce,
 }) {
+  const [enforcementAction, setEnforcementAction] = useState("warning");
+  const [enforcementReason, setEnforcementReason] = useState("");
+  const [durationDays, setDurationDays] = useState("1");
+  const [enforcementFeedback, setEnforcementFeedback] = useState("");
+
+  const submitEnforcement = async (event) => {
+    event.preventDefault();
+    const reason = enforcementReason.trim();
+    if (reason.length < 5) return;
+    const duration = Number(durationDays);
+    const needsDuration = enforcementAction !== "warning";
+    const actionLabel = enforcementAction === "warning" ? "issue a warning" : enforcementAction === "suspension" ? `suspend this account for ${duration} day(s)` : `issue a warning and suspend this account for ${duration} day(s)`;
+    if (!window.confirm(`Confirm: ${actionLabel}?\n\nReason: ${reason}`)) return;
+    setEnforcementFeedback("");
+    const succeeded = await onEnforce(user, {
+      action: enforcementAction,
+      reason,
+      ...(needsDuration ? { duration_days: duration } : {}),
+    });
+    if (succeeded) {
+      setEnforcementReason("");
+      setEnforcementFeedback("The enforcement action was recorded successfully.");
+    }
+  };
+
   return (
     <Modal
       isOpen
@@ -259,6 +284,18 @@ function StudentDetailsModal({
               </section>}
             </div>
           )}
+          {user.role === "student" && !loading && !editing && <section className="student-enforcement-panel" aria-labelledby="student-enforcement-title">
+            <header><div><h3 id="student-enforcement-title">Warnings and suspensions</h3><p>Consider violation severity and prior history when choosing a proportionate action and duration.</p></div><ShieldAlert size={19} aria-hidden="true" /></header>
+            {String(user.status).toLowerCase() === "suspended" && <p className="student-enforcement-current" role="status">{user.suspended_until ? `Suspended until ${dateLabel(user.suspended_until)}.` : "Legacy suspension has no recorded end date; review and restore access manually."}</p>}
+            {String(user.status).toLowerCase() === "active" && <form className="student-enforcement-form" onSubmit={submitEnforcement}>
+              <label>Action<select value={enforcementAction} onChange={(event) => setEnforcementAction(event.target.value)} disabled={Boolean(actionLoading)}><option value="warning">Issue a warning</option><option value="suspension">Suspend account</option><option value="warning_and_suspension">Issue a warning and suspend</option></select></label>
+              {enforcementAction !== "warning" && <label>Suspension length<select value={durationDays} onChange={(event) => setDurationDays(event.target.value)} disabled={Boolean(actionLoading)}>{[1, 2, 3, 4, 5, 6, 7].map((days) => <option value={days} key={days}>{days} day{days === 1 ? "" : "s"}</option>)}</select></label>}
+              <label className="student-enforcement-reason">Reason<textarea value={enforcementReason} onChange={(event) => setEnforcementReason(event.target.value)} minLength={5} maxLength={2000} rows={3} required disabled={Boolean(actionLoading)} placeholder="Describe the rule violation and relevant context." /></label>
+              <button type="submit" className="student-enforcement-submit" disabled={Boolean(actionLoading) || enforcementReason.trim().length < 5}>{actionLoading?.startsWith("enforcement-") ? "Applying…" : "Apply enforcement"}</button>
+              {enforcementFeedback && <p className="student-enforcement-feedback" role="status">{enforcementFeedback}</p>}
+            </form>}
+            {Array.isArray(user.enforcement_history) && user.enforcement_history.length > 0 ? <ol className="student-enforcement-history">{user.enforcement_history.map((entry) => <li key={entry.id}><div><strong>{statusLabel(entry.event)}</strong><time>{entry.created_at ? dateLabel(entry.created_at) : "Date unavailable"}</time></div><p>{detailValue(entry.reason, "No reason recorded")}</p><small>By {detailValue(entry.actor_name, "System")}{entry.duration_days ? ` · ${entry.duration_days} day suspension` : ""}{entry.suspended_until ? ` · until ${dateLabel(entry.suspended_until)}` : ""}</small></li>)}</ol> : <p className="student-enforcement-empty">No account warnings or suspensions are recorded.</p>}
+          </section>}
         </div>
         <footer className="student-details-footer">
           {editing && !isStaff ? <>
@@ -266,8 +303,7 @@ function StudentDetailsModal({
             <button type="submit" className="student-modal-primary" form="student-edit-form" disabled={Boolean(actionLoading)}>{actionLoading?.startsWith("save-") ? "Saving changes…" : "Save changes"}</button>
           </> : <>
             {user.role === "student" && !loading && !isStaff && <button type="button" className="student-modal-primary" onClick={onStartEdit}><Pencil size={15} aria-hidden="true" />Edit student and course</button>}
-            {user.role === "student" && !loading && <button type="button" className={"student-modal-secondary student-modal-status " + (String(user.status).toLowerCase() === "active" ? "is-deactivate" : "is-activate")} disabled={Boolean(actionLoading)} onClick={() => onStatusAction(user, String(user.status).toLowerCase() === "active" ? "deactivate" : "activate")}>{String(user.status).toLowerCase() === "active" ? <UserX size={15} aria-hidden="true" /> : <CheckCircle2 size={15} aria-hidden="true" />}{String(user.status).toLowerCase() === "active" ? "Deactivate account" : "Activate account"}</button>}
-            {user.role === "student" && !loading && !isStaff && !isCurrentUser(user) && <button type="button" className="student-modal-danger" disabled={Boolean(actionLoading)} onClick={() => onDelete(user)}><Trash2 size={15} aria-hidden="true" />Delete account</button>}
+            {user.role === "student" && !loading && !isStaff && ["suspended", "inactive"].includes(String(user.status).toLowerCase()) && <button type="button" className="student-modal-secondary student-modal-status is-activate" disabled={Boolean(actionLoading)} onClick={() => onReinstate(user)}><CheckCircle2 size={15} aria-hidden="true" />Restore account access</button>}
             <button type="button" className="student-modal-secondary student-modal-close-action" onClick={onClose}>Close</button>
           </>}
         </footer>
@@ -457,38 +493,39 @@ export default function AdminUsers() {
     } finally { if (requestId === detailRequestRef.current) setDetailsLoading(false); }
   };
 
-  const runStatusAction = async (user, action) => {
+  const runStatusAction = async (user) => {
     if (isAdmin(user)) return;
-    const verb = action === "activate" ? "Activate" : "Deactivate";
-    if (!window.confirm(verb + " " + user.name + "’s account?")) return;
-    setActionLoading(action + "-" + user.id);
+    if (!window.confirm("Restore access to " + user.name + "’s account?")) return;
+    setActionLoading("activate-" + user.id);
     try {
-      const response = await fetch(API_URL + "/admin/users/" + user.id + "/" + action, { method: "PUT", headers: { Accept: "application/json", Authorization: "Bearer " + localStorage.getItem("token") } });
+      const response = await fetch(API_URL + "/admin/users/" + user.id + "/activate", { method: "PUT", headers: { Accept: "application/json", Authorization: "Bearer " + localStorage.getItem("token") } });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.message || "Unable to update account status.");
+      if (!response.ok) throw new Error(data.message || "Unable to restore account access.");
       await loadUsers(true);
-      if (String(selectedUser?.id) === String(user.id)) setSelectedUser(null);
+      if (String(selectedUser?.id) === String(user.id)) setSelectedUser(data.user || { ...selectedUser, status: "active", suspended_until: null });
     } catch (err) {
-      const message = err.message || "Unable to update account status.";
+      const message = err.message || "Unable to restore account access.";
       setError(message);
       if (String(selectedUser?.id) === String(user.id)) setDetailsError(message);
     }
     finally { setActionLoading(null); }
   };
 
-  const deleteUser = async (user) => {
-    if (isStaff || isAdmin(user) || isCurrentUser(user)) return;
-    if (!window.confirm("Permanently delete " + user.name + "’s student account? This cannot be undone.")) return;
-    setActionLoading("delete-" + user.id);
+  const applyEnforcement = async (user, payload) => {
+    setActionLoading("enforcement-" + user.id);
+    setDetailsError("");
     try {
-      const response = await fetch(API_URL + "/admin/users/" + user.id, { method: "DELETE", headers: { Accept: "application/json", Authorization: "Bearer " + localStorage.getItem("token") } });
+      const response = await fetch(API_URL + "/admin/users/" + user.id + "/deactivate", { method: "PUT", headers: { Accept: "application/json", "Content-Type": "application/json", Authorization: "Bearer " + localStorage.getItem("token") }, body: JSON.stringify(payload) });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.message || "Unable to delete user.");
-      setSelectedUser(null); await loadUsers(true);
+      if (!response.ok) throw new Error(Object.values(data.errors || {}).flat()[0] || data.message || "Unable to apply account enforcement.");
+      if (String(selectedUser?.id) === String(user.id)) setSelectedUser(data.user || selectedUser);
+      await loadUsers(true);
+      return true;
     } catch (err) {
-      const message = err.message || "Unable to delete user.";
+      const message = err.message || "Unable to apply account enforcement.";
       setError(message);
       if (String(selectedUser?.id) === String(user.id)) setDetailsError(message);
+      return false;
     }
     finally { setActionLoading(null); }
   };
@@ -547,7 +584,7 @@ export default function AdminUsers() {
     { label: "Active, unverified accounts", key: "unverified_accounts", tone: "info" },
   ];
 
-  return <AdminLayout title={isStaff ? "Student Accounts" : "User Management"} subtitle={isStaff ? "Search student records and update account status." : "Manage student accounts, courses, and administrator access."}>
+  return <AdminLayout title={isStaff ? "Student Accounts" : "User Management"} subtitle={isStaff ? "Review student records, warnings, and time-limited suspensions." : "Manage student accounts, courses, warnings, and suspensions."}>
     <section className={"users-page" + (isStaff ? " users-page-staff" : "") }>
       <AdminPageHero
         title={isStaff ? "Students" : "User Management"}
@@ -611,6 +648,7 @@ export default function AdminUsers() {
       <div className="users-pagination"><span>Showing {resultStart}–{resultEnd} of {formatCount(totalResults)} accounts</span><div><span className="users-pagination-page">Page {currentPage} of {pagination.last_page || 1}</span><button type="button" aria-label="Previous page" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={page <= 1}><ChevronLeft size={16} />Previous</button><button type="button" aria-label="Next page" onClick={() => setPage((current) => Math.min(pagination.last_page || 1, current + 1))} disabled={page >= (pagination.last_page || 1)}>Next<ChevronRight size={16} /></button></div></div>
     </section>
     {selectedUser && <StudentDetailsModal
+      key={selectedUser.id}
       user={selectedUser}
       triggerRef={detailsTriggerRef}
       loading={detailsLoading}
@@ -619,14 +657,13 @@ export default function AdminUsers() {
       isStaff={isStaff}
       editForm={editForm}
       actionLoading={actionLoading}
-      isCurrentUser={isCurrentUser}
       onClose={closeUserDetails}
       onCancelEdit={cancelStudentEdit}
       onSave={saveStudent}
       onEditFormChange={setEditForm}
       onStartEdit={() => { setDetailsError(""); setEditing(true); }}
-      onStatusAction={runStatusAction}
-      onDelete={deleteUser}
+      onReinstate={runStatusAction}
+      onEnforce={applyEnforcement}
     />}
   </AdminLayout>;
 }

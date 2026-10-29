@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, UserRoundCog, Clock3, CheckCircle2, XCircle, ShieldCheck, Eye, FileText, ChevronLeft, ChevronRight, UserPlus, Archive, PauseCircle, RotateCcw, BarChart3, Moon } from "lucide-react";
+import { Search, UserRoundCog, Clock3, CheckCircle2, XCircle, ShieldCheck, Eye, FileText, ChevronLeft, ChevronRight, UserPlus, PauseCircle, RotateCcw, BarChart3, Moon, ShieldAlert } from "lucide-react";
 import AdminLayout from "./components/AdminLayout";
 import AdminPageHero from "./components/AdminPageHero";
 import { SortableHead } from "./ui/Table";
@@ -13,7 +13,7 @@ const EMPLOYMENT = ["Regular", "Part-Time", "Contractual"];
 const INITIAL_CREATE = { name: "", email: "", contact_number: "", password: "", password_confirmation: "", manage_students: false, moderate_products: false, manage_complaints: false, view_reports: false, view_analytics: false };
 
 const STAFF_PERMISSION_OPTIONS = [
-  { key: "manage_students", label: "Manage student accounts", description: "Look up approved student accounts and update account status." },
+  { key: "manage_students", label: "Manage student accounts", description: "Look up student accounts and issue warnings or suspensions of up to 7 days." },
   { key: "moderate_products", label: "Moderate products", description: "Review pending listings and record approval or rejection decisions." },
   { key: "manage_complaints", label: "Manage complaints", description: "Review complaints and record private investigation notes." },
   { key: "view_reports", label: "View reports", description: "Access product and complaint reports for assigned responsibilities." },
@@ -110,6 +110,9 @@ export default function AdminStaff() {
   const [permissions, setPermissions] = useState([]);
   const [draft, setDraft] = useState({});
   const [rejectReason, setRejectReason] = useState("");
+  const [enforcementAction, setEnforcementAction] = useState("warning");
+  const [enforcementReason, setEnforcementReason] = useState("");
+  const [durationDays, setDurationDays] = useState("1");
   const [showCreate, setShowCreate] = useState(false);
   const [createForm, setCreateForm] = useState(INITIAL_CREATE);
   const profileTriggerRef = useRef(null);
@@ -120,6 +123,7 @@ export default function AdminStaff() {
     Object.entries(draft).some(([key, value]) => String(value ?? "") !== String(profileBaseline[key] ?? ""))
     || permissionKey(permissions) !== permissionKey(selectedStaff.staff_permissions)
   ));
+
   const closeStaffProfile = () => {
     if (actionLoading) return;
     if (hasUnsavedChanges && !window.confirm("You have unsaved staff profile changes. Close and discard them?")) return;
@@ -185,6 +189,9 @@ export default function AdminStaff() {
     const requestId = ++staffDetailRequestRef.current;
     setDetailLoading(true);
     setProfileTab("overview");
+    setEnforcementAction("warning");
+    setEnforcementReason("");
+    setDurationDays("1");
     setSelectedStaff(item);
     setDraft(staffProfileDraft(item));
     setPermissions(Array.isArray(item.staff_permissions) ? item.staff_permissions : []);
@@ -204,7 +211,7 @@ export default function AdminStaff() {
   };
 
   const performAction = async (item, action, payload = {}) => {
-    if (hasUnsavedChanges && !window.confirm("This action will close the profile. Any changes not included in the action will be discarded. Continue?")) return;
+    if (action !== "suspend" && hasUnsavedChanges && !window.confirm("This action will close the profile. Any changes not included in the action will be discarded. Continue?")) return;
     setActionLoading(action + "-" + item.id);
     setError(""); setNotice("");
     try {
@@ -212,11 +219,29 @@ export default function AdminStaff() {
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(Object.values(data.errors || {}).flat()[0] || data.message || "Unable to update the Staff account.");
       setNotice(data.message || "Staff account updated.");
-      staffDetailRequestRef.current += 1;
-      setSelectedStaff(null);
+      if (action === "suspend") {
+        setSelectedStaff(data.staff || item);
+        setProfileTab("history");
+      } else {
+        staffDetailRequestRef.current += 1;
+        setSelectedStaff(null);
+      }
       await loadStaff(true);
     } catch (err) { setError(err.message || "Unable to update the Staff account."); }
     finally { setActionLoading(null); }
+  };
+
+  const submitStaffEnforcement = (event) => {
+    event.preventDefault();
+    if (!selectedStaff || enforcementReason.trim().length < 5) return;
+    const days = Number(durationDays);
+    const actionLabel = enforcementAction === "warning" ? "issue a warning" : enforcementAction === "suspension" ? `suspend this account for ${days} day(s)` : `issue a warning and suspend this account for ${days} day(s)`;
+    if (!window.confirm(`Confirm: ${actionLabel}?\n\nReason: ${enforcementReason.trim()}`)) return;
+    void performAction(selectedStaff, "suspend", {
+      action: enforcementAction,
+      reason: enforcementReason.trim(),
+      ...(enforcementAction === "warning" ? {} : { duration_days: days }),
+    });
   };
 
   const openDocument = async () => {
@@ -339,7 +364,7 @@ export default function AdminStaff() {
       <div className="staff-pagination"><span>{pagination.total || 0} records · Page {pagination.current_page || 1} of {pagination.last_page || 1}</span><div><button type="button" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={page <= 1}><ChevronLeft size={16} />Previous</button><button type="button" onClick={() => setPage((current) => Math.min(pagination.last_page || 1, current + 1))} disabled={page >= (pagination.last_page || 1)}>Next<ChevronRight size={16} /></button></div></div>
     </section>
 
-    {showCreate && <div className="staff-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowCreate(false); }}><section className="staff-details-modal" role="dialog" aria-modal="true" aria-labelledby="staff-create-title"><header className="staff-modal-heading"><div><span>ADMIN-ISSUED ACCOUNT</span><h2 id="staff-create-title">Create Staff account</h2></div><button type="button" onClick={() => setShowCreate(false)} aria-label="Close">×</button></header><p className="staff-modal-note">This creates an active account. Grant only the permissions needed for the Staff member’s duties.</p><form className="staff-create-form" onSubmit={createStaff}><label>Full name<input value={createForm.name} onChange={(event) => setCreateForm((current) => ({ ...current, name: event.target.value }))} required maxLength="255" /></label><label>Email<input type="email" value={createForm.email} onChange={(event) => setCreateForm((current) => ({ ...current, email: event.target.value }))} required /></label><label>Contact number<input value={createForm.contact_number} onChange={(event) => setCreateForm((current) => ({ ...current, contact_number: event.target.value }))} /></label><label>Password<input type="password" minLength="8" value={createForm.password} onChange={(event) => setCreateForm((current) => ({ ...current, password: event.target.value }))} required /></label><label>Confirm password<input type="password" minLength="8" value={createForm.password_confirmation} onChange={(event) => setCreateForm((current) => ({ ...current, password_confirmation: event.target.value }))} required /></label><label className="staff-permission-option"><input type="checkbox" checked={createForm.manage_students} onChange={(event) => setCreateForm((current) => ({ ...current, manage_students: event.target.checked }))} /><span><strong>Manage student accounts</strong><small>Allows approved student account lookup and status updates.</small></span></label><label className="staff-permission-option"><input type="checkbox" checked={createForm.moderate_products} onChange={(event) => setCreateForm((current) => ({ ...current, moderate_products: event.target.checked }))} /><span><strong>Moderate products</strong><small>Review pending listings and record approval or rejection decisions.</small></span></label><label className="staff-permission-option"><input type="checkbox" checked={createForm.manage_complaints} onChange={(event) => setCreateForm((current) => ({ ...current, manage_complaints: event.target.checked }))} /><span><strong>Manage complaints</strong><small>Review complaints and record private investigation notes.</small></span></label><label className="staff-permission-option"><input type="checkbox" checked={createForm.view_reports} onChange={(event) => setCreateForm((current) => ({ ...current, view_reports: event.target.checked }))} /><span><strong>View reports</strong><small>Access product and complaint reports for permitted responsibilities.</small></span></label><label className="staff-permission-option"><input type="checkbox" checked={createForm.view_analytics} onChange={(event) => setCreateForm((current) => ({ ...current, view_analytics: event.target.checked }))} /><span><strong>View analytics</strong><small>View product and complaint activity summaries.</small></span></label><div className="staff-modal-actions"><button type="button" className="staff-secondary-button" onClick={() => setShowCreate(false)}>Cancel</button><button className="staff-create-button" type="submit" disabled={actionLoading === "create"}>{actionLoading === "create" ? "Creating…" : "Create account"}</button></div></form></section></div>}
+    {showCreate && <div className="staff-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowCreate(false); }}><section className="staff-details-modal" role="dialog" aria-modal="true" aria-labelledby="staff-create-title"><header className="staff-modal-heading"><div><span>ADMIN-ISSUED ACCOUNT</span><h2 id="staff-create-title">Create Staff account</h2></div><button type="button" onClick={() => setShowCreate(false)} aria-label="Close">×</button></header><p className="staff-modal-note">This creates an active account. Grant only the permissions needed for the Staff member’s duties.</p><form className="staff-create-form" onSubmit={createStaff}><label>Full name<input value={createForm.name} onChange={(event) => setCreateForm((current) => ({ ...current, name: event.target.value }))} required maxLength="255" /></label><label>Email<input type="email" value={createForm.email} onChange={(event) => setCreateForm((current) => ({ ...current, email: event.target.value }))} required /></label><label>Contact number<input value={createForm.contact_number} onChange={(event) => setCreateForm((current) => ({ ...current, contact_number: event.target.value }))} /></label><label>Password<input type="password" minLength="8" value={createForm.password} onChange={(event) => setCreateForm((current) => ({ ...current, password: event.target.value }))} required /></label><label>Confirm password<input type="password" minLength="8" value={createForm.password_confirmation} onChange={(event) => setCreateForm((current) => ({ ...current, password_confirmation: event.target.value }))} required /></label><label className="staff-permission-option"><input type="checkbox" checked={createForm.manage_students} onChange={(event) => setCreateForm((current) => ({ ...current, manage_students: event.target.checked }))} /><span><strong>Manage student accounts</strong><small>Allows student account lookup and warnings or suspensions of up to 7 days.</small></span></label><label className="staff-permission-option"><input type="checkbox" checked={createForm.moderate_products} onChange={(event) => setCreateForm((current) => ({ ...current, moderate_products: event.target.checked }))} /><span><strong>Moderate products</strong><small>Review pending listings and record approval or rejection decisions.</small></span></label><label className="staff-permission-option"><input type="checkbox" checked={createForm.manage_complaints} onChange={(event) => setCreateForm((current) => ({ ...current, manage_complaints: event.target.checked }))} /><span><strong>Manage complaints</strong><small>Review complaints and record private investigation notes.</small></span></label><label className="staff-permission-option"><input type="checkbox" checked={createForm.view_reports} onChange={(event) => setCreateForm((current) => ({ ...current, view_reports: event.target.checked }))} /><span><strong>View reports</strong><small>Access product and complaint reports for permitted responsibilities.</small></span></label><label className="staff-permission-option"><input type="checkbox" checked={createForm.view_analytics} onChange={(event) => setCreateForm((current) => ({ ...current, view_analytics: event.target.checked }))} /><span><strong>View analytics</strong><small>View product and complaint activity summaries.</small></span></label><div className="staff-modal-actions"><button type="button" className="staff-secondary-button" onClick={() => setShowCreate(false)}>Cancel</button><button className="staff-create-button" type="submit" disabled={actionLoading === "create"}>{actionLoading === "create" ? "Creating…" : "Create account"}</button></div></form></section></div>}
 
     {selectedStaff && (
       <Modal
@@ -434,6 +459,7 @@ export default function AdminStaff() {
                       <div><dt>Application submitted</dt><dd>{formatTimestamp(selectedStaff.created_at)}</dd></div>
                       <div><dt>Reviewed by</dt><dd>{displayValue(selectedStaff.profile?.reviewer_name, "Not reviewed")}</dd></div>
                       <div><dt>Reviewed at</dt><dd>{formatTimestamp(selectedStaff.profile?.reviewed_at)}</dd></div>
+                      {selectedStaff.status === "suspended" && <div><dt>Suspension ends</dt><dd>{selectedStaff.suspended_until ? formatTimestamp(selectedStaff.suspended_until) : "No end date recorded for this legacy suspension"}</dd></div>}
                     </dl>
                   </section>
                 </div>
@@ -498,19 +524,25 @@ export default function AdminStaff() {
 
                 {selectedStaff.status === "pending" && <div className="staff-review-actions"><label>Decision note (required to reject)<textarea value={rejectReason} onChange={(event) => setRejectReason(event.target.value)} rows="3" placeholder="Explain the decision to the applicant" /></label><div className="staff-action-row"><button type="button" className="staff-approve-button" disabled={Boolean(actionLoading)} onClick={() => { if (window.confirm("Approve this Staff application and grant only the selected permission?")) performAction(selectedStaff, "approve", { permissions }); }}><CheckCircle2 size={16} />Approve</button><button type="button" className="staff-reject-button" disabled={Boolean(actionLoading) || rejectReason.trim().length < 5} onClick={() => { if (window.confirm("Reject this Staff application? The applicant will be able to see this decision note.")) performAction(selectedStaff, "reject", { reason: rejectReason.trim() }); }}><XCircle size={16} />Reject</button></div></div>}
                 {selectedStaff.status === "rejected" && <div className="staff-action-row"><button type="button" className="staff-approve-button" disabled={Boolean(actionLoading)} onClick={() => { if (window.confirm("Return this rejected application to pending review? This will not approve the applicant or grant Staff access.")) performAction(selectedStaff, "reopen"); }}><RotateCcw size={16} />Reopen Application</button></div>}
-                {selectedStaff.status === "active" && <div className="staff-action-row"><button type="button" className="staff-suspend-button" disabled={Boolean(actionLoading)} onClick={() => { if (window.confirm("Suspend this Staff account and revoke all existing access tokens?")) performAction(selectedStaff, "suspend"); }}><PauseCircle size={16} />Suspend access</button></div>}
-                {selectedStaff.status === "suspended" && <div className="staff-action-row"><button type="button" className="staff-approve-button" disabled={Boolean(actionLoading)} onClick={() => { if (window.confirm("Reactivate this previously approved Staff account?")) performAction(selectedStaff, "activate"); }}><RotateCcw size={16} />Reactivate</button></div>}
-                {selectedStaff.status !== "archived" && <div className="staff-archive-row"><button type="button" className="staff-archive-button" disabled={Boolean(actionLoading)} onClick={() => { if (window.confirm("Archive this Staff account? Access will be blocked and audit history retained.")) performAction(selectedStaff, "archive"); }}><Archive size={15} />Archive account</button></div>}
+                {selectedStaff.status === "active" && <form className="staff-enforcement-form" onSubmit={submitStaffEnforcement}>
+                  <header><div><h3><ShieldAlert size={17} aria-hidden="true" />Warnings and suspensions</h3><p>Consider violation severity and prior history when choosing a proportionate action and duration.</p></div></header>
+                  <label>Action<select value={enforcementAction} onChange={(event) => setEnforcementAction(event.target.value)} disabled={Boolean(actionLoading)}><option value="warning">Issue a warning</option><option value="suspension">Suspend account</option><option value="warning_and_suspension">Issue a warning and suspend</option></select></label>
+                  {enforcementAction !== "warning" && <label>Suspension length<select value={durationDays} onChange={(event) => setDurationDays(event.target.value)} disabled={Boolean(actionLoading)}>{[1, 2, 3, 4, 5, 6, 7].map((days) => <option value={days} key={days}>{days} day{days === 1 ? "" : "s"}</option>)}</select></label>}
+                  <label className="staff-enforcement-reason">Reason<textarea value={enforcementReason} onChange={(event) => setEnforcementReason(event.target.value)} minLength={5} maxLength={2000} rows="3" required disabled={Boolean(actionLoading)} placeholder="Describe the rule violation and relevant context." /></label>
+                  <button type="submit" className="staff-suspend-button" disabled={Boolean(actionLoading) || enforcementReason.trim().length < 5}>{actionLoading === `suspend-${selectedStaff.id}` ? "Applying…" : "Apply enforcement"}</button>
+                </form>}
+                {["suspended", "inactive"].includes(selectedStaff.status) && <div className="staff-action-row"><button type="button" className="staff-approve-button" disabled={Boolean(actionLoading)} onClick={() => { if (window.confirm("Restore access to this previously approved Staff account?")) performAction(selectedStaff, "activate"); }}><RotateCcw size={16} />Restore account access</button></div>}
+                {selectedStaff.status === "archived" && <div className="staff-action-row"><button type="button" className="staff-approve-button" disabled={Boolean(actionLoading)} onClick={() => { if (window.confirm("Return this archived Staff record to pending review? This will not grant Staff access.")) performAction(selectedStaff, "restore"); }}><RotateCcw size={16} />Return to application review</button></div>}
               </div>
             )}
 
             {profileTab === "history" && (
               <section className="staff-profile-card staff-profile-history-card">
-                <header className="staff-profile-section-heading"><div><h3>Application and access history</h3><p>Recorded staff application and account changes, with administrator and time details.</p></div><ShieldCheck size={18} aria-hidden="true" /></header>
+                <header className="staff-profile-section-heading"><div><h3>Application and enforcement history</h3><p>Recorded application decisions, warnings, suspensions, and restorations with actor and timestamp.</p></div><ShieldCheck size={18} aria-hidden="true" /></header>
                 {selectedStaff.history?.length ? (
                   <div className="staff-history-table-wrap">
                     <table className="staff-history-table"><thead><tr><th scope="col">Action</th><th scope="col">Performed by</th><th scope="col">Date and time</th><th scope="col">Details</th></tr></thead><tbody>
-                      {[...selectedStaff.history].sort((first, second) => Date.parse(second.created_at) - Date.parse(first.created_at)).map((entry) => <tr key={entry.id}><th scope="row">{statusLabel(entry.event)}</th><td>{displayValue(entry.actor_name, "System")}</td><td>{formatTimestamp(entry.created_at)}</td><td>{displayValue(entry.note || (entry.from_status || entry.to_status ? `${statusLabel(entry.from_status || "Unknown")} → ${statusLabel(entry.to_status || "Unknown")}` : ""), "No additional details recorded")}</td></tr>)}
+                      {[...selectedStaff.history].sort((first, second) => Date.parse(second.created_at) - Date.parse(first.created_at)).map((entry) => <tr key={entry.id}><th scope="row">{statusLabel(entry.event)}</th><td>{displayValue(entry.actor_name, "System")}</td><td>{formatTimestamp(entry.created_at)}</td><td>{displayValue(entry.note || (entry.from_status || entry.to_status ? `${statusLabel(entry.from_status || "Unknown")} → ${statusLabel(entry.to_status || "Unknown")}` : ""), "No additional details recorded")}{entry.metadata?.duration_days ? <small>{entry.metadata.duration_days} day suspension{entry.metadata.suspended_until ? ` · until ${formatTimestamp(entry.metadata.suspended_until)}` : ""}</small> : null}</td></tr>)}
                     </tbody></table>
                   </div>
                 ) : <div className="staff-profile-empty-history"><ShieldCheck size={22} aria-hidden="true" /><strong>No application or access events recorded</strong><p>History will appear here after staff application or account changes are recorded.</p></div>}

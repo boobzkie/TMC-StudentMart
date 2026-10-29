@@ -1704,3 +1704,78 @@
 @media (prefers-reduced-motion: reduce) {
   .student-details-backdrop { scroll-behavior: auto; }
 }
+
+.student-enforcement-panel {
+  grid-column: 1 / -1;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--tmc-admin-border);
+  border-radius: 12px;
+  background: var(--tmc-admin-surface);
+}
+.student-enforcement-panel > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.student-enforcement-panel > header h3 { margin: 0; color: var(--tmc-admin-text); font-size: 15px; }
+.student-enforcement-panel > header p { margin: 4px 0 0; color: var(--tmc-admin-secondary); font-size: 13px; line-height: 1.45; }
+.student-enforcement-panel > header svg { flex: 0 0 auto; color: var(--tmc-admin-primary); }
+.student-enforcement-current {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--tmc-admin-warning-soft);
+  border-radius: 9px;
+  color: var(--tmc-admin-warning);
+  background: var(--tmc-admin-warning-soft);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.student-enforcement-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.student-enforcement-form label { display: grid; gap: 6px; color: var(--tmc-admin-text); font-size: 13px; font-weight: 650; }
+.student-enforcement-form select,
+.student-enforcement-form textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 10px;
+  border: 1px solid var(--tmc-admin-border);
+  border-radius: 9px;
+  color: var(--tmc-admin-text);
+  background: var(--tmc-admin-surface);
+  font: inherit;
+  font-size: 13px;
+}
+.student-enforcement-form textarea { min-height: 82px; resize: vertical; }
+.student-enforcement-form .student-enforcement-reason { grid-column: 1 / -1; }
+.student-enforcement-submit {
+  justify-self: start;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--tmc-admin-danger);
+  border-radius: 9px;
+  color: var(--tmc-admin-on-primary);
+  background: var(--tmc-admin-danger);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.student-enforcement-submit:disabled { opacity: .55; cursor: not-allowed; }
+.student-enforcement-submit:focus-visible,
+.student-enforcement-form :is(select, textarea):focus-visible { outline: 3px solid var(--tmc-admin-focus); outline-offset: 2px; }
+.student-enforcement-feedback { align-self: center; margin: 0; color: var(--tmc-admin-success); font-size: 13px; }
+.student-enforcement-history { display: grid; gap: 9px; margin: 14px 0 0; padding: 0; list-style: none; }
+.student-enforcement-history li { min-width: 0; padding: 10px 11px; border: 1px solid var(--tmc-admin-border); border-radius: 9px; background: var(--tmc-admin-surface-muted); }
+.student-enforcement-history li > div { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.student-enforcement-history strong { color: var(--tmc-admin-text); font-size: 13px; }
+.student-enforcement-history time,.student-enforcement-history small { color: var(--tmc-admin-secondary); font-size: 12px; }
+.student-enforcement-history p { margin: 6px 0; color: var(--tmc-admin-text); font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; }
+.student-enforcement-empty { margin: 10px 0 0; color: var(--tmc-admin-secondary); font-size: 13px; }
+@media (max-width: 520px) {
+  .student-enforcement-form { grid-template-columns: minmax(0, 1fr); }
+  .student-enforcement-form .student-enforcement-reason { grid-column: auto; }
+  .student-enforcement-history li > div { align-items: flex-start; flex-direction: column; gap: 3px; }
+}

@@ -415,7 +415,7 @@ class _Status extends StatelessWidget {
         label,
         style: TextStyle(
           color: color,
-          fontSize: 11,
+          fontSize: 12,
           fontWeight: FontWeight.w800,
         ),
       ),
@@ -627,7 +627,7 @@ class _Item extends StatelessWidget {
                   ].join(' · '),
                   style: const TextStyle(
                     color: TmcPalette.navyBlue,
-                    fontSize: 11,
+                    fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
                 ),

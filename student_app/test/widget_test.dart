@@ -1,7 +1,24 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:student_app/components.dart';
 import 'package:student_app/data.dart';
+import 'package:student_app/tmc_theme.dart';
 
 void main() {
+  testWidgets('status badges have readable labels and clear semantics', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: TmcTheme.light,
+        home: const Scaffold(body: StatusBadge('sold_out')),
+      ),
+    );
+
+    expect(find.bySemanticsLabel('Status: Sold Out'), findsOneWidget);
+    expect(tester.widget<Text>(find.text('Sold Out')).style?.fontSize, 12);
+  });
+
   test('category responses preserve the server category ID and name', () {
     final category = ProductCategory.fromJson({
       'id': 17,

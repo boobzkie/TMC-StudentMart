@@ -10,7 +10,6 @@ import 'notifications_page.dart';
 import 'orders_page.dart';
 import 'profile_page.dart';
 import 'search_page.dart';
-import 'categories_page.dart';
 import 'account_security_page.dart';
 import 'sales_page.dart';
 import 'sell_page.dart';
@@ -88,12 +87,7 @@ class _AppShellState extends State<AppShell> {
       const ProfilePage(),
     ];
     return Scaffold(
-      drawer: _StudentDrawer(
-        selectedIndex: _index,
-        onNavigate: _selectDestination,
-        unreadInboxCount: _unreadInboxCount,
-        onUnreadCountChanged: _setInboxUnreadCount,
-      ),
+      drawer: const _StudentDrawer(),
       appBar: AppBar(
         leading: Builder(
           builder: (context) => IconButton(
@@ -156,17 +150,7 @@ class _AppShellState extends State<AppShell> {
 }
 
 class _StudentDrawer extends StatelessWidget {
-  const _StudentDrawer({
-    required this.selectedIndex,
-    required this.onNavigate,
-    required this.unreadInboxCount,
-    required this.onUnreadCountChanged,
-  });
-
-  final int selectedIndex;
-  final ValueChanged<int> onNavigate;
-  final int unreadInboxCount;
-  final ValueChanged<int> onUnreadCountChanged;
+  const _StudentDrawer();
 
   void _push(BuildContext context, Widget page) {
     Navigator.of(context).pop();
@@ -175,33 +159,86 @@ class _StudentDrawer extends StatelessWidget {
     ).push<void>(MaterialPageRoute<void>(builder: (_) => page));
   }
 
-  void _navigate(BuildContext context, int destination) {
+  Future<void> _logOut(BuildContext context) async {
     Navigator.of(context).pop();
-    onNavigate(destination);
+    final cart = context.read<CartState>();
+    final auth = context.read<AuthState>();
+    await cart.clear();
+    await auth.logout();
   }
+
+  Widget _iconTile(IconData icon) => Container(
+    width: 42,
+    height: 42,
+    alignment: Alignment.center,
+    decoration: BoxDecoration(
+      color: TmcPalette.primarySoft,
+      borderRadius: BorderRadius.circular(13),
+      border: Border.all(color: TmcPalette.borderSoft),
+    ),
+    child: Icon(icon, size: 21, color: TmcPalette.primary),
+  );
+
+  Widget _trailingArrow() => const Icon(
+    Icons.arrow_forward_ios_rounded,
+    size: 14,
+    color: TmcPalette.textSoft,
+  );
 
   @override
   Widget build(BuildContext context) {
     final student = context.watch<AuthState>().user;
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final drawerWidth = screenWidth < 400 ? screenWidth * .88 : 360.0;
+
     return Drawer(
+      width: drawerWidth,
+      backgroundColor: TmcPalette.pageBackground,
+      elevation: 18,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.horizontal(right: Radius.circular(26)),
+      ),
+      clipBehavior: Clip.antiAlias,
       child: SafeArea(
-        child: ListView(
-          padding: EdgeInsets.zero,
+        child: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(18, 14, 12, 14),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(18, 14, 14, 18),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [TmcPalette.deepNavy, TmcPalette.primaryHover],
+                ),
+                borderRadius: BorderRadius.only(
+                  bottomLeft: Radius.circular(24),
+                  bottomRight: Radius.circular(24),
+                ),
+              ),
               child: Column(
                 children: [
                   Row(
                     children: [
-                      const BrandLogo(size: 42),
-                      const SizedBox(width: 10),
+                      Container(
+                        width: 44,
+                        height: 44,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: TmcPalette.white,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: const BrandLogo(size: 36),
+                      ),
+                      const SizedBox(width: 11),
                       const Expanded(
                         child: Text(
                           'TMC StudentMart',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            color: TmcPalette.deepNavyBlack,
-                            fontSize: 17,
+                            color: TmcPalette.white,
+                            fontSize: 16,
                             fontWeight: FontWeight.w800,
                           ),
                         ),
@@ -209,159 +246,219 @@ class _StudentDrawer extends StatelessWidget {
                       IconButton(
                         tooltip: 'Close menu',
                         onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(Icons.close_rounded),
+                        style: IconButton.styleFrom(
+                          foregroundColor: TmcPalette.white,
+                          backgroundColor: TmcPalette.white.withValues(
+                            alpha: .12,
+                          ),
+                          minimumSize: const Size(42, 42),
+                        ),
+                        icon: const Icon(Icons.close_rounded, size: 21),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      _DrawerAvatar(student: student),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              student?.name ?? 'Student',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w800,
-                                color: TmcPalette.deepNavyBlack,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              student?.course.isNotEmpty == true
-                                  ? student!.course
-                                  : 'TMC Student',
-                              style: const TextStyle(
-                                color: TmcPalette.darkGray,
-                              ),
-                            ),
-                          ],
-                        ),
+                  const SizedBox(height: 18),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: TmcPalette.white.withValues(alpha: .09),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(
+                        color: TmcPalette.white.withValues(alpha: .16),
                       ),
-                    ],
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: TmcPalette.gold,
+                              width: 1.5,
+                            ),
+                          ),
+                          child: _DrawerAvatar(student: student),
+                        ),
+                        const SizedBox(width: 11),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                student?.name ?? 'Student',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: TmcPalette.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.school_outlined,
+                                    size: 14,
+                                    color: TmcPalette.paleBlue,
+                                  ),
+                                  const SizedBox(width: 5),
+                                  Flexible(
+                                    child: Text(
+                                      student?.course.isNotEmpty == true
+                                          ? student!.course
+                                          : 'TMC Student',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: TmcPalette.paleBlue,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
             ),
+            Expanded(
+              child: ListTileTheme(
+                data: ListTileThemeData(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                  dense: true,
+                  iconColor: TmcPalette.primary,
+                  textColor: TmcPalette.text,
+                  horizontalTitleGap: 11,
+                  minLeadingWidth: 42,
+                  visualDensity: const VisualDensity(vertical: -1),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
+                  children: [
+                    const _DrawerSectionLabel('Your activity'),
+                    ListTile(
+                      leading: _iconTile(Icons.receipt_long_outlined),
+                      title: const Text(
+                        'My Orders',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      subtitle: const Text(
+                        'Track purchases and order status',
+                        style: TextStyle(
+                          color: TmcPalette.textSoft,
+                          fontSize: 12,
+                        ),
+                      ),
+                      trailing: _trailingArrow(),
+                      onTap: () => _push(context, const OrdersPage()),
+                    ),
+                    ListTile(
+                      leading: _iconTile(Icons.flag_outlined),
+                      title: const Text(
+                        'My reports',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      subtitle: const Text(
+                        'Review reports you have submitted',
+                        style: TextStyle(
+                          color: TmcPalette.textSoft,
+                          fontSize: 12,
+                        ),
+                      ),
+                      trailing: _trailingArrow(),
+                      onTap: () => _push(context, const ReportsPage()),
+                    ),
+                    ListTile(
+                      leading: _iconTile(Icons.storefront_outlined),
+                      title: const Text(
+                        'Sales',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      subtitle: const Text(
+                        'Manage orders for your listings',
+                        style: TextStyle(
+                          color: TmcPalette.textSoft,
+                          fontSize: 12,
+                        ),
+                      ),
+                      trailing: _trailingArrow(),
+                      onTap: () => _push(context, const SalesPage()),
+                    ),
+                    const SizedBox(height: 8),
+                    const Divider(height: 1, indent: 8, endIndent: 8),
+                    const SizedBox(height: 8),
+                    const _DrawerSectionLabel('Account'),
+                    ListTile(
+                      leading: _iconTile(Icons.shield_outlined),
+                      title: const Text(
+                        'Account Settings',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      subtitle: const Text(
+                        'Password and security controls',
+                        style: TextStyle(
+                          color: TmcPalette.textSoft,
+                          fontSize: 12,
+                        ),
+                      ),
+                      trailing: _trailingArrow(),
+                      onTap: () => _push(context, const AccountSecurityPage()),
+                    ),
+                  ],
+                ),
+              ),
+            ),
             const Divider(height: 1),
-            const _DrawerSectionLabel('Marketplace'),
-            ListTile(
-              selected: selectedIndex == 0,
-              leading: const Icon(Icons.home_outlined),
-              title: const Text('Home'),
-              onTap: () => _navigate(context, 0),
-            ),
-            ListTile(
-              selected: selectedIndex == 1,
-              leading: const Icon(Icons.storefront_outlined),
-              title: const Text('Shop'),
-              onTap: () => _navigate(context, 1),
-            ),
-            ListTile(
-              leading: const Icon(Icons.category_outlined),
-              title: const Text('Browse categories'),
-              onTap: () => _push(context, const CategoriesPage()),
-            ),
-            ListTile(
-              selected: selectedIndex == 2,
-              leading: const Icon(Icons.add_box_outlined),
-              title: const Text('Sell & my listings'),
-              onTap: () => _navigate(context, 2),
-            ),
-            ListTile(
-              leading: const Icon(Icons.shopping_cart_outlined),
-              title: const Text('Cart'),
-              onTap: () {
-                final navigator = Navigator.of(context);
-                navigator.pop();
-                navigator.push<void>(
-                  MaterialPageRoute<void>(
-                    builder: (_) => CartPage(
-                      onBrowse: () {
-                        navigator.pop();
-                        onNavigate(1);
-                      },
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+              child: ListTileTheme(
+                data: ListTileThemeData(
+                  minLeadingWidth: 42,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                child: ListTile(
+                  leading: Container(
+                    width: 42,
+                    height: 42,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: TmcPalette.errorSoft,
+                      borderRadius: BorderRadius.circular(13),
+                    ),
+                    child: const Icon(
+                      Icons.logout_rounded,
+                      size: 21,
+                      color: TmcPalette.error,
                     ),
                   ),
-                );
-              },
-            ),
-            const Divider(height: 1),
-            const _DrawerSectionLabel('Your activity'),
-            ListTile(
-              leading: const Icon(Icons.receipt_long_outlined),
-              title: const Text('My Orders'),
-              onTap: () => _push(context, const OrdersPage()),
-            ),
-            ListTile(
-              leading: unreadInboxCount > 0
-                  ? Semantics(
-                      label: '$unreadInboxCount unread notifications',
-                      child: Badge(
-                        label: Text(
-                          unreadInboxCount > 99 ? '99+' : '$unreadInboxCount',
-                        ),
-                        child: const Icon(Icons.notifications_none),
-                      ),
-                    )
-                  : const Icon(Icons.notifications_none),
-              title: const Text('Notifications'),
-              onTap: () => _push(
-                context,
-                NotificationsPage(
-                  initialTab: 1,
-                  initialUnreadCount: unreadInboxCount,
-                  onUnreadCountChanged: onUnreadCountChanged,
+                  title: const Text(
+                    'Log out',
+                    style: TextStyle(
+                      color: TmcPalette.error,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  subtitle: const Text(
+                    'Securely end this session',
+                    style: TextStyle(color: TmcPalette.textSoft, fontSize: 12),
+                  ),
+                  onTap: () => _logOut(context),
                 ),
               ),
-            ),
-            ListTile(
-              leading: const Icon(Icons.flag_outlined),
-              title: const Text('My reports'),
-              onTap: () => _push(context, const ReportsPage()),
-            ),
-            ListTile(
-              leading: const Icon(Icons.attach_money),
-              title: const Text('Sales'),
-              onTap: () => _push(context, const SalesPage()),
-            ),
-            const Divider(height: 1),
-            const _DrawerSectionLabel('Your account'),
-            ListTile(
-              selected: selectedIndex == 4,
-              leading: const Icon(Icons.person_outline),
-              title: const Text('Profile'),
-              onTap: () => _navigate(context, 4),
-            ),
-            ListTile(
-              leading: const Icon(Icons.lock_outline),
-              title: const Text('Account Settings'),
-              onTap: () => _push(context, const AccountSecurityPage()),
-            ),
-            const Divider(height: 1),
-            const _DrawerSectionLabel('Account actions'),
-            ListTile(
-              leading: const Icon(Icons.logout, color: TmcPalette.error),
-              title: const Text(
-                'Log Out',
-                style: TextStyle(
-                  color: TmcPalette.error,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              onTap: () async {
-                Navigator.of(context).pop();
-                final cart = context.read<CartState>();
-                final auth = context.read<AuthState>();
-                await cart.clear();
-                await auth.logout();
-              },
             ),
           ],
         ),
@@ -569,7 +666,7 @@ class _BottomNavigationItem extends StatelessWidget {
                       color: selected
                           ? TmcPalette.white
                           : TmcPalette.white.withValues(alpha: .72),
-                      fontSize: 11,
+                      fontSize: 12,
                       fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
                     ),
                   ),

@@ -3,6 +3,7 @@
 use App\Models\StaffApplicationEvent;
 use App\Models\StaffProfile;
 use App\Models\User;
+use App\Notifications\AccountEnforcementNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
@@ -86,7 +87,7 @@ test('admin can create staff accounts without a student id and grants no extra p
     expect(Hash::check('staff-password-123', $created->password))->toBeTrue();
 });
 
-test('staff can list students and change student status only when the permission is granted', function () {
+test('staff can list students and issue warnings or time-limited suspensions only when permitted', function () {
     $staff = makeStaffAuthorizationUser('staff');
     $student = makeStaffAuthorizationUser('student');
     $admin = makeStaffAuthorizationUser('admin');
@@ -97,17 +98,43 @@ test('staff can list students and change student status only when the permission
     $this->getJson('/api/admin/users/'.$student->id)->assertOk()->assertJsonPath('user.role', 'student');
     $this->getJson('/api/admin/users/'.$admin->id)->assertNotFound();
     $this->getJson('/api/admin/users/'.$otherStaff->id)->assertNotFound();
-    $this->putJson('/api/admin/users/'.$student->id.'/deactivate')->assertOk()->assertJsonPath('user.status', 'inactive');
-    $this->assertDatabaseHas('users', ['id' => $student->id, 'status' => 'inactive']);
+    $this->putJson('/api/admin/users/'.$student->id.'/deactivate', [
+        'action' => 'warning',
+        'reason' => 'Repeated prohibited marketplace messages.',
+    ])->assertOk()->assertJsonPath('user.status', 'active')->assertJsonPath('user.enforcement_history.0.event', 'warning_issued');
+    $this->assertDatabaseHas('notifications', [
+        'type' => AccountEnforcementNotification::class,
+        'notifiable_type' => User::class,
+        'notifiable_id' => $student->id,
+    ]);
+
+    $this->putJson('/api/admin/users/'.$student->id.'/deactivate', [
+        'action' => 'suspension',
+        'duration_days' => 2,
+        'reason' => 'Repeated prohibited marketplace messages.',
+    ])->assertOk()->assertJsonPath('user.status', 'suspended')->assertJsonPath('user.enforcement_history.0.duration_days', 2);
+
+    $this->assertDatabaseHas('users', ['id' => $student->id, 'status' => 'suspended']);
+    $this->assertDatabaseHas('account_enforcement_events', [
+        'user_id' => $student->id,
+        'actor_id' => $staff->id,
+        'action' => 'warning_issued',
+    ]);
+    $this->assertDatabaseHas('account_enforcement_events', [
+        'user_id' => $student->id,
+        'actor_id' => $staff->id,
+        'action' => 'suspended',
+        'duration_days' => 2,
+    ]);
 });
 
-test('staff without student-management permission cannot access student information or staff statistics', function () {
+test('staff without student-management permission cannot access student information but retain staff dashboard access', function () {
     $staff = makeStaffAuthorizationUser('staff');
     $staff->staffProfile()->update(['permissions' => []]);
     Sanctum::actingAs($staff->fresh());
 
     $this->getJson('/api/admin/users')->assertForbidden();
-    $this->getJson('/api/staff/stats')->assertForbidden();
+    $this->getJson('/api/staff/stats')->assertOk();
 });
 
 test('staff cannot delete students or access administrator modules', function () {
@@ -119,6 +146,58 @@ test('staff cannot delete students or access administrator modules', function ()
     $this->getJson('/api/admin/stats')->assertForbidden();
     $this->getJson('/api/admin/staff')->assertForbidden();
     $this->postJson('/api/admin/staff', [])->assertForbidden();
+});
+
+test('administrators cannot delete student or staff accounts or archive staff accounts', function () {
+    $admin = makeStaffAuthorizationUser('admin');
+    $student = makeStaffAuthorizationUser('student');
+    $staff = makeStaffAuthorizationUser('staff');
+    Sanctum::actingAs($admin);
+
+    $this->deleteJson('/api/admin/users/'.$student->id)->assertForbidden();
+    $this->deleteJson('/api/admin/staff/'.$staff->id)->assertForbidden();
+    $this->putJson('/api/admin/staff/'.$staff->id.'/archive')->assertForbidden();
+
+    $this->assertDatabaseHas('users', ['id' => $student->id, 'role' => 'student', 'status' => 'active']);
+    $this->assertDatabaseHas('users', ['id' => $staff->id, 'role' => 'staff', 'status' => 'active']);
+});
+
+test('student suspensions require a whole-number duration from one through seven days', function () {
+    $admin = makeStaffAuthorizationUser('admin');
+    $student = makeStaffAuthorizationUser('student');
+    Sanctum::actingAs($admin);
+
+    foreach ([0, 8, 1.5] as $duration) {
+        $this->putJson('/api/admin/users/'.$student->id.'/deactivate', [
+            'action' => 'suspension',
+            'duration_days' => $duration,
+            'reason' => 'Repeated prohibited marketplace messages.',
+        ])->assertUnprocessable();
+    }
+    $this->putJson('/api/admin/users/'.$student->id.'/deactivate', [
+        'action' => 'warning',
+        'reason' => '     ',
+    ])->assertUnprocessable();
+
+    $this->assertDatabaseHas('users', ['id' => $student->id, 'status' => 'active']);
+    $this->assertDatabaseCount('account_enforcement_events', 0);
+});
+
+test('expired timed suspensions restore access on the next successful login and record expiry', function () {
+    $student = makeStaffAuthorizationUser('student', ['status' => 'suspended']);
+    $student->suspended_until = now()->subMinute();
+    $student->save();
+
+    $this->postJson('/api/login', [
+        'email' => $student->email,
+        'password' => 'password123',
+    ])->assertOk()->assertJsonPath('user.status', 'active');
+
+    $this->assertDatabaseHas('users', ['id' => $student->id, 'status' => 'active', 'suspended_until' => null]);
+    $this->assertDatabaseHas('account_enforcement_events', [
+        'user_id' => $student->id,
+        'action' => 'suspension_expired',
+    ]);
 });
 
 test('students and inactive staff cannot access protected staff or admin user APIs', function () {
@@ -195,11 +274,57 @@ test('suspending approved staff revokes existing Sanctum tokens immediately', fu
     $token = $staff->createToken('existing')->plainTextToken;
     $admin = makeStaffAuthorizationUser('admin');
     Sanctum::actingAs($admin);
-    $this->putJson('/api/admin/staff/'.$staff->id.'/suspend')->assertOk()->assertJsonPath('staff.status', 'suspended');
+    $response = $this->putJson('/api/admin/staff/'.$staff->id.'/suspend', [
+        'action' => 'suspension',
+        'duration_days' => 3,
+        'reason' => 'Repeated misuse of staff privileges.',
+    ])->assertOk()->assertJsonPath('staff.status', 'suspended');
+    expect($response->json('staff.suspended_until'))->not->toBeNull();
     $this->assertDatabaseMissing('personal_access_tokens', ['tokenable_id' => $staff->id]);
     Sanctum::actingAs($staff->fresh());
     $this->getJson('/api/staff/stats')->assertForbidden();
     expect($token)->not->toBeEmpty();
+});
+
+test('administrators can warn Staff and suspend them for no more than seven whole days', function () {
+    $admin = makeStaffAuthorizationUser('admin');
+    $staff = makeStaffAuthorizationUser('staff');
+    Sanctum::actingAs($admin);
+
+    $this->putJson('/api/admin/staff/'.$staff->id.'/suspend', [
+        'action' => 'warning',
+        'reason' => 'Failure to follow the marketplace moderation procedure.',
+    ])->assertOk()->assertJsonPath('staff.status', 'active');
+
+    foreach ([0, 8, 1.5] as $duration) {
+        $this->putJson('/api/admin/staff/'.$staff->id.'/suspend', [
+            'action' => 'suspension',
+            'duration_days' => $duration,
+            'reason' => 'Repeated failure to follow the moderation procedure.',
+        ])->assertUnprocessable();
+    }
+    $this->putJson('/api/admin/staff/'.$staff->id.'/suspend', [
+        'action' => 'warning',
+        'reason' => '     ',
+    ])->assertUnprocessable();
+
+    $this->putJson('/api/admin/staff/'.$staff->id.'/suspend', [
+        'action' => 'warning_and_suspension',
+        'duration_days' => 7,
+        'reason' => 'Repeated failure to follow the moderation procedure.',
+    ])->assertOk()->assertJsonPath('staff.status', 'suspended')->assertJsonPath('staff.history.0.event', 'suspended');
+
+    $this->assertDatabaseHas('account_enforcement_events', [
+        'user_id' => $staff->id,
+        'actor_id' => $admin->id,
+        'action' => 'warning_issued',
+    ]);
+    $this->assertDatabaseHas('account_enforcement_events', [
+        'user_id' => $staff->id,
+        'actor_id' => $admin->id,
+        'action' => 'suspended',
+        'duration_days' => 7,
+    ]);
 });
 
 test('student course filtering, editing, validation, and dashboard counts use only student accounts', function () {

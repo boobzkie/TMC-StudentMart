@@ -5,13 +5,17 @@ namespace App\Http\Controllers;
 use App\Models\StaffApplicationEvent;
 use App\Models\StaffProfile;
 use App\Models\User;
+use App\Notifications\AccountEnforcementNotification;
+use App\Services\AccountEnforcementService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\Response;
+use Throwable;
 
 class AdminStaffController extends Controller
 {
@@ -119,7 +123,9 @@ class AdminStaffController extends Controller
 
     public function show(User $user): JsonResponse
     {
-        $staff = $this->findStaff($user)->load(['staffProfile.reviewer', 'staffProfile.events.actor']);
+        $staff = $this->findStaff($user);
+        app(AccountEnforcementService::class)->expireIfDue($staff);
+        $staff->load(['staffProfile.reviewer', 'staffProfile.events.actor', 'enforcementEvents.actor']);
 
         return response()->json([
             'success' => true,
@@ -403,7 +409,41 @@ class AdminStaffController extends Controller
 
     public function suspend(Request $request, User $user): JsonResponse
     {
-        return $this->changeStatus($request, $user, 'suspended');
+        $staff = $this->findStaff($user);
+        if (is_string($request->input('reason'))) {
+            $request->merge(['reason' => trim($request->input('reason'))]);
+        }
+
+        $validated = $request->validate([
+            'action' => ['required', Rule::in(['warning', 'suspension', 'warning_and_suspension'])],
+            'reason' => ['required', 'string', 'min:5', 'max:2000'],
+            'duration_days' => [
+                Rule::requiredIf(fn (): bool => in_array($request->input('action'), ['suspension', 'warning_and_suspension'], true)),
+                'nullable',
+                'integer',
+                'between:1,7',
+                'prohibited_if:action,warning',
+            ],
+        ]);
+
+        $staff = app(AccountEnforcementService::class)->apply(
+            $staff,
+            $request->user(),
+            $validated['action'],
+            $validated['reason'],
+            isset($validated['duration_days']) ? (int) $validated['duration_days'] : null,
+        );
+
+        $this->notifyEnforcement($staff, $validated['action'], $validated['reason'], $validated['duration_days'] ?? null);
+        $staff->load(['staffProfile', 'enforcementEvents.actor']);
+
+        return response()->json([
+            'success' => true,
+            'message' => $validated['action'] === 'warning'
+                ? 'Staff account warning recorded successfully.'
+                : 'Staff account enforcement recorded; access is suspended for the selected period.',
+            'staff' => $this->safeStaff($staff, true),
+        ]);
     }
 
     public function deactivate(Request $request, User $user): JsonResponse
@@ -418,71 +458,30 @@ class AdminStaffController extends Controller
             return response()->json(['success' => false, 'message' => 'Only previously approved suspended Staff accounts can be reactivated.'], 422);
         }
 
-        return $this->changeStatus($request, $user, 'active');
+        $staff = app(AccountEnforcementService::class)->reinstate($staff, $request->user());
+        $staff->load(['staffProfile', 'enforcementEvents.actor']);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Staff account access restored successfully.',
+            'staff' => $this->safeStaff($staff, true),
+        ]);
     }
 
     public function archive(Request $request, User $user): JsonResponse
     {
-        $staff = $this->findStaff($user);
-        if ($request->user()->is($staff)) {
-            return response()->json(['success' => false, 'message' => 'You cannot archive your own account.'], 422);
-        }
-
-        DB::transaction(function () use ($staff, $request) {
-            $profile = $staff->staffProfile ?: StaffProfile::create(['user_id' => $staff->id]);
-            $from = $staff->status;
-            $staff->status = 'archived';
-            $staff->save();
-            $profile->archived_at = now();
-            $profile->save();
-            $staff->tokens()->delete();
-            $this->record($profile, $request->user()->id, 'archived', $from, 'archived', 'Staff account archived by administrator.');
-        });
-
-        return response()->json(['success' => true, 'message' => 'Staff account archived. Audit history has been retained.', 'staff' => $this->safeStaff($staff->fresh('staffProfile'))]);
+        return response()->json([
+            'success' => false,
+            'message' => 'Staff accounts cannot be archived through account management.',
+        ], 403);
     }
 
     public function destroy(Request $request, User $user): JsonResponse
     {
-        return $this->archive($request, $user);
-    }
-
-    private function changeStatus(Request $request, User $user, string $toStatus): JsonResponse
-    {
-        $staff = $this->findStaff($user);
-        if ($request->user()->is($staff)) {
-            return response()->json(['success' => false, 'message' => 'You cannot change your own Staff access.'], 422);
-        }
-        if ($toStatus === 'suspended' && $staff->status !== 'active') {
-            return response()->json(['success' => false, 'message' => 'Only active Staff accounts can be suspended.'], 422);
-        }
-
-        DB::transaction(function () use ($staff, $request, $toStatus) {
-            $profile = $staff->staffProfile ?: StaffProfile::create(['user_id' => $staff->id]);
-            $from = $staff->status;
-            $staff->status = $toStatus;
-            $staff->save();
-            if ($toStatus === 'active') {
-                $profile->archived_at = null;
-            }
-            if (! $profile->reviewed_at) {
-                $profile->reviewed_by = $request->user()->id;
-                $profile->reviewed_at = now();
-            }
-            $profile->save();
-            if ($toStatus !== 'active') {
-                $staff->tokens()->delete();
-            }
-            $event = $toStatus === 'active' ? 'reactivated' : 'suspended';
-            $note = $toStatus === 'active' ? 'Staff access reactivated.' : 'Staff access suspended; Sanctum tokens revoked.';
-            $this->record($profile, $request->user()->id, $event, $from, $toStatus, $note);
-        });
-
         return response()->json([
-            'success' => true,
-            'message' => $toStatus === 'active' ? 'Staff account reactivated successfully.' : 'Staff account suspended and existing tokens revoked.',
-            'staff' => $this->safeStaff($staff->fresh('staffProfile')),
-        ]);
+            'success' => false,
+            'message' => 'Staff accounts cannot be deleted through account management.',
+        ], 403);
     }
 
     private function findStaff(User $user): User
@@ -550,6 +549,7 @@ class AdminStaffController extends Controller
             'contact_number' => $staff->contact_number,
             'role' => $staff->role,
             'status' => $staff->status,
+            'suspended_until' => $staff->suspended_until?->toIso8601String(),
             'approval_status' => $this->approvalStatus($staff),
             'account_status' => $this->accountStatus($staff),
             'presence' => $this->presenceStatus($staff),
@@ -580,9 +580,9 @@ class AdminStaffController extends Controller
             ] : null,
         ];
 
-        if ($includeHistory && $profile) {
-            $result['history'] = $profile->events->map(fn (StaffApplicationEvent $event) => [
-                'id' => $event->id,
+        if ($includeHistory) {
+            $applicationHistory = ($profile?->events ?? collect())->map(fn (StaffApplicationEvent $event) => [
+                'id' => 'application-'.$event->id,
                 'event' => $event->event,
                 'from_status' => $event->from_status,
                 'to_status' => $event->to_status,
@@ -590,9 +590,52 @@ class AdminStaffController extends Controller
                 'metadata' => $event->metadata,
                 'actor_name' => $event->actor?->name,
                 'created_at' => $event->created_at,
-            ])->values();
+            ]);
+            $enforcementHistory = $staff->enforcementEvents->map(fn ($event): array => [
+                'id' => 'enforcement-'.$event->id,
+                'event' => $event->action,
+                'from_status' => null,
+                'to_status' => null,
+                'note' => $event->reason,
+                'metadata' => [
+                    'duration_days' => $event->duration_days,
+                    'suspended_until' => $event->suspended_until?->toIso8601String(),
+                ],
+                'actor_name' => $event->actor?->name,
+                'created_at' => $event->created_at,
+            ]);
+            $result['history'] = $applicationHistory
+                ->concat($enforcementHistory)
+                ->sortByDesc('created_at')
+                ->values();
         }
 
         return $result;
+    }
+
+    private function notifyEnforcement(User $user, string $action, string $reason, mixed $durationDays): void
+    {
+        $actions = match ($action) {
+            'warning' => ['warning'],
+            'suspension' => ['suspension'],
+            'warning_and_suspension' => ['warning', 'suspension'],
+            default => [],
+        };
+
+        foreach ($actions as $notificationAction) {
+            try {
+                $user->notify(new AccountEnforcementNotification(
+                    $notificationAction,
+                    $reason,
+                    $notificationAction === 'suspension' ? (int) $durationDays : null,
+                    $notificationAction === 'suspension' ? $user->suspended_until?->toIso8601String() : null,
+                ));
+            } catch (Throwable $exception) {
+                Log::warning('Account enforcement notification could not be delivered.', [
+                    'user_id' => $user->id,
+                    'action' => $notificationAction,
+                ]);
+            }
+        }
     }
 }

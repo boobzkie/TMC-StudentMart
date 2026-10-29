@@ -1,0 +1,11 @@
+# TMC STUDENTMART — AI WORKSPACE RULES
+
+## CORE DIRECTIVES
+1. EXISTING PROJECT FIRST: Work exclusively inside the existing project. Never create a second project, new project folders, or duplicate components (e.g., no *V2.jsx, *New.dart, or redundant CSS).
+2. STACK SEPARATION: Keep Laravel backend (backend/), React Admin portal (frontend/), and Flutter student app (student_app/) strictly separated.
+3. SECURITY & AUTH: Never break Laravel Sanctum authentication, authorization roles (student, staff, admin), or API behavior.
+4. INSPECT BEFORE MODIFYING: Always locate and modify existing files. Make the smallest safe change that solves the problem.
+
+## DESIGN & UI TOKENS
+- Use TMC brand tokens (Navy: #0F2C59, Deep Slate: #0F172A, Accent Blue: #0284C7, Gold: #D97706).
+- Enforce accessibility (WCAG AA), responsive viewports (320px to 1280px+), and dark/light mode compatibility.

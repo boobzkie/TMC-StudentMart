@@ -3,6 +3,8 @@
 namespace App\Http\Middleware;
 
 use Closure;
+use App\Models\User;
+use App\Services\AccountEnforcementService;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -14,6 +16,10 @@ class AdminOrStaffMiddleware
 
         if (! $user) {
             return response()->json(['success' => false, 'message' => 'Unauthenticated.'], 401);
+        }
+
+        if ($user instanceof User && $user->role === 'staff') {
+            app(AccountEnforcementService::class)->expireIfDue($user);
         }
 
         if ($user->role === 'admin') {
