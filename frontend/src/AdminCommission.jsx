@@ -1,13 +1,18 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   BadgePercent,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   CheckCircle2,
   Clock3,
   Coins,
   Pencil,
   Power,
+  RotateCcw,
   Save,
+  Search,
   ShieldCheck,
   X,
 } from "lucide-react";
@@ -26,6 +31,17 @@ const EMPTY_SUMMARY = {
   unconfigured_orders: 0,
   completed_orders: 0,
 };
+
+const RECORD_PAGE_SIZES = [10, 25, 50];
+const RATE_HISTORY_PREVIEW_COUNT = 3;
+const CHART_STATUSES = [
+  "collected",
+  "uncollected",
+  "not_due",
+  "unconfigured",
+  "historical_unrated",
+  "unknown",
+];
 
 function formatCurrency(value) {
   const amount = Number(value);
@@ -62,6 +78,7 @@ function AdminCommission() {
   const [summary, setSummary] = useState(EMPTY_SUMMARY);
   const [currentRate, setCurrentRate] = useState(null);
   const [rates, setRates] = useState([]);
+  const [showAllRates, setShowAllRates] = useState(false);
   const [records, setRecords] = useState([]);
   const [tax, setTax] = useState({ status: "unconfigured", message: "Tax is not configured." });
   const [rateDraft, setRateDraft] = useState("");
@@ -75,6 +92,12 @@ function AdminCommission() {
   const [hasLoaded, setHasLoaded] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [recordSearch, setRecordSearch] = useState("");
+  const [recordStatusFilter, setRecordStatusFilter] = useState("all");
+  const [recordDateFilter, setRecordDateFilter] = useState("all");
+  const [recordPageSize, setRecordPageSize] = useState(RECORD_PAGE_SIZES[0]);
+  const [recordPage, setRecordPage] = useState(1);
+  const [referenceTime, setReferenceTime] = useState(null);
   const requestSequenceRef = useRef(0);
 
   const loadData = useCallback(async (showRefresh = false, signal) => {
@@ -278,6 +301,68 @@ function AdminCommission() {
 
   const metricsPending = loading && !hasLoaded;
   const metricsUnavailable = !loading && !hasLoaded;
+  const taxStatusLabel = metricsPending ? "Loading" : metricsUnavailable ? "Unavailable" : "Not configured";
+  const taxSummary = metricsPending
+    ? "Tax information is loading."
+    : metricsUnavailable
+      ? "Tax information could not be loaded."
+      : "No approved tax rule is active; tax is not calculated or added to orders.";
+  const filteredRecords = useMemo(() => {
+    const query = recordSearch.trim().toLocaleLowerCase();
+    const rangeDays = Number(recordDateFilter);
+    const cutoff = referenceTime !== null && Number.isFinite(rangeDays) && rangeDays > 0
+      ? referenceTime - rangeDays * 24 * 60 * 60 * 1000
+      : null;
+
+    return records.filter((record) => {
+      const rawStatus = typeof record.status === "string" ? record.status : "unknown";
+      const status = CHART_STATUSES.includes(rawStatus) ? rawStatus : "unknown";
+      if (recordStatusFilter !== "all" && status !== recordStatusFilter) return false;
+
+      if (recordDateFilter !== "all" && cutoff === null) return false;
+      if (cutoff !== null) {
+        const completedAt = new Date(record.completed_at).getTime();
+        if (!Number.isFinite(completedAt) || completedAt < cutoff) return false;
+      }
+
+      if (!query) return true;
+      const searchable = [
+        record.order_number,
+        record.seller,
+        record.collector,
+        record.collection_reference,
+      ].filter(Boolean).join(" ").toLocaleLowerCase();
+      return searchable.includes(query);
+    });
+  }, [records, recordDateFilter, recordSearch, recordStatusFilter, referenceTime]);
+  const chartData = useMemo(() => {
+    const counts = Object.fromEntries(CHART_STATUSES.map((status) => [status, 0]));
+    filteredRecords.forEach((record) => {
+      const status = CHART_STATUSES.includes(record.status) ? record.status : "unknown";
+      counts[status] += 1;
+    });
+    const maxCount = Math.max(1, ...Object.values(counts));
+    return CHART_STATUSES.map((status) => ({
+      status,
+      label: status === "unknown" ? "Other / unknown" : statusLabel(status),
+      count: counts[status],
+      width: `${(counts[status] / maxCount) * 100}%`,
+    }));
+  }, [filteredRecords]);
+  const pageCount = Math.max(1, Math.ceil(filteredRecords.length / recordPageSize));
+  const visiblePage = Math.min(recordPage, pageCount);
+  const firstVisibleRecord = filteredRecords.length === 0
+    ? 0
+    : (visiblePage - 1) * recordPageSize + 1;
+  const lastVisibleRecord = Math.min(visiblePage * recordPageSize, filteredRecords.length);
+  const visibleRecords = filteredRecords.slice(firstVisibleRecord - 1, lastVisibleRecord);
+
+  const clearRecordFilters = () => {
+    setRecordSearch("");
+    setRecordStatusFilter("all");
+    setRecordDateFilter("all");
+    setRecordPage(1);
+  };
 
   return (
     <AdminLayout title="Commission">
@@ -296,7 +381,10 @@ function AdminCommission() {
         {error && <div className="commission-alert error" role="alert">{error}</div>}
         {success && <div className="commission-alert success" role="status">{success}</div>}
 
-        <section className="commission-overview-grid" aria-label="Commission summary">
+        <p className="commission-summary-note">
+          The commission summary cards show all-time ledger totals. Record filters below only affect the rows and chart in this view.
+        </p>
+        <section className="commission-overview-grid" aria-label="All-time commission summary">
           <MetricCard
             icon={Coins}
             label="Commission earned"
@@ -397,7 +485,7 @@ function AdminCommission() {
             <p className="commission-inline-empty" role="status">Rate history is unavailable. Refresh the page to try again.</p>
           ) : rates.length > 0 ? (
             <div className="commission-rate-list">
-              {rates.map((rate) => (
+              {rates.slice(0, showAllRates ? rates.length : RATE_HISTORY_PREVIEW_COUNT).map((rate) => (
                 <div className="commission-rate-row" key={rate.id}>
                   <strong>{rate.is_deactivation ? "Deactivated" : formatRate(rate.rate_percent)}</strong>
                   <span>Effective {formatDate(rate.effective_at)}</span>
@@ -430,30 +518,45 @@ function AdminCommission() {
               ))}
             </div>
           ) : <p className="commission-inline-empty">No commission rate has been configured.</p>}
+          {!metricsPending && !metricsUnavailable && rates.length > RATE_HISTORY_PREVIEW_COUNT && (
+            <div className="commission-history-controls">
+              <span>
+                Showing {showAllRates ? rates.length : RATE_HISTORY_PREVIEW_COUNT} of {rates.length} rate-history records.
+              </span>
+              <button
+                type="button"
+                className="commission-secondary-button"
+                aria-expanded={showAllRates}
+                onClick={() => setShowAllRates((visible) => !visible)}
+              >
+                {showAllRates ? "Show recent only" : `View all ${rates.length} records`}
+              </button>
+            </div>
+          )}
         </section>
 
-        <section className="commission-panel commission-tax-notice" aria-label="Tax configuration status">
-          <AlertTriangle size={21} />
-          <div>
-            <strong>
-              {metricsPending
-                ? "Loading tax status"
-                : metricsUnavailable
-                  ? "Tax status unavailable"
-                  : "Tax treatment is unresolved"}
-            </strong>
+        <details className="commission-panel commission-tax-notice">
+          <summary className="commission-tax-summary">
+            <span className="commission-tax-icon"><AlertTriangle size={20} aria-hidden="true" /></span>
+            <span className="commission-tax-summary-copy">
+              <strong>Tax configuration</strong>
+              <span>{taxSummary}</span>
+            </span>
+            <span className={`commission-status-badge ${metricsUnavailable ? "status-unavailable" : "status-unconfigured"}`}>
+              {taxStatusLabel}
+            </span>
+            <ChevronDown className="commission-tax-chevron" size={17} aria-hidden="true" />
+          </summary>
+          <div className="commission-tax-details">
             <p>
               {metricsPending
                 ? "Tax information will appear when commission records finish loading."
                 : metricsUnavailable
-                  ? "Tax information could not be loaded. Refresh the page to try again."
-                  : `${tax.message} No tax is added to orders, withheld, or reported as collected. Configure tax only after the applicable rule and responsible party are approved.`}
+                  ? "Refresh the page to try loading the tax status again."
+                  : `${tax.message || "No approved tax rule has been configured."} No tax is added to orders, withheld, or reported as collected. Configure tax only after the applicable rule and responsible party are approved.`}
             </p>
           </div>
-          <span className="commission-status-badge status-unconfigured">
-            {metricsPending ? "Loading" : metricsUnavailable ? "Unavailable" : "Not configured"}
-          </span>
-        </section>
+        </details>
 
         <section className="commission-panel commission-records-panel">
           <div className="commission-section-heading">
@@ -471,14 +574,118 @@ function AdminCommission() {
           </div>
           <p className="commission-muted-copy">Mark a commission collected only after the amount has actually been received. The collector and timestamp are saved for audit.</p>
 
+          <div className="commission-record-toolbar" role="group" aria-label="Commission record filters">
+            <label className="commission-filter-control commission-search-control">
+              <span>Search records</span>
+              <span className="commission-search-field">
+                <Search size={16} aria-hidden="true" />
+                <input
+                  type="search"
+                  value={recordSearch}
+                  onChange={(event) => {
+                    setRecordSearch(event.target.value);
+                    setRecordPage(1);
+                  }}
+                  placeholder="Order, seller, collector, or reference"
+                  aria-label="Search order, seller, collector, or collection reference"
+                />
+              </span>
+            </label>
+            <label className="commission-filter-control">
+              <span>Collection status</span>
+              <select
+                value={recordStatusFilter}
+                onChange={(event) => {
+                  setRecordStatusFilter(event.target.value);
+                  setRecordPage(1);
+                }}
+              >
+                <option value="all">All statuses</option>
+                {CHART_STATUSES.map((status) => (
+                  <option key={status} value={status}>{status === "unknown" ? "Other / unknown" : statusLabel(status)}</option>
+                ))}
+              </select>
+            </label>
+            <label className="commission-filter-control">
+              <span>Completion date</span>
+              <select
+                value={recordDateFilter}
+                onChange={(event) => {
+                  setRecordDateFilter(event.target.value);
+                  setReferenceTime(Date.now());
+                  setRecordPage(1);
+                }}
+              >
+                <option value="all">All available dates</option>
+                <option value="30">Last 30 days</option>
+                <option value="90">Last 90 days</option>
+                <option value="365">Last 12 months</option>
+              </select>
+            </label>
+            {(recordSearch || recordStatusFilter !== "all" || recordDateFilter !== "all") && (
+              <button type="button" className="commission-secondary-button commission-clear-filters" onClick={clearRecordFilters}>
+                <RotateCcw size={15} aria-hidden="true" />
+                Clear filters
+              </button>
+            )}
+          </div>
+
+          <p className="commission-record-scope">
+            The API provides up to 200 of the most recent completed orders for this table. Filters and chart use those loaded records; totals above remain all-time.
+          </p>
+
+          {hasLoaded && (
+            <section
+              className="commission-status-chart"
+              aria-label="Commission record status chart"
+            >
+              <div className="commission-status-chart-heading">
+                <div>
+                  <h4>Commission records by status</h4>
+                  <p>Counts for the records matching the filters above.</p>
+                </div>
+                <span>{filteredRecords.length} {filteredRecords.length === 1 ? "record" : "records"}</span>
+              </div>
+              {filteredRecords.length === 0 ? (
+                <p className="commission-chart-empty" role="status">
+                  {records.length === 0
+                    ? "No completed-order records are available to chart yet."
+                    : "No commission records match the selected filters."}
+                </p>
+              ) : (
+                <div
+                  className="commission-status-chart-bars"
+                  role="img"
+                  aria-label={`Filtered commission record counts: ${chartData.map(({ label, count }) => `${label}: ${count}`).join(", ")}`}
+                >
+                  {chartData.filter(({ count }) => count > 0).map(({ status, label, count, width }) => (
+                    <div className="commission-status-bar-row" key={status}>
+                      <span>{label}</span>
+                      <span className="commission-status-bar-track" aria-hidden="true">
+                        <span className={`commission-status-bar-fill status-${status}`} style={{ width }} />
+                      </span>
+                      <strong>{count}</strong>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
+
           {loading ? (
             <div className="commission-table-message" role="status">Loading commission records…</div>
           ) : !hasLoaded ? (
             <div className="commission-table-message" role="status">Commission records are unavailable. Refresh the page to try again.</div>
           ) : records.length === 0 ? (
             <div className="commission-table-message">No completed orders yet. Commission records will appear after an order is completed.</div>
+          ) : filteredRecords.length === 0 ? (
+            <div className="commission-table-message">
+              <span>No records match these filters.</span>
+              <button type="button" className="commission-secondary-button" onClick={clearRecordFilters}>Clear filters</button>
+            </div>
           ) : (
             <div className="commission-table-wrap">
+              <p className="commission-table-scroll-hint">On smaller screens, scroll the table horizontally to view all columns.</p>
               <table className="commission-table">
                 <thead>
                   <tr>
@@ -492,7 +699,7 @@ function AdminCommission() {
                   </tr>
                 </thead>
                 <tbody>
-                  {records.map((record) => (
+                  {visibleRecords.map((record) => (
                     <tr key={record.order_id}>
                       <td><strong>{record.order_number}</strong><small>{record.seller}</small></td>
                       <td>{formatDate(record.completed_at)}</td>
@@ -515,6 +722,47 @@ function AdminCommission() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+          {hasLoaded && filteredRecords.length > 0 && (
+            <div className="commission-pagination" role="group" aria-label="Commission record pagination">
+              <label className="commission-page-size">
+                <span>Rows per page</span>
+                <select
+                  value={recordPageSize}
+                  onChange={(event) => {
+                    setRecordPageSize(Number(event.target.value));
+                    setRecordPage(1);
+                  }}
+                  aria-label="Rows per page"
+                >
+                  {RECORD_PAGE_SIZES.map((size) => <option key={size} value={size}>{size}</option>)}
+                </select>
+              </label>
+              <span className="commission-pagination-count" aria-live="polite">
+                Showing {firstVisibleRecord}–{lastVisibleRecord} of {filteredRecords.length} matching loaded records
+              </span>
+              <div className="commission-pagination-actions">
+                <button
+                  type="button"
+                  className="commission-pagination-button"
+                  aria-label="Previous commission records page"
+                  onClick={() => setRecordPage((page) => Math.max(1, page - 1))}
+                  disabled={visiblePage <= 1}
+                >
+                  <ChevronLeft size={17} aria-hidden="true" />
+                </button>
+                <span>Page {visiblePage} of {pageCount}</span>
+                <button
+                  type="button"
+                  className="commission-pagination-button"
+                  aria-label="Next commission records page"
+                  onClick={() => setRecordPage((page) => Math.min(pageCount, page + 1))}
+                  disabled={visiblePage >= pageCount}
+                >
+                  <ChevronRight size={17} aria-hidden="true" />
+                </button>
+              </div>
             </div>
           )}
           {summary.unconfigured_orders > 0 && (

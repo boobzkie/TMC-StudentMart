@@ -221,7 +221,7 @@
 .activity-actor-role,.activity-action-target { margin-top: 3px; color: var(--tmc-admin-secondary); font-size: 12px; }
 .activity-date-cell { min-width: 160px; color: var(--tmc-admin-secondary); white-space: nowrap; }
 .activity-category-badge,.activity-record-status { display: inline-flex; min-height: 23px; align-items: center; padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; }
-.activity-category-badge.user { color: var(--tmc-admin-primary); background: var(--tmc-admin-accent-soft); }
+.activity-category-badge.account { color: var(--tmc-admin-primary); background: var(--tmc-admin-accent-soft); }
 .activity-category-badge.product { color: var(--tmc-admin-success); background: var(--tmc-admin-success-soft); }
 .activity-category-badge.order { color: var(--tmc-admin-warning); background: var(--tmc-admin-warning-soft); }
 .activity-category-badge.moderation { color: var(--tmc-admin-info); background: var(--tmc-admin-info-soft); }

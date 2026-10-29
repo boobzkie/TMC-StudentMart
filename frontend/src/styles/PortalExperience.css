@@ -670,7 +670,15 @@ button, input, select, textarea { font-family: inherit; }
   .admin-layout[data-mobile-open="true"][data-sidebar-collapsed="true"] .admin-sidebar .admin-logout-button { justify-content: flex-start; padding-inline: 11px; }
   .admin-layout[data-mobile-open="true"][data-sidebar-collapsed="true"] .admin-sidebar-footer { padding-inline: 12px !important; }
   .admin-header { min-height: 66px; }
-  .admin-page-heading p { display: none; }
+  .admin-page-heading p {
+    display: block;
+    max-width: 100%;
+    margin: 4px 0 0;
+    color: var(--portal-muted);
+    font-size: 12px;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+  }
   .admin-layout .admin-content { padding: 18px 18px 26px; }
   .login-page .auth-shell,
   .staff-registration-page .auth-shell { padding-top: 76px; }

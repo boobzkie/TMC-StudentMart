@@ -239,6 +239,8 @@ void main() {
     expect(find.text('Order details'), findsOneWidget);
     expect(find.text('Order progress'), findsOneWidget);
     expect(find.text('Test Seller'), findsOneWidget);
+    expect(find.text('Payment status'), findsOneWidget);
+    expect(find.text('Unpaid'), findsOneWidget);
     expect(reads, 2);
 
     await tester.tap(find.byTooltip('Refresh order'));
@@ -246,6 +248,47 @@ void main() {
     expect(reads, 3);
     expect(
       find.text('Current status · Seller marked the order ready'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('buyer sees when an Admin has marked an order paid', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final client = MockClient((request) async {
+      return http.Response(
+        jsonEncode({
+          'success': true,
+          'orders': [_testOrder(301, 'completed', paymentStatus: 'paid')],
+        }),
+        200,
+      );
+    });
+
+    await tester.pumpWidget(
+      Provider<ApiService>.value(
+        value: ApiService(client: client),
+        child: const MaterialApp(home: OrdersPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Completed (1)'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('View order details'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Payment status'), findsOneWidget);
+    expect(find.text('Paid · marked by Admin'), findsOneWidget);
+    expect(
+      find.textContaining(
+        'Only an authorized Admin can mark an order as paid.',
+      ),
       findsOneWidget,
     );
   });
@@ -287,10 +330,15 @@ void main() {
   });
 }
 
-Map<String, dynamic> _testOrder(int id, String status) => {
+Map<String, dynamic> _testOrder(
+  int id,
+  String status, {
+  String paymentStatus = 'unpaid',
+}) => {
   'id': id,
   'order_number': 'TMC-TEST-$id',
   'status': status,
+  'payment_status': paymentStatus,
   'total_amount': '125.50',
   'buyer_note': null,
   'seller_note': null,

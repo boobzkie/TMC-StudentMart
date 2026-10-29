@@ -101,6 +101,7 @@ class _OrderDetails extends StatelessWidget {
     final seller = asMap(order['seller']);
     final buyer = asMap(order['buyer']);
     final paymentMethod = asMap(order['payment_method']);
+    final paymentStatus = valueOf(order['payment_status']).toLowerCase();
     final pickupLocation = asMap(order['pickup_location']);
     final otherParty = selling ? buyer : seller;
     final rows = order['items'];
@@ -221,8 +222,20 @@ class _OrderDetails extends StatelessWidget {
                 prominent: true,
               ),
               const SizedBox(height: 8),
+              _Info(
+                label: 'Payment status',
+                value: switch (paymentStatus) {
+                  'paid' => 'Paid · marked by Admin',
+                  'unpaid' => 'Unpaid',
+                  _ =>
+                    paymentStatus.isEmpty
+                        ? 'Not provided'
+                        : paymentStatus.replaceAll('_', ' '),
+                },
+              ),
+              const SizedBox(height: 8),
               const Text(
-                'The payment method records the agreed arrangement only. This app does not collect or verify payment.',
+                'The payment method records the agreed arrangement only. This app does not collect or verify payment. Only an authorized Admin can mark an order as paid.',
                 style: TextStyle(
                   color: TmcPalette.darkGray,
                   fontSize: 12,

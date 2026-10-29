@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AdminActivityLogController;
 use App\Http\Controllers\AdminCategoryController;
 use App\Http\Controllers\AdminCommissionController;
 use App\Http\Controllers\AdminComplaintController;
@@ -443,6 +444,11 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/stats', [
                 AdminController::class,
                 'stats',
+            ]);
+
+            Route::get('/activity-logs', [
+                AdminActivityLogController::class,
+                'index',
             ]);
 
             Route::get('/orders', [

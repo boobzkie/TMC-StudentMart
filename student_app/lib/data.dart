@@ -418,8 +418,17 @@ class ApiService {
     }
 
     try {
-      final streamed = await _client.send(request);
-      return _decode(await http.Response.fromStream(streamed));
+      const uploadTimeout = Duration(seconds: 30);
+      final stopwatch = Stopwatch()..start();
+      final streamed = await _client.send(request).timeout(uploadTimeout);
+      final remaining = uploadTimeout - stopwatch.elapsed;
+      if (remaining <= Duration.zero) {
+        throw TimeoutException('Product upload timed out after 30 seconds.');
+      }
+      final response = await http.Response.fromStream(streamed).timeout(
+        remaining,
+      );
+      return _decode(response);
     } on SocketException {
       throw ApiException(
         'No internet connection. The device cannot reach the network at all. Check Wi-Fi or mobile data.',
