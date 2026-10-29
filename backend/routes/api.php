@@ -471,6 +471,16 @@ Route::middleware('auth:sanctum')->group(function () {
                 'storeRate',
             ]);
 
+            Route::put('/commission/rates/{commissionRate}', [
+                AdminCommissionController::class,
+                'updateRate',
+            ]);
+
+            Route::delete('/commission/rates/{commissionRate}', [
+                AdminCommissionController::class,
+                'deactivateRate',
+            ]);
+
             Route::put(
                 '/order-commissions/{orderCommission}/collect',
                 [AdminCommissionController::class, 'collect']

@@ -1266,13 +1266,33 @@ class CartState extends ChangeNotifier {
     final entry = CartEntry(product, 1, variant: variant);
     final old = _entries[entry.key];
     if ((old?.quantity ?? 0) >= entry.availableStock) return false;
-    _entries[entry.key] = CartEntry(
+    final optimisticEntry = CartEntry(
       product,
       (old?.quantity ?? 0) + 1,
       variant: variant,
     );
-    await _save();
+    _entries[entry.key] = optimisticEntry;
     notifyListeners();
+
+    try {
+      await _save();
+    } catch (_) {
+      final current = _entries[entry.key];
+      if (current != null) {
+        final rolledBackQuantity = current.quantity - 1;
+        if (rolledBackQuantity <= 0) {
+          _entries.remove(entry.key);
+        } else {
+          _entries[entry.key] = CartEntry(
+            current.product,
+            rolledBackQuantity,
+            variant: current.variant,
+          );
+        }
+        notifyListeners();
+      }
+      rethrow;
+    }
     return true;
   }
 

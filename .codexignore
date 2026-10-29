@@ -1,33 +1,111 @@
-# Dependencies & Framework Builds
+
+# ==========================================
+# TMC STUDENTMART - CODEX CONTEXT OPTIMIZATION
+# Keep source code and essential documentation accessible.
+# Exclude generated, temporary, and bulky files.
+# ==========================================
+
+# 1. Dependencies
 **/node_modules/
 **/vendor/
+**/.venv/
+**/venv/
+**/__pycache__/
+
+# 2. Build outputs and compiled files
 **/dist/
 **/build/
+**/out/
+**/.next/
+**/.nuxt/
+**/.output/
 **/.dart_tool/
 **/.pub-cache/
+**/coverage/
+**/target/
 
-# Logs & Temporary Files
+# 3. Logs and temporary files
 *.log
-*.err
+*.log.*
+*.tmp
+*.temp
+*.stackdump
 flutter_analyze*.log
 serve.log
 serve.err
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
 
-# Storage & Large Uploads
-backend/storage/app/
-backend/storage/framework/
-
-
-# Cache & Compiled Files
+# 4. Caches
 **/.cache/
-*/storage/.key
 **/.parcel-cache/
 **/.turbo/
-.next/
-.nuxt/
+**/.eslintcache
+**/.pytest_cache/
+**/.mypy_cache/
+**/.gradle/
+**/.idea/
+**/.sass-cache/
 
-# Archives & Large Backups (since you have a backup folder in your project)
-*.zip
-*.tar.gz
-*.rar
-backup/
+# 5. Framework and tool-generated files
+**/.DS_Store
+**/Thumbs.db
+**/.vercel/
+**/.netlify/
+
+# 6. Large archives and backup copies
+**/*.zip
+**/*.tar
+**/*.tar.gz
+**/*.tgz
+**/*.rar
+**/*.7z
+**/*.bak
+**/*.old
+**/*.orig
+
+# 7. Project backups
+/backup/
+/backups/
+**/backup/
+/**/backups/
+
+# 8. Uploaded files and generated storage
+# Keep application source code accessible.
+backend/storage/app/*
+backend/storage/framework/cache/
+backend/storage/framework/sessions/
+backend/storage/framework/views/
+
+# 9. Frontend dependencies and generated assets
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/.next/
+frontend/.nuxt/
+
+# 10. Flutter-generated files
+student_app/.dart_tool/
+student_app/build/
+student_app/.flutter-plugins
+student_app/.flutter-plugins-dependencies
+
+# 11. Local environment secrets
+.env
+.env.*
+!.env.example
+!.env.sample
+
+# 12. Generated database and export files
+*.sqlite
+*.sqlite3
+*.db-journal
+*.dump
+*.sql.gz
+
+# ==========================================
+# DO NOT IGNORE:
+# Source code, configuration, migrations,
+# essential docs, tests, and project instructions.
+# ==========================================

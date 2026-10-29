@@ -564,6 +564,9 @@ class ProductCard extends StatelessWidget {
     this.management = false,
     this.imageHeight = 132,
     this.showSeller = false,
+    this.showSellerAvatar = false,
+    this.showViewAction = false,
+    this.onSellerTap,
   });
   final Product product;
   final VoidCallback onTap;
@@ -572,6 +575,9 @@ class ProductCard extends StatelessWidget {
   final bool management;
   final double imageHeight;
   final bool showSeller;
+  final bool showSellerAvatar;
+  final bool showViewAction;
+  final VoidCallback? onSellerTap;
 
   @override
   Widget build(BuildContext context) {
@@ -663,16 +669,49 @@ class ProductCard extends StatelessWidget {
                   ),
                 ),
                 if (showSeller && product.sellerName.isNotEmpty) ...[
-                  const SizedBox(height: 3),
-                  Text(
-                    'Sold by ${product.sellerName}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: TmcPalette.textSoft,
-                      fontSize: 12,
+                  SizedBox(height: showSellerAvatar ? 6 : 3),
+                  if (showSellerAvatar)
+                    InkWell(
+                      onTap: onSellerTap,
+                      borderRadius: BorderRadius.circular(TmcRadius.pill),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: Row(
+                          children: [
+                            _ProductSellerAvatar(product: product, size: 30),
+                            const SizedBox(width: 7),
+                            Expanded(
+                              child: Text(
+                                product.sellerName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: TmcPalette.text,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            if (onSellerTap != null)
+                              const Icon(
+                                Icons.chevron_right,
+                                size: 18,
+                                color: TmcPalette.textSoft,
+                              ),
+                          ],
+                        ),
+                      ),
+                    )
+                  else
+                    Text(
+                      'Sold by ${product.sellerName}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: TmcPalette.textSoft,
+                        fontSize: 12,
+                      ),
                     ),
-                  ),
                 ],
                 if (!management) ...[
                   const SizedBox(height: 2),
@@ -693,44 +732,127 @@ class ProductCard extends StatelessWidget {
                 if (onAdd != null) ...[
                   const Spacer(),
                   const SizedBox(height: 7),
-                  SizedBox(
-                    width: double.infinity,
-                    child: Tooltip(
-                      message: isOwnListing
-                          ? 'You cannot purchase your own product.'
-                          : soldOut
-                          ? 'This product is sold out.'
-                          : 'Add this product to your cart.',
-                      child: OutlinedButton.icon(
-                        onPressed: isOwnListing || soldOut ? null : onAdd,
-                        icon: Icon(
-                          isOwnListing
-                              ? Icons.storefront_outlined
-                              : soldOut
-                              ? Icons.remove_shopping_cart_outlined
-                              : Icons.add_shopping_cart,
-                          size: 17,
+                  if (showViewAction)
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextButton.icon(
+                            onPressed: onTap,
+                            icon: const Icon(Icons.arrow_forward, size: 17),
+                            label: const Text('View'),
+                            style: TextButton.styleFrom(
+                              minimumSize: const Size(48, 40),
+                              foregroundColor: TmcPalette.navyBlue,
+                            ),
+                          ),
                         ),
-                        label: Text(
-                          isOwnListing
-                              ? 'Your listing'
+                        Tooltip(
+                          message: isOwnListing
+                              ? 'You cannot purchase your own product.'
                               : soldOut
-                              ? 'Sold out'
-                              : 'Add to cart',
+                              ? 'This product is sold out.'
+                              : 'Add this product to your cart.',
+                          child: IconButton.filledTonal(
+                            onPressed: isOwnListing || soldOut ? null : onAdd,
+                            icon: Icon(
+                              isOwnListing
+                                  ? Icons.storefront_outlined
+                                  : soldOut
+                                  ? Icons.remove_shopping_cart_outlined
+                                  : Icons.add_shopping_cart,
+                              size: 18,
+                            ),
+                            style: IconButton.styleFrom(
+                              minimumSize: const Size(42, 40),
+                              foregroundColor: TmcPalette.navyBlue,
+                              backgroundColor: TmcPalette.primarySoft,
+                            ),
+                          ),
                         ),
-                        style: OutlinedButton.styleFrom(
-                          minimumSize: const Size(48, 40),
-                          foregroundColor: TmcPalette.navyBlue,
-                          visualDensity: VisualDensity.compact,
+                      ],
+                    )
+                  else
+                    SizedBox(
+                      width: double.infinity,
+                      child: Tooltip(
+                        message: isOwnListing
+                            ? 'You cannot purchase your own product.'
+                            : soldOut
+                            ? 'This product is sold out.'
+                            : 'Add this product to your cart.',
+                        child: OutlinedButton.icon(
+                          onPressed: isOwnListing || soldOut ? null : onAdd,
+                          icon: Icon(
+                            isOwnListing
+                                ? Icons.storefront_outlined
+                                : soldOut
+                                ? Icons.remove_shopping_cart_outlined
+                                : Icons.add_shopping_cart,
+                            size: 17,
+                          ),
+                          label: Text(
+                            isOwnListing
+                                ? 'Your listing'
+                                : soldOut
+                                ? 'Sold out'
+                                : 'Add to cart',
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size(48, 40),
+                            foregroundColor: TmcPalette.navyBlue,
+                            visualDensity: VisualDensity.compact,
+                          ),
                         ),
                       ),
                     ),
-                  ),
                 ],
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _ProductSellerAvatar extends StatelessWidget {
+  const _ProductSellerAvatar({required this.product, required this.size});
+
+  final Product product;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final nameParts = product.sellerName
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty)
+        .take(2);
+    final initials = nameParts.map((part) => part[0].toUpperCase()).join();
+    final fallback = CircleAvatar(
+      radius: size / 2,
+      backgroundColor: TmcPalette.paleBlue,
+      child: Text(
+        initials.isEmpty ? 'S' : initials,
+        style: TextStyle(
+          color: TmcPalette.deepNavy,
+          fontSize: size * .28,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+    final path = product.sellerProfilePicture;
+    final url = path == null || path.isEmpty
+        ? ''
+        : ApiService.imageUrlFor(path);
+    if (url.isEmpty) return fallback;
+    return ClipOval(
+      child: Image.network(
+        url,
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => fallback,
       ),
     );
   }

@@ -47,6 +47,28 @@ void main() {
     expect(find.text('Second book'), findsOneWidget);
   });
 
+  testWidgets('Feed actions stay collapsed until product actions are opened', (
+    tester,
+  ) async {
+    _setPhoneViewport(tester);
+    await _pumpHome(tester, [_product(id: 9, name: 'Action menu listing')]);
+
+    expect(find.byTooltip('Product actions'), findsOneWidget);
+    expect(find.byTooltip('Add to cart'), findsNothing);
+    expect(find.byTooltip('Details'), findsNothing);
+
+    await tester.tap(find.byTooltip('Product actions'));
+    await tester.tap(find.byTooltip('Product actions'));
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('Add to cart'), findsOneWidget);
+    expect(find.byTooltip('Details'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('feed-speed-dial-backdrop')),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('Follow uses the existing API and cart action uses CartState', (
     tester,
   ) async {
@@ -55,6 +77,8 @@ void main() {
       _product(id: 2, name: 'Course book', sellerId: 20),
     ]);
 
+    await tester.tap(find.byTooltip('Product actions'));
+    await tester.pumpAndSettle();
     expect(find.byTooltip('Follow seller'), findsOneWidget);
     await tester.tap(find.byTooltip('Follow seller'));
     await tester.pumpAndSettle();
@@ -91,6 +115,8 @@ void main() {
       ),
     ]);
 
+    await tester.tap(find.byTooltip('Product actions'));
+    await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Details'));
     await tester.pumpAndSettle();
     expect(find.text('Product details'), findsWidgets);
@@ -155,6 +181,8 @@ void main() {
       _product(id: 7, name: 'Verified review listing'),
     ], canReview: true);
 
+    await tester.tap(find.byTooltip('Product actions'));
+    await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Details'));
     await tester.pumpAndSettle();
     expect(
@@ -194,7 +222,7 @@ void main() {
     );
   });
 
-  testWidgets('Home feed lays out without overflow on tablet and desktop', (
+  testWidgets('Home feed lays out without overflow from phone to desktop', (
     tester,
   ) async {
     tester.view.devicePixelRatio = 1;
@@ -202,6 +230,8 @@ void main() {
     await _pumpHome(tester, [_product(id: 6, name: 'Responsive listing')]);
 
     for (final size in const [
+      Size(320, 800),
+      Size(360, 800),
       Size(1280, 800),
       Size(900, 900),
       Size(720, 900),
@@ -223,6 +253,8 @@ void main() {
     await _pumpHome(tester, [
       _product(id: 8, name: 'Responsive detail listing'),
     ]);
+    await tester.tap(find.byTooltip('Product actions'));
+    await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Details'));
     await tester.pumpAndSettle();
 

@@ -10,6 +10,7 @@ class CommissionRate extends Model
 {
     protected $fillable = [
         'rate_percent',
+        'is_deactivation',
         'effective_at',
         'configured_by',
     ];
@@ -18,6 +19,7 @@ class CommissionRate extends Model
     {
         return [
             'rate_percent' => 'decimal:4',
+            'is_deactivation' => 'boolean',
             'effective_at' => 'datetime',
         ];
     }

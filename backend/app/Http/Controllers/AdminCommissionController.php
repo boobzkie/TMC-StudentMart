@@ -29,11 +29,14 @@ class AdminCommissionController extends Controller
         $unconfiguredCount = (clone $ledger)->where('status', 'unconfigured')->count()
             + Order::query()->where('status', 'completed')->whereDoesntHave('commission')->count();
 
-        $currentRate = CommissionRate::query()
+        $latestRate = CommissionRate::query()
             ->where('effective_at', '<=', now())
             ->orderByDesc('effective_at')
             ->orderByDesc('id')
             ->first();
+        $currentRate = $latestRate && ! $latestRate->is_deactivation
+            ? $latestRate
+            : null;
 
         $rates = CommissionRate::query()
             ->with('configuredBy:id,name')
@@ -46,6 +49,7 @@ class AdminCommissionController extends Controller
                 'rate_percent' => $rate->rate_percent,
                 'effective_at' => $rate->effective_at?->toIso8601String(),
                 'configured_by' => $rate->configuredBy?->name,
+                'is_deactivation' => $rate->is_deactivation,
             ])
             ->values();
 
@@ -107,7 +111,7 @@ class AdminCommissionController extends Controller
 
             $ratePercent = number_format((float) $validated['rate_percent'], 4, '.', '');
 
-            if ($currentRate && (float) $currentRate->rate_percent === (float) $ratePercent) {
+            if ($currentRate && ! $currentRate->is_deactivation && (float) $currentRate->rate_percent === (float) $ratePercent) {
                 throw ValidationException::withMessages([
                     'rate_percent' => ['This commission rate is already active.'],
                 ]);
@@ -115,6 +119,7 @@ class AdminCommissionController extends Controller
 
             return CommissionRate::query()->create([
                 'rate_percent' => $ratePercent,
+                'is_deactivation' => false,
                 'effective_at' => now(),
                 'configured_by' => $request->user()->id,
             ]);
@@ -127,6 +132,89 @@ class AdminCommissionController extends Controller
                 'id' => $rate->id,
                 'rate_percent' => $rate->rate_percent,
                 'effective_at' => $rate->effective_at?->toIso8601String(),
+            ],
+        ], 201);
+    }
+
+    public function updateRate(Request $request, CommissionRate $commissionRate): JsonResponse
+    {
+        $validated = $request->validate([
+            'rate_percent' => ['required', 'numeric', 'min:0', 'max:100'],
+        ]);
+
+        $rate = DB::transaction(function () use ($request, $validated, $commissionRate): CommissionRate {
+            $latestRate = CommissionRate::query()
+                ->where('effective_at', '<=', now())
+                ->orderByDesc('effective_at')
+                ->orderByDesc('id')
+                ->lockForUpdate()
+                ->first();
+
+            if (! $latestRate || $latestRate->is_deactivation || $latestRate->id !== $commissionRate->id) {
+                throw ValidationException::withMessages([
+                    'rate' => ['Only the current active rate can be updated. Refresh the page and try again.'],
+                ]);
+            }
+
+            $ratePercent = number_format((float) $validated['rate_percent'], 4, '.', '');
+            if ((float) $latestRate->rate_percent === (float) $ratePercent) {
+                throw ValidationException::withMessages([
+                    'rate_percent' => ['This commission rate is already active.'],
+                ]);
+            }
+
+            return CommissionRate::query()->create([
+                'rate_percent' => $ratePercent,
+                'is_deactivation' => false,
+                'effective_at' => now(),
+                'configured_by' => $request->user()->id,
+            ]);
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Commission rate updated for future completed orders. Earlier rate history and order snapshots remain unchanged.',
+            'rate' => [
+                'id' => $rate->id,
+                'rate_percent' => $rate->rate_percent,
+                'effective_at' => $rate->effective_at?->toIso8601String(),
+                'is_deactivation' => $rate->is_deactivation,
+            ],
+        ], 201);
+    }
+
+    public function deactivateRate(Request $request, CommissionRate $commissionRate): JsonResponse
+    {
+        $deactivation = DB::transaction(function () use ($request, $commissionRate): CommissionRate {
+            $latestRate = CommissionRate::query()
+                ->where('effective_at', '<=', now())
+                ->orderByDesc('effective_at')
+                ->orderByDesc('id')
+                ->lockForUpdate()
+                ->first();
+
+            if (! $latestRate || $latestRate->is_deactivation || $latestRate->id !== $commissionRate->id) {
+                throw ValidationException::withMessages([
+                    'rate' => ['Only the current active rate can be deactivated. Refresh the page and try again.'],
+                ]);
+            }
+
+            return CommissionRate::query()->create([
+                'rate_percent' => '0.0000',
+                'is_deactivation' => true,
+                'effective_at' => now(),
+                'configured_by' => $request->user()->id,
+            ]);
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Commission rate deactivated for future completed orders. Earlier rate history and order snapshots remain unchanged.',
+            'rate' => [
+                'id' => $deactivation->id,
+                'rate_percent' => $deactivation->rate_percent,
+                'effective_at' => $deactivation->effective_at?->toIso8601String(),
+                'is_deactivation' => $deactivation->is_deactivation,
             ],
         ], 201);
     }

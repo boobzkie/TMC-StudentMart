@@ -32,14 +32,15 @@ class CommissionRecordingService
             ]);
         }
 
-        $ratePercent = (float) $rate->rate_percent;
+        $ratePercent = $rate->is_deactivation ? 0.0 : (float) $rate->rate_percent;
+        $rateSnapshot = $rate->is_deactivation ? '0.0000' : $rate->rate_percent;
         $commissionAmount = number_format(round(((float) $order->total_amount * $ratePercent) / 100, 2), 2, '.', '');
 
         return OrderCommission::query()->create([
             'order_id' => $order->id,
             'commission_rate_id' => $rate->id,
             'sale_amount' => $order->total_amount,
-            'rate_percent' => $rate->rate_percent,
+            'rate_percent' => $rateSnapshot,
             'commission_amount' => $commissionAmount,
             'status' => $ratePercent > 0 ? 'uncollected' : 'not_due',
             'earned_at' => $completedAt,

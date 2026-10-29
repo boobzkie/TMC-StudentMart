@@ -5,8 +5,11 @@ import {
   CheckCircle2,
   Clock3,
   Coins,
+  Pencil,
+  Power,
   Save,
   ShieldCheck,
+  X,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -62,10 +65,12 @@ function AdminCommission() {
   const [records, setRecords] = useState([]);
   const [tax, setTax] = useState({ status: "unconfigured", message: "Tax is not configured." });
   const [rateDraft, setRateDraft] = useState("");
+  const [editingRateId, setEditingRateId] = useState(null);
   const [collectionDraft, setCollectionDraft] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [savingRate, setSavingRate] = useState(false);
+  const [deactivatingRateId, setDeactivatingRateId] = useState(null);
   const [savingCollection, setSavingCollection] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -147,21 +152,30 @@ function AdminCommission() {
     }
 
     const rateLabel = `${parsedRate}%`;
-    if (!window.confirm(`Activate a ${rateLabel} commission rate now? It will only apply when orders are completed from now on.`)) {
+    const isEditing = editingRateId !== null;
+    const confirmation = isEditing
+      ? `Update the commission rate to ${rateLabel} now?`
+      : `Activate a ${rateLabel} commission rate now?`;
+    if (!window.confirm(`${confirmation} This creates a new effective version and only affects orders completed from now on. Earlier history and order snapshots remain unchanged.`)) {
       return;
     }
 
     setSavingRate(true);
     try {
-      const response = await fetch(API_URL + "/admin/commission/rates", {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          Authorization: "Bearer " + localStorage.getItem("token"),
+      const response = await fetch(
+        isEditing
+          ? `${API_URL}/admin/commission/rates/${editingRateId}`
+          : API_URL + "/admin/commission/rates",
+        {
+          method: isEditing ? "PUT" : "POST",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + localStorage.getItem("token"),
+          },
+          body: JSON.stringify({ rate_percent: parsedRate }),
         },
-        body: JSON.stringify({ rate_percent: parsedRate }),
-      });
+      );
       const payload = await response.json();
       if (!response.ok) {
         const firstError = Object.values(payload.errors || {})[0];
@@ -169,12 +183,57 @@ function AdminCommission() {
       }
 
       setRateDraft("");
-      setSuccess(payload.message || "Commission rate activated.");
+      setEditingRateId(null);
+      setSuccess(payload.message || (isEditing ? "Commission rate updated." : "Commission rate activated."));
       await loadData(true);
     } catch (saveError) {
       setError(saveError.message || "Unable to save the commission rate.");
     } finally {
       setSavingRate(false);
+    }
+  };
+
+  const editRate = (rate) => {
+    setError("");
+    setSuccess("");
+    setRateDraft(String(Number(rate.rate_percent)));
+    setEditingRateId(rate.id);
+  };
+
+  const cancelRateEdit = () => {
+    setRateDraft("");
+    setEditingRateId(null);
+  };
+
+  const deactivateRate = async (rate) => {
+    if (!window.confirm("Deactivate the current commission rate? Orders completed from now on will have no commission due. The rate history and completed-order snapshots will be preserved.")) {
+      return;
+    }
+
+    setError("");
+    setSuccess("");
+    setDeactivatingRateId(rate.id);
+    try {
+      const response = await fetch(`${API_URL}/admin/commission/rates/${rate.id}`, {
+        method: "DELETE",
+        headers: {
+          Accept: "application/json",
+          Authorization: "Bearer " + localStorage.getItem("token"),
+        },
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        const firstError = Object.values(payload.errors || {})[0];
+        throw new Error(firstError?.[0] || payload.message || "Unable to deactivate the commission rate.");
+      }
+
+      cancelRateEdit();
+      setSuccess(payload.message || "Commission rate deactivated for future orders.");
+      await loadData(true);
+    } catch (deactivationError) {
+      setError(deactivationError.message || "Unable to deactivate the commission rate.");
+    } finally {
+      setDeactivatingRateId(null);
     }
   };
 
@@ -226,7 +285,7 @@ function AdminCommission() {
           refreshing={loading || refreshing}
           autoRefreshIntervalMs={120_000}
           autoRefreshKey="commission"
-          autoRefreshPaused={Boolean(rateDraft || collectionDraft || savingRate || savingCollection)}
+          autoRefreshPaused={Boolean(rateDraft || editingRateId || collectionDraft || savingRate || savingCollection || deactivatingRateId)}
         />
 
         {error && <div className="commission-alert error" role="alert">{error}</div>}
@@ -250,7 +309,7 @@ function AdminCommission() {
           <p className="commission-muted-copy">A new rate takes effect immediately for orders completed from that time forward. Existing rate snapshots are kept unchanged. Commission is based on the order total and is recorded when the seller completes the handover.</p>
           <form className="commission-rate-form" onSubmit={saveRate}>
             <label>
-              <span>New commission rate (%)</span>
+              <span>{editingRateId === null ? "New commission rate (%)" : "Updated commission rate (%)"}</span>
               <input
                 type="number"
                 min="0"
@@ -259,23 +318,59 @@ function AdminCommission() {
                 inputMode="decimal"
                 value={rateDraft}
                 onChange={(event) => setRateDraft(event.target.value)}
-                placeholder="Enter an Admin-approved rate"
+                placeholder={editingRateId === null ? "Enter an Admin-approved rate" : "Enter the replacement rate"}
                 required
+                disabled={savingRate || deactivatingRateId !== null}
               />
             </label>
-            <button type="submit" className="commission-primary-button" disabled={savingRate || !rateDraft}>
+            <button type="submit" className="commission-primary-button" disabled={savingRate || deactivatingRateId !== null || !rateDraft}>
               <Save size={16} />
-              {savingRate ? "Saving" : "Activate rate"}
+              {savingRate ? "Saving" : editingRateId === null ? "Activate rate" : "Save new version"}
             </button>
+            {editingRateId !== null && (
+              <button
+                type="button"
+                className="commission-secondary-button"
+                onClick={cancelRateEdit}
+                disabled={savingRate || deactivatingRateId !== null}
+              >
+                <X size={16} />
+                Cancel
+              </button>
+            )}
           </form>
-          <div className="commission-history-heading"><strong>Rate history</strong><span>Changes are append-only.</span></div>
+          <div className="commission-history-heading"><strong>Rate history</strong><span>Updates add a version; deactivation preserves history.</span></div>
           {rates.length > 0 ? (
             <div className="commission-rate-list">
               {rates.map((rate) => (
                 <div className="commission-rate-row" key={rate.id}>
-                  <strong>{formatRate(rate.rate_percent)}</strong>
+                  <strong>{rate.is_deactivation ? "Deactivated" : formatRate(rate.rate_percent)}</strong>
                   <span>Effective {formatDate(rate.effective_at)}</span>
-                  <small>Configured by {rate.configured_by || "Admin account"}</small>
+                  <small>{rate.is_deactivation ? "Deactivated by" : "Configured by"} {rate.configured_by || "Admin account"}</small>
+                  {currentRate?.id === rate.id && !rate.is_deactivation && (
+                    <div className="commission-rate-actions">
+                      <button
+                        type="button"
+                        className="commission-rate-action"
+                        aria-label={`Edit active commission rate ${formatRate(rate.rate_percent)}`}
+                        title="Edit active rate"
+                        onClick={() => editRate(rate)}
+                        disabled={savingRate || deactivatingRateId !== null}
+                      >
+                        <Pencil size={15} />
+                      </button>
+                      <button
+                        type="button"
+                        className="commission-rate-action deactivate"
+                        aria-label={`Deactivate active commission rate ${formatRate(rate.rate_percent)}`}
+                        title="Deactivate active rate"
+                        onClick={() => deactivateRate(rate)}
+                        disabled={savingRate || deactivatingRateId !== null}
+                      >
+                        {deactivatingRateId === rate.id ? <span className="commission-action-spinner" aria-hidden="true" /> : <Power size={15} />}
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

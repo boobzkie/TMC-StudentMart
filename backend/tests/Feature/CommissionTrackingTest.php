@@ -166,6 +166,107 @@ test('rate changes preserve the rate snapshots already applied to completed orde
     $this->assertDatabaseCount('order_commissions', 2);
 });
 
+test('updating the active rate appends a version and preserves order snapshots', function () {
+    $this->travelTo(now()->startOfMinute());
+    $admin = commissionTestUser('admin', 'rate-editor');
+    $firstRateId = activateCommissionRate($this, $admin, '5');
+    $buyer = commissionTestUser('student', 'rate-edit-buyer');
+    $seller = commissionTestUser('student', 'rate-edit-seller');
+    $firstOrder = commissionTestOrder($buyer, $seller, '100.00');
+
+    completeCommissionOrder($this, $firstOrder, $seller);
+    $this->travel(1)->minutes();
+
+    Sanctum::actingAs($admin);
+    $response = $this->putJson('/api/admin/commission/rates/'.$firstRateId, [
+        'rate_percent' => '7.5',
+    ])->assertCreated();
+    $secondRateId = $response->json('rate.id');
+
+    $secondOrder = commissionTestOrder($buyer, $seller, '100.00');
+    completeCommissionOrder($this, $secondOrder, $seller);
+
+    expect(OrderCommission::query()->where('order_id', $firstOrder->id)->value('rate_percent'))->toBe('5.0000')
+        ->and(OrderCommission::query()->where('order_id', $secondOrder->id)->value('rate_percent'))->toBe('7.5000')
+        ->and(OrderCommission::query()->where('order_id', $secondOrder->id)->value('commission_amount'))->toBe('7.50');
+
+    $this->assertDatabaseCount('commission_rates', 2);
+    $this->assertDatabaseHas('commission_rates', [
+        'id' => $firstRateId,
+        'rate_percent' => '5.0000',
+        'is_deactivation' => false,
+    ]);
+    $this->assertDatabaseHas('commission_rates', [
+        'id' => $secondRateId,
+        'rate_percent' => '7.5000',
+        'is_deactivation' => false,
+    ]);
+});
+
+test('deactivating the current rate preserves history and applies no commission going forward', function () {
+    $this->travelTo(now()->startOfMinute());
+    $admin = commissionTestUser('admin', 'rate-deactivator');
+    $rateId = activateCommissionRate($this, $admin, '5');
+    $buyer = commissionTestUser('student', 'rate-delete-buyer');
+    $seller = commissionTestUser('student', 'rate-delete-seller');
+    $firstOrder = commissionTestOrder($buyer, $seller, '100.00');
+
+    completeCommissionOrder($this, $firstOrder, $seller);
+    $this->travel(1)->minutes();
+
+    Sanctum::actingAs($admin);
+    $response = $this->deleteJson('/api/admin/commission/rates/'.$rateId)->assertCreated();
+    $deactivationId = $response->json('rate.id');
+
+    $secondOrder = commissionTestOrder($buyer, $seller, '100.00');
+    completeCommissionOrder($this, $secondOrder, $seller);
+    $firstCommission = OrderCommission::query()->where('order_id', $firstOrder->id)->firstOrFail();
+    $secondCommission = OrderCommission::query()->where('order_id', $secondOrder->id)->firstOrFail();
+
+    expect($firstCommission->rate_percent)->toBe('5.0000')
+        ->and($firstCommission->commission_amount)->toBe('5.00')
+        ->and($secondCommission->commission_rate_id)->toBe($deactivationId)
+        ->and($secondCommission->rate_percent)->toBe('0.0000')
+        ->and($secondCommission->commission_amount)->toBe('0.00')
+        ->and($secondCommission->status)->toBe('not_due');
+
+    $this->assertDatabaseCount('commission_rates', 2);
+    $this->assertDatabaseHas('commission_rates', [
+        'id' => $rateId,
+        'rate_percent' => '5.0000',
+        'is_deactivation' => false,
+    ]);
+    $this->assertDatabaseHas('commission_rates', [
+        'id' => $deactivationId,
+        'rate_percent' => '0.0000',
+        'is_deactivation' => true,
+    ]);
+
+    Sanctum::actingAs($admin);
+    $this->getJson('/api/admin/commission')
+        ->assertOk()
+        ->assertJsonPath('current_rate', null)
+        ->assertJsonPath('rates.0.is_deactivation', true);
+});
+
+test('historical rates cannot be updated or deactivated', function () {
+    $this->travelTo(now()->startOfMinute());
+    $admin = commissionTestUser('admin', 'rate-history-protection');
+    $historicalRateId = activateCommissionRate($this, $admin, '5');
+    $this->travel(1)->minutes();
+    activateCommissionRate($this, $admin, '7');
+
+    Sanctum::actingAs($admin);
+    $this->putJson('/api/admin/commission/rates/'.$historicalRateId, [
+        'rate_percent' => '9',
+    ])->assertUnprocessable()->assertJsonValidationErrors('rate');
+    $this->deleteJson('/api/admin/commission/rates/'.$historicalRateId)
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('rate');
+
+    $this->assertDatabaseCount('commission_rates', 2);
+});
+
 test('legacy completed orders remain unrated instead of receiving an invented historical commission', function () {
     $buyer = commissionTestUser('student', 'legacy-buyer');
     $seller = commissionTestUser('student', 'legacy-seller');
@@ -191,12 +292,15 @@ test('legacy completed orders remain unrated instead of receiving an invented hi
 });
 
 test('staff cannot read or change commission policy and invalid rates are rejected', function () {
+    $admin = commissionTestUser('admin', 'commission-policy-owner');
+    $rateId = activateCommissionRate($this, $admin, '5');
     $staff = commissionTestUser('staff', 'finance-staff');
     Sanctum::actingAs($staff);
     $this->getJson('/api/admin/commission')->assertForbidden();
     $this->postJson('/api/admin/commission/rates', ['rate_percent' => 101])->assertForbidden();
+    $this->putJson('/api/admin/commission/rates/'.$rateId, ['rate_percent' => 8])->assertForbidden();
+    $this->deleteJson('/api/admin/commission/rates/'.$rateId)->assertForbidden();
 
-    $admin = commissionTestUser('admin', 'invalid-rate-admin');
     Sanctum::actingAs($admin);
     $this->postJson('/api/admin/commission/rates', ['rate_percent' => 101])
         ->assertUnprocessable()
