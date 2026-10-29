@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 
 import 'components.dart';
 import 'data.dart';
-import 'edit_student_profile_page.dart';
 import 'marketplace_page.dart';
 import 'notifications_page.dart';
 import 'orders_page.dart';
@@ -265,9 +264,14 @@ class _StudentDrawer extends StatelessWidget {
               onTap: () => _navigate(context, 1),
             ),
             ListTile(
+              leading: const Icon(Icons.category_outlined),
+              title: const Text('Browse categories'),
+              onTap: () => _push(context, const CategoriesPage()),
+            ),
+            ListTile(
               selected: selectedIndex == 2,
               leading: const Icon(Icons.add_box_outlined),
-              title: const Text('Sell an item'),
+              title: const Text('Sell & my listings'),
               onTap: () => _navigate(context, 2),
             ),
             ListTile(
@@ -289,45 +293,24 @@ class _StudentDrawer extends StatelessWidget {
               },
             ),
             const Divider(height: 1),
-            const _DrawerSectionLabel('Your profile'),
-            ListTile(
-              selected: selectedIndex == 4,
-              leading: const Icon(Icons.person_outline),
-              title: const Text('Profile'),
-              onTap: () => _navigate(context, 4),
-            ),
+            const _DrawerSectionLabel('Your activity'),
             ListTile(
               leading: const Icon(Icons.receipt_long_outlined),
               title: const Text('My Orders'),
               onTap: () => _push(context, const OrdersPage()),
             ),
             ListTile(
-              leading: const Icon(Icons.storefront_outlined),
-              title: const Text('My Listings'),
-              onTap: () => _navigate(context, 2),
-            ),
-            ListTile(
-              leading: const Icon(Icons.alternate_email_outlined),
-              title: const Text('Email & Contact'),
-              onTap: () => _push(context, const EditStudentProfilePage()),
-            ),
-            ListTile(
-              leading: const Icon(Icons.manage_accounts_outlined),
-              title: const Text('Edit Profile'),
-              onTap: () => _push(context, const EditStudentProfilePage()),
-            ),
-            ListTile(
-              leading: const Icon(Icons.lock_outline),
-              title: const Text('Account Settings'),
-              onTap: () => _push(context, const AccountSecurityPage()),
-            ),
-            ListTile(
-              leading: const Icon(Icons.privacy_tip_outlined),
-              title: const Text('Privacy Settings'),
-              onTap: () => _push(context, const EditStudentProfilePage()),
-            ),
-            ListTile(
-              leading: const Icon(Icons.notifications_none),
+              leading: unreadInboxCount > 0
+                  ? Semantics(
+                      label: '$unreadInboxCount unread notifications',
+                      child: Badge(
+                        label: Text(
+                          unreadInboxCount > 99 ? '99+' : '$unreadInboxCount',
+                        ),
+                        child: const Icon(Icons.notifications_none),
+                      ),
+                    )
+                  : const Icon(Icons.notifications_none),
               title: const Text('Notifications'),
               onTap: () => _push(
                 context,
@@ -343,18 +326,26 @@ class _StudentDrawer extends StatelessWidget {
               title: const Text('My reports'),
               onTap: () => _push(context, const ReportsPage()),
             ),
-            const Divider(height: 1),
-            const _DrawerSectionLabel('More'),
-            ListTile(
-              leading: const Icon(Icons.category_outlined),
-              title: const Text('Browse categories'),
-              onTap: () => _push(context, const CategoriesPage()),
-            ),
             ListTile(
               leading: const Icon(Icons.attach_money),
               title: const Text('Sales'),
               onTap: () => _push(context, const SalesPage()),
             ),
+            const Divider(height: 1),
+            const _DrawerSectionLabel('Your account'),
+            ListTile(
+              selected: selectedIndex == 4,
+              leading: const Icon(Icons.person_outline),
+              title: const Text('Profile'),
+              onTap: () => _navigate(context, 4),
+            ),
+            ListTile(
+              leading: const Icon(Icons.lock_outline),
+              title: const Text('Account Settings'),
+              onTap: () => _push(context, const AccountSecurityPage()),
+            ),
+            const Divider(height: 1),
+            const _DrawerSectionLabel('Account actions'),
             ListTile(
               leading: const Icon(Icons.logout, color: TmcPalette.error),
               title: const Text(
