@@ -124,11 +124,20 @@ Future<_SearchHarness> _pumpSearch(WidgetTester tester) async {
   final client = MockClient((request) async {
     requests.add(request);
     if (request.method == 'GET' && request.url.path.endsWith('/products')) {
+      final matchesPrice = request.url.queryParameters.containsKey('min_price')
+          ? <Map<String, Object?>>[]
+          : [_productJson()];
       return http.Response(
         jsonEncode({
           'success': true,
-          'products': [_productJson()],
-          'total': 1,
+          'products': matchesPrice,
+          'total': matchesPrice.length,
+          'pagination': {
+            'current_page': 1,
+            'last_page': 1,
+            'per_page': 24,
+            'total': matchesPrice.length,
+          },
         }),
         200,
         headers: {'content-type': 'application/json'},

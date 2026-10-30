@@ -1,3 +1,5 @@
+import "dart:async";
+
 import "package:flutter/material.dart";
 import "package:provider/provider.dart";
 
@@ -20,7 +22,9 @@ class _SearchPageState extends State<SearchPage> {
   final _focus = FocusNode();
   List<Product> _results = <Product>[];
   bool _loading = false;
+  bool _loadingMore = false;
   String? _error;
+  String? _loadMoreError;
   String _lastQuery = "";
   String _sort = "Newest";
   String _condition = "Any condition";
@@ -29,6 +33,9 @@ class _SearchPageState extends State<SearchPage> {
   double? _maxPrice;
   bool _inStockOnly = false;
   int _requestGeneration = 0;
+  int _resultPage = 0;
+  int _resultLastPage = 1;
+  int _resultTotal = 0;
 
   @override
   void initState() {
@@ -51,44 +58,112 @@ class _SearchPageState extends State<SearchPage> {
     super.dispose();
   }
 
-  Future<void> _searchProducts({required String query}) async {
+  Future<void> _searchProducts({
+    required String query,
+    bool recordRecentSearch = true,
+    bool append = false,
+  }) async {
     final normalized = query.trim();
     if (normalized.isEmpty) {
       _resetSearch();
       return;
     }
-    final requestId = ++_requestGeneration;
-    context.read<MarketplaceState>().addRecentSearch(normalized);
-    setState(() {
-      _loading = true;
-      _error = null;
-      _lastQuery = normalized;
-      _results = <Product>[];
-    });
-    _focus.unfocus();
+    if (append &&
+        (_loading ||
+            _loadingMore ||
+            _resultPage == 0 ||
+            _resultPage >= _resultLastPage)) {
+      return;
+    }
+    final requestId = append ? _requestGeneration : ++_requestGeneration;
+    if (recordRecentSearch) {
+      context.read<MarketplaceState>().addRecentSearch(normalized);
+    }
+    if (append) {
+      setState(() {
+        _loadingMore = true;
+        _loadMoreError = null;
+      });
+    } else {
+      setState(() {
+        _loading = true;
+        _loadingMore = false;
+        _error = null;
+        _loadMoreError = null;
+        _lastQuery = normalized;
+        _results = <Product>[];
+        _resultPage = 0;
+        _resultLastPage = 1;
+        _resultTotal = 0;
+      });
+      _focus.unfocus();
+    }
     try {
-      final encodedQuery = Uri(
-        queryParameters: <String, String>{"search": normalized},
-      ).query;
-      final response = await context.read<ApiService>().get(
-        "/products?$encodedQuery",
+      final marketplace = context.read<MarketplaceState>();
+      int? categoryId;
+      if (_category != null) {
+        for (final category in marketplace.categories) {
+          if (category.name.toLowerCase() == _category!.toLowerCase()) {
+            categoryId = category.id;
+            break;
+          }
+        }
+      }
+      final result = await context.read<ApiService>().catalogProducts(
+        page: append ? _resultPage + 1 : 1,
+        search: normalized,
+        category: _category,
+        categoryId: categoryId,
+        minPrice: _minPrice,
+        maxPrice: _maxPrice,
+        condition: _condition == 'Any condition'
+            ? null
+            : _condition.toLowerCase(),
+        inStockOnly: _inStockOnly,
+        sort: switch (_sort) {
+          'Price: low to high' => 'price_asc',
+          'Price: high to low' => 'price_desc',
+          _ => 'newest',
+        },
       );
       if (!mounted || requestId != _requestGeneration) return;
-      final raw = response["products"];
-      final products = raw is List
-          ? raw.map((row) => Product.fromJson(asMap(row))).toList()
-          : <Product>[];
-      setState(() => _results = products);
-    } catch (_) {
+      final knownIds = append
+          ? _results.map((product) => product.id).toSet()
+          : <int>{};
+      setState(() {
+        if (append) {
+          _results.addAll(
+            result.products.where((product) => knownIds.add(product.id)),
+          );
+        } else {
+          _results = result.products;
+        }
+        _resultPage = result.currentPage;
+        _resultLastPage = result.lastPage;
+        _resultTotal = result.total;
+        _error = null;
+        _loadMoreError = null;
+      });
+    } catch (error) {
       if (!mounted || requestId != _requestGeneration) return;
       setState(() {
-        _results = <Product>[];
-        _error =
-            "We couldn't load search results. Check your connection and try again.";
+        if (append) {
+          _loadMoreError = error.toString();
+        } else {
+          _results = <Product>[];
+          _error =
+              "We couldn't load search results. Check your connection and try again.";
+        }
       });
     } finally {
       if (mounted && requestId == _requestGeneration) {
-        setState(() => _loading = false);
+        setState(() {
+          if (append) {
+            _loadingMore = false;
+          } else {
+            _loading = false;
+          }
+        });
       }
     }
   }
@@ -105,48 +180,18 @@ class _SearchPageState extends State<SearchPage> {
       _results = <Product>[];
       _loading = false;
       _error = null;
+      _loadMoreError = null;
       _lastQuery = "";
+      _resultPage = 0;
+      _resultLastPage = 1;
+      _resultTotal = 0;
+      _loadingMore = false;
       _sort = "Newest";
       _clearFilters();
     });
   }
 
-  List<Product> get _visibleResults {
-    final category = _category?.toLowerCase();
-    final condition = _condition.toLowerCase();
-    final results = _results.where((product) {
-      if (category != null &&
-          category.isNotEmpty &&
-          product.category.toLowerCase() != category) {
-        return false;
-      }
-      if (_minPrice != null && product.price < _minPrice!) return false;
-      if (_maxPrice != null && product.price > _maxPrice!) return false;
-      if (condition == "new" &&
-          !(product.attributes["condition"] ?? "").toLowerCase().startsWith(
-            "new",
-          )) {
-        return false;
-      }
-      if (condition == "used" &&
-          !(product.attributes["condition"] ?? "").toLowerCase().startsWith(
-            "used",
-          )) {
-        return false;
-      }
-      if (_inStockOnly &&
-          (product.status != "active" || product.stockQuantity <= 0)) {
-        return false;
-      }
-      return true;
-    }).toList();
-    if (_sort == "Price: low to high") {
-      results.sort((a, b) => a.price.compareTo(b.price));
-    } else if (_sort == "Price: high to low") {
-      results.sort((a, b) => b.price.compareTo(a.price));
-    }
-    return results;
-  }
+  List<Product> get _visibleResults => _results;
 
   int get _activeFilterCount =>
       (_category == null ? 0 : 1) +
@@ -359,6 +404,7 @@ class _SearchPageState extends State<SearchPage> {
       _maxPrice = filters.maxPrice;
       _inStockOnly = filters.inStockOnly;
     });
+    unawaited(_searchProducts(query: _lastQuery, recordRecentSearch: false));
   }
 
   String? _priceValidator(String? value) {
@@ -651,7 +697,10 @@ class _SearchPageState extends State<SearchPage> {
                 Text(_error!, textAlign: TextAlign.center),
                 const SizedBox(height: 16),
                 FilledButton.icon(
-                  onPressed: () => _searchProducts(query: _lastQuery),
+                  onPressed: () => _searchProducts(
+                    query: _lastQuery,
+                    recordRecentSearch: false,
+                  ),
                   icon: const Icon(Icons.refresh),
                   label: const Text("Try again"),
                 ),
@@ -663,6 +712,7 @@ class _SearchPageState extends State<SearchPage> {
     }
     final products = _visibleResults;
     if (products.isEmpty) {
+      final hasNoSearchMatches = _results.isEmpty && _activeFilterCount == 0;
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -678,14 +728,14 @@ class _SearchPageState extends State<SearchPage> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  _results.isEmpty
+                  hasNoSearchMatches
                       ? "No results found"
                       : "No matching products",
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  _results.isEmpty
+                  hasNoSearchMatches
                       ? "We couldn't find products for ‘$_lastQuery’. Try another search."
                       : "Try adjusting or clearing your filters.",
                   textAlign: TextAlign.center,
@@ -694,7 +744,7 @@ class _SearchPageState extends State<SearchPage> {
                 if (_activeFilterCount > 0) ...[
                   const SizedBox(height: 12),
                   TextButton.icon(
-                    onPressed: () => setState(_clearFilters),
+                    onPressed: _clearFiltersAndReload,
                     icon: const Icon(Icons.filter_alt_off),
                     label: const Text("Clear filters"),
                   ),
@@ -712,7 +762,7 @@ class _SearchPageState extends State<SearchPage> {
           child: Column(
             children: [
               SectionHeading(
-                "${products.length} ${products.length == 1 ? 'result' : 'results'}",
+                "$_resultTotal ${_resultTotal == 1 ? 'result' : 'results'}",
                 action: null,
               ),
               Row(
@@ -748,8 +798,15 @@ class _SearchPageState extends State<SearchPage> {
                                   ),
                                 )
                                 .toList(),
-                        onChanged: (value) =>
-                            setState(() => _sort = value ?? "Newest"),
+                        onChanged: (value) {
+                          setState(() => _sort = value ?? "Newest");
+                          unawaited(
+                            _searchProducts(
+                              query: _lastQuery,
+                              recordRecentSearch: false,
+                            ),
+                          );
+                        },
                       ),
                     ),
                   ),
@@ -762,50 +819,79 @@ class _SearchPageState extends State<SearchPage> {
           child: LayoutBuilder(
             builder: (context, constraints) {
               final narrow = constraints.maxWidth < 380;
-              return GridView.builder(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-                gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-                  maxCrossAxisExtent: narrow ? 340 : 250,
-                  mainAxisExtent: 344,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                ),
-                itemCount: products.length,
-                itemBuilder: (context, index) {
-                  final product = products[index];
-                  final userId = context.read<AuthState>().user?.id ?? 0;
-                  final ownListing = product.userId == userId;
-                  return ProductCard(
-                    key: ValueKey("search-product-${product.id}"),
-                    product: product,
-                    showSeller: true,
-                    imageHeight: narrow ? 142 : 148,
-                    isOwnListing: ownListing,
-                    onTap: () => Navigator.of(context).push<void>(
-                      MaterialPageRoute<void>(
-                        builder: (_) =>
-                            ProductDetailsPage(productId: product.id),
-                      ),
-                    ),
-                    onAdd:
-                        !ownListing &&
-                            product.status == "active" &&
-                            product.stockQuantity > 0 &&
-                            userId > 0
-                        ? () {
-                            context.read<CartState>().add(
-                              product,
-                              currentUserId: userId,
-                            );
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text("${product.name} added to cart."),
-                              ),
-                            );
-                          }
-                        : null,
-                  );
+              return NotificationListener<ScrollNotification>(
+                onNotification: (notification) {
+                  if (notification.metrics.extentAfter < 600 &&
+                      _resultPage < _resultLastPage &&
+                      !_loadingMore) {
+                    unawaited(_loadMore());
+                  }
+                  return false;
                 },
+                child: GridView.builder(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                  gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                    maxCrossAxisExtent: narrow ? 340 : 250,
+                    mainAxisExtent: 344,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                  ),
+                  itemCount:
+                      products.length +
+                      ((_resultPage < _resultLastPage ||
+                              _loadingMore ||
+                              _loadMoreError != null)
+                          ? 1
+                          : 0),
+                  itemBuilder: (context, index) {
+                    if (index >= products.length) {
+                      return Center(
+                        child: _loadMoreError != null
+                            ? TextButton.icon(
+                                onPressed: _loadMore,
+                                icon: const Icon(Icons.refresh),
+                                label: const Text('Retry loading results'),
+                              )
+                            : const CircularProgressIndicator(),
+                      );
+                    }
+                    final product = products[index];
+                    final userId = context.read<AuthState>().user?.id ?? 0;
+                    final ownListing = product.userId == userId;
+                    return ProductCard(
+                      key: ValueKey("search-product-${product.id}"),
+                      product: product,
+                      showSeller: true,
+                      imageHeight: narrow ? 142 : 148,
+                      isOwnListing: ownListing,
+                      onTap: () => Navigator.of(context).push<void>(
+                        MaterialPageRoute<void>(
+                          builder: (_) =>
+                              ProductDetailsPage(productId: product.id),
+                        ),
+                      ),
+                      onAdd:
+                          !ownListing &&
+                              product.status == "active" &&
+                              product.stockQuantity > 0 &&
+                              userId > 0
+                          ? () {
+                              context.read<CartState>().add(
+                                product,
+                                currentUserId: userId,
+                              );
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    "${product.name} added to cart.",
+                                  ),
+                                ),
+                              );
+                            }
+                          : null,
+                    );
+                  },
+                ),
               );
             },
           ),
@@ -820,6 +906,17 @@ class _SearchPageState extends State<SearchPage> {
     _minPrice = null;
     _maxPrice = null;
     _inStockOnly = false;
+  }
+
+  Future<void> _loadMore() => _searchProducts(
+    query: _lastQuery,
+    recordRecentSearch: false,
+    append: true,
+  );
+
+  void _clearFiltersAndReload() {
+    setState(_clearFilters);
+    unawaited(_searchProducts(query: _lastQuery, recordRecentSearch: false));
   }
 
   @override

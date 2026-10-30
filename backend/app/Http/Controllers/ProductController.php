@@ -3,11 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\SaveProductRequest;
-
 use App\Models\Category;
 use App\Models\OrderItem;
 use App\Models\Product;
-use App\Models\ProductVariant;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -28,10 +26,25 @@ class ProductController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $request->validate([
+        $validated = $request->validate([
             'search' => ['nullable', 'string', 'max:120'],
             'category' => ['nullable', 'string', 'max:100'],
+            'category_id' => ['nullable', 'integer', 'exists:categories,id'],
+            'min_price' => ['nullable', 'numeric', 'min:0'],
+            'max_price' => ['nullable', 'numeric', 'min:0'],
+            'condition' => ['nullable', 'in:new,used'],
+            'in_stock' => ['sometimes', 'boolean'],
+            'sort' => ['nullable', 'in:newest,price_asc,price_desc'],
+            'page' => ['sometimes', 'integer', 'min:1', 'max:1000000'],
+            'per_page' => ['sometimes', 'integer', 'min:1', 'max:60'],
         ]);
+
+        if (isset($validated['min_price'], $validated['max_price'])
+            && (float) $validated['min_price'] > (float) $validated['max_price']) {
+            throw ValidationException::withMessages([
+                'min_price' => ['Minimum price must not exceed maximum price.'],
+            ]);
+        }
 
         $visibleSoldOutCutoff = now()->subHour();
         $query = Product::with(['user:id,name,username,bio,course,profile_picture,student_id,contact_number,share_contact_info,facebook_url,instagram_url,tiktok_url', 'images', 'categoryRecord:id,name', 'variants' => fn ($query) => $query->where('is_active', true)])
@@ -74,8 +87,63 @@ class ProductController extends Controller
             }
         }
 
-        $products = $query->orderByDesc('created_at')
-            ->get()
+        if (! empty($validated['category_id'])) {
+            $categoryRecord = Category::query()->find((int) $validated['category_id']);
+            $query->where(function ($categoryQuery) use ($validated, $categoryRecord): void {
+                $categoryQuery->where('category_id', (int) $validated['category_id']);
+                if ($categoryRecord) {
+                    $categoryQuery->orWhere(function ($legacyQuery) use ($categoryRecord): void {
+                        $legacyQuery->whereNull('category_id')
+                            ->where('category', $categoryRecord->name);
+                    });
+                }
+            });
+        }
+
+        if (isset($validated['min_price'])) {
+            $query->where('price', '>=', $validated['min_price']);
+        }
+        if (isset($validated['max_price'])) {
+            $query->where('price', '<=', $validated['max_price']);
+        }
+        if (isset($validated['condition'])) {
+            $query->where('attributes->condition', 'like', $validated['condition'].'%');
+        }
+        if ($request->boolean('in_stock')) {
+            $query->whereRaw('LOWER(status) = ?', ['active'])
+                ->where('stock_quantity', '>', 0);
+        }
+
+        $sort = $validated['sort'] ?? 'newest';
+        match ($sort) {
+            'price_asc' => $query->orderBy('price')->orderByDesc('created_at')->orderByDesc('id'),
+            'price_desc' => $query->orderByDesc('price')->orderByDesc('created_at')->orderByDesc('id'),
+            default => $query->orderByDesc('created_at')->orderByDesc('id'),
+        };
+
+        // Keep the existing unpaginated response for callers that do not opt in.
+        if ($request->hasAny(['page', 'per_page'])) {
+            $currentPage = (int) ($validated['page'] ?? 1);
+            $perPage = (int) ($validated['per_page'] ?? 24);
+            $paginator = $query->paginate($perPage, ['*'], 'page', $currentPage);
+            $products = $paginator->getCollection()
+                ->map(fn (Product $product) => $this->productData($product))
+                ->values();
+
+            return response()->json([
+                'success' => true,
+                'products' => $products,
+                'total' => $paginator->total(),
+                'pagination' => [
+                    'current_page' => $paginator->currentPage(),
+                    'last_page' => $paginator->lastPage(),
+                    'per_page' => $paginator->perPage(),
+                    'total' => $paginator->total(),
+                ],
+            ]);
+        }
+
+        $products = $query->get()
             ->map(fn (Product $product) => $this->productData($product));
 
         return response()->json([
@@ -799,7 +867,7 @@ class ProductController extends Controller
     }
 
     /** @param list<UploadedFile> $files
-     *  @return list<string>
+     * @return list<string>
      */
     private function storeImages(array $files): array
     {

@@ -1,5 +1,7 @@
 // ignore_for_file: depend_on_referenced_packages
 
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_secure_storage/test/test_flutter_secure_storage_platform.dart';
@@ -46,6 +48,8 @@ void main() {
     expect(find.text('Study Notebook'), findsOneWidget);
     expect(find.text('Canvas Tote'), findsNothing);
     expect(harness.marketplace.products, hasLength(2));
+    expect(harness.requests.last.url.queryParameters['category_id'], '1');
+    expect(harness.requests.last.url.queryParameters['category'], 'Books');
   });
 
   testWidgets('shop switches between grid and list layouts', (tester) async {
@@ -91,8 +95,42 @@ Future<_MarketplaceHarness> _pumpMarketplace(WidgetTester tester) async {
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
 
+  final requests = <http.Request>[];
   final api = ApiService(
-    client: MockClient((_) async => http.Response('{}', 200)),
+    client: MockClient((request) async {
+      requests.add(request);
+      if (request.method == 'GET' && request.url.path.endsWith('/products')) {
+        final query = request.url.queryParameters;
+        final booksOnly =
+            query['search']?.isNotEmpty == true || query['category_id'] == '1';
+        final products = booksOnly
+            ? [_apiProduct(id: 7, name: 'Study Notebook', category: 'Books')]
+            : [
+                _apiProduct(id: 7, name: 'Study Notebook', category: 'Books'),
+                _apiProduct(
+                  id: 8,
+                  name: 'Canvas Tote',
+                  category: 'Accessories',
+                ),
+              ];
+        return http.Response(
+          jsonEncode({
+            'success': true,
+            'products': products,
+            'total': products.length,
+            'pagination': {
+              'current_page': int.tryParse(query['page'] ?? '') ?? 1,
+              'last_page': 1,
+              'per_page': 24,
+              'total': products.length,
+            },
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }
+      return http.Response('{}', 200);
+    }),
   );
   final auth = AuthState(api)
     ..user = const Student(
@@ -149,11 +187,38 @@ Future<_MarketplaceHarness> _pumpMarketplace(WidgetTester tester) async {
     ),
   );
   await tester.pumpAndSettle();
-  return _MarketplaceHarness(marketplace: marketplace);
+  return _MarketplaceHarness(marketplace: marketplace, requests: requests);
 }
 
+Map<String, Object?> _apiProduct({
+  required int id,
+  required String name,
+  required String category,
+}) => {
+  'id': id,
+  'name': name,
+  'description': 'A sample marketplace listing.',
+  'price': id == 7 ? 120 : 180,
+  'category': category,
+  'status': 'active',
+  'stock_quantity': 2,
+  'user_id': id + 10,
+  'user': {
+    'id': id + 10,
+    'name': id == 7 ? 'Search Seller' : 'Market Seller',
+    'username': id == 7 ? 'searchseller' : 'marketseller',
+  },
+  'images': <Map<String, Object?>>[],
+  'attributes': {'condition': 'New'},
+  'variants': <Map<String, Object?>>[],
+};
+
 class _MarketplaceHarness {
-  const _MarketplaceHarness({required this.marketplace});
+  const _MarketplaceHarness({
+    required this.marketplace,
+    required this.requests,
+  });
 
   final MarketplaceState marketplace;
+  final List<http.Request> requests;
 }

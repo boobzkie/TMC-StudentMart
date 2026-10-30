@@ -151,35 +151,53 @@ void main() {
     expect(find.text('TMC Student · BSIT'), findsOneWidget);
   });
 
-  testWidgets('Seller profile follows from the avatar overlay', (tester) async {
-    _setPhoneViewport(tester);
-    final harness = await _pumpHome(tester, [
-      _product(id: 41, name: 'Seller follow listing', sellerId: 40),
-    ]);
+  testWidgets(
+    'Home feed seller link opens the profile without adding to cart',
+    (tester) async {
+      _setPhoneViewport(tester);
+      final harness = await _pumpHome(tester, [
+        _product(id: 40, name: 'Seller link listing', sellerId: 40),
+      ]);
 
-    await tester.tap(find.byTooltip('Product actions'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Details'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Sold by Seller 40'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('Sold by Seller 40'));
+      await tester.pumpAndSettle();
 
-    expect(find.byTooltip('Follow seller'), findsOneWidget);
-    expect(find.text('Follow'), findsNothing);
+      expect(find.text('Seller profile'), findsOneWidget);
+      expect(harness.cart.itemCount, 0);
+    },
+  );
 
-    await tester.tap(find.byTooltip('Follow seller'));
-    await tester.pumpAndSettle();
+  testWidgets(
+    'Seller avatar opens and follows profile without adding to cart',
+    (tester) async {
+      _setPhoneViewport(tester);
+      final harness = await _pumpHome(tester, [
+        _product(id: 41, name: 'Seller follow listing', sellerId: 40),
+      ]);
 
-    expect(find.byTooltip('Unfollow seller'), findsOneWidget);
-    expect(
-      harness.requests.where(
-        (request) =>
-            request.method == 'POST' &&
-            request.url.path.endsWith('/students/40/follow'),
-      ),
-      hasLength(1),
-    );
-  });
+      await tester.tap(find.byTooltip('Product actions'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Open seller profile'));
+      await tester.pumpAndSettle();
+
+      expect(find.byTooltip('Follow seller'), findsOneWidget);
+      expect(find.text('Follow'), findsNothing);
+      expect(harness.cart.itemCount, 0);
+
+      await tester.tap(find.byTooltip('Follow seller'));
+      await tester.pumpAndSettle();
+
+      expect(find.byTooltip('Unfollow seller'), findsOneWidget);
+      expect(
+        harness.requests.where(
+          (request) =>
+              request.method == 'POST' &&
+              request.url.path.endsWith('/students/40/follow'),
+        ),
+        hasLength(1),
+      );
+    },
+  );
 
   testWidgets('Product photos open a swipeable full-screen image viewer', (
     tester,

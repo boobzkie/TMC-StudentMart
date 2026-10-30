@@ -44,6 +44,39 @@ class ProductCategory {
       );
 }
 
+class CatalogPage {
+  const CatalogPage({
+    required this.products,
+    required this.total,
+    required this.currentPage,
+    required this.lastPage,
+  });
+
+  final List<Product> products;
+  final int total;
+  final int currentPage;
+  final int lastPage;
+
+  bool get hasMore => currentPage < lastPage;
+
+  factory CatalogPage.fromJson(Map<String, dynamic> json) {
+    final products = listFrom(
+      json,
+      'products',
+    ).map((item) => Product.fromJson(asMap(item))).toList(growable: false);
+    final pagination = asMap(json['pagination']);
+    final currentPage = int.tryParse(valueOf(pagination['current_page'])) ?? 1;
+    return CatalogPage(
+      products: products,
+      total:
+          int.tryParse(valueOf(pagination['total'] ?? json['total'])) ??
+          products.length,
+      currentPage: currentPage,
+      lastPage: int.tryParse(valueOf(pagination['last_page'])) ?? currentPage,
+    );
+  }
+}
+
 enum ApiErrorType {
   noInternet,
   cannotConnect,
@@ -82,6 +115,17 @@ class ApiService {
         : cleaned;
   }
 
+  static ApiException _connectionFailure(String candidate) {
+    final isNgrok =
+        Uri.tryParse(candidate)?.host.toLowerCase().contains('ngrok') == true;
+    return ApiException(
+      isNgrok
+          ? 'Cannot reach the StudentMart API tunnel at $candidate. Check that the tunnel is active and forwarding to the Laravel API.'
+          : 'Cannot reach the StudentMart API at $candidate. Check that the backend is running and this address is reachable from the device.',
+      type: ApiErrorType.cannotConnect,
+    );
+  }
+
   @visibleForTesting
   static List<String> resolveBaseUrls({
     String? configuredBaseUrls,
@@ -95,10 +139,25 @@ class ApiService {
     final runningOnWeb = isWeb ?? kIsWeb;
 
     String forPlatform(String value) {
-      // Use the URL exactly as configured. Do not rewrite localhost or
-      // 127.0.0.1 to the emulator-only 10.0.2.2 alias: that address does not
-      // work on physical Android phones.
-      return normalizeBaseUrl(value);
+      final normalized = normalizeBaseUrl(value);
+      final host = Uri.tryParse(normalized)?.host.toLowerCase();
+      final localHosts = {
+        'localhost',
+        'localhost.',
+        '127.0.0.1',
+        '::1',
+        '[::1]',
+        '0.0.0.0',
+      };
+
+      // A phone's localhost is the phone itself, not the computer running
+      // Laravel. Do not silently rewrite it to an emulator-only address.
+      if (targetPlatform == TargetPlatform.android &&
+          localHosts.contains(host)) {
+        return '';
+      }
+
+      return normalized;
     }
 
     final configured = <String>[];
@@ -116,22 +175,15 @@ class ApiService {
         configured.add(singleUrl);
       }
     }
-    if (configured.isEmpty) {
-      if (runningOnWeb) {
-        // Flutter Web running on the same PC as Laravel.
-        configured.add('http://127.0.0.1:8000/api');
-      } else if (targetPlatform == TargetPlatform.android) {
-        // ngrok is the correct address for a physical Android phone.
-        // Do not fall back to 10.0.2.2: that is the Android emulator-only
-        // alias and does not work on physical devices.
-        configured.add('https://freestyle-fondly-auction.ngrok-free.dev/api');
-      } else {
-        // Other platforms running on the same PC.
-        configured.add('http://127.0.0.1:8000/api');
 
-        configured.add('https://freestyle-fondly-auction.ngrok-free.dev/api');
-      }
+    // A local default is useful for web/desktop development on the same
+    // computer. Native Android must be configured explicitly: localhost on a
+    // physical phone points to the phone, and a tunnel URL can change.
+    if (configured.isEmpty &&
+        (runningOnWeb || targetPlatform != TargetPlatform.android)) {
+      configured.add('http://127.0.0.1:8000/api');
     }
+
     return configured.toSet().toList(growable: false);
   }
 
@@ -171,7 +223,7 @@ class ApiService {
   Future<dynamic> _request(Future<http.Response> Function() send) async {
     if (_candidateBaseUrls.isEmpty) {
       throw const ApiException(
-        'No Laravel API base URL is configured. Use --dart-define=API_BASE_URL=https://freestyle-fondly-auction.ngrok-free.dev/api for a physical Android phone, or --dart-define=API_BASE_URL=http://127.0.0.1:8000/api for web or desktop.',
+        'No Laravel API base URL is configured. For a physical Android phone, set API_BASE_URL to the active HTTPS ngrok URL and include /api. For web or desktop, use the local Laravel API URL.',
         type: ApiErrorType.invalidUrl,
       );
     }
@@ -184,29 +236,18 @@ class ApiService {
       _activeBaseUrl = candidate;
       attemptedBases.add(candidate);
 
-      final uri = Uri.tryParse(candidate);
-      final isNgrok = uri != null && uri.host.toLowerCase().contains('ngrok');
-
       for (var retry = 0; retry < 2; retry++) {
         try {
           return _decode(await send().timeout(const Duration(seconds: 10)));
         } on SocketException {
-          lastError = ApiException(
-            'No internet connection. The device cannot reach the network at all. Check Wi-Fi or mobile data.',
-            type: ApiErrorType.noInternet,
-          );
+          lastError = _connectionFailure(candidate);
         } on TimeoutException {
           lastError = ApiException(
             'Timed out while contacting the Laravel API at $candidate. The server or ngrok tunnel may be slow or unreachable.',
             type: ApiErrorType.timeout,
           );
         } on http.ClientException {
-          lastError = ApiException(
-            isNgrok
-                ? 'The ngrok tunnel at $candidate is unavailable. Check that ngrok is still running and forwarding to http://localhost:8000.'
-                : 'Cannot connect to the Laravel API at $candidate. Check that the backend is running on port 8000.',
-            type: ApiErrorType.cannotConnect,
-          );
+          lastError = _connectionFailure(candidate);
         } catch (error) {
           if (error is ApiException) rethrow;
           lastError = ApiException(
@@ -238,6 +279,43 @@ class ApiService {
 
   Future<dynamic> get(String path) async =>
       _request(() async => _client.get(_uri(path), headers: await _headers()));
+
+  Future<CatalogPage> catalogProducts({
+    int page = 1,
+    int perPage = 24,
+    String? search,
+    String? category,
+    int? categoryId,
+    double? minPrice,
+    double? maxPrice,
+    String? condition,
+    bool inStockOnly = false,
+    String sort = 'newest',
+  }) async {
+    final parameters = <String, String>{
+      'page': '$page',
+      'per_page': '$perPage',
+      'sort': sort,
+    };
+    if (search != null && search.trim().isNotEmpty) {
+      parameters['search'] = search.trim();
+    }
+    if (category != null && category.trim().isNotEmpty) {
+      parameters['category'] = category.trim();
+    }
+    if (categoryId != null && categoryId > 0) {
+      parameters['category_id'] = '$categoryId';
+    }
+    if (minPrice != null) parameters['min_price'] = minPrice.toString();
+    if (maxPrice != null) parameters['max_price'] = maxPrice.toString();
+    if (condition != null && condition.trim().isNotEmpty) {
+      parameters['condition'] = condition.trim().toLowerCase();
+    }
+    if (inStockOnly) parameters['in_stock'] = '1';
+
+    final query = Uri(queryParameters: parameters).query;
+    return CatalogPage.fromJson(asMap(await get('/products?$query')));
+  }
 
   Future<dynamic> post(
     String path,
@@ -291,24 +369,14 @@ class ApiService {
       ).timeout(const Duration(seconds: 10));
       return _decode(response);
     } on SocketException {
-      throw ApiException(
-        'No internet connection. The device cannot reach the network at all. Check Wi-Fi or mobile data.',
-        type: ApiErrorType.noInternet,
-      );
+      throw _connectionFailure(baseUrl);
     } on TimeoutException {
       throw ApiException(
         'Timed out while contacting the Laravel API at $baseUrl.',
         type: ApiErrorType.timeout,
       );
     } on http.ClientException {
-      final isNgrok =
-          Uri.tryParse(baseUrl)?.host.toLowerCase().contains('ngrok') == true;
-      throw ApiException(
-        isNgrok
-            ? 'The ngrok tunnel at $baseUrl is unavailable. Check that ngrok is still running and forwarding to http://localhost:8000.'
-            : 'Cannot reach the Laravel API at $baseUrl. Check that the backend is running and restart the app with the correct API URL for this platform.',
-        type: ApiErrorType.cannotConnect,
-      );
+      throw _connectionFailure(baseUrl);
     }
   }
 
@@ -425,29 +493,19 @@ class ApiService {
       if (remaining <= Duration.zero) {
         throw TimeoutException('Product upload timed out after 30 seconds.');
       }
-      final response = await http.Response.fromStream(streamed).timeout(
-        remaining,
-      );
+      final response = await http.Response.fromStream(
+        streamed,
+      ).timeout(remaining);
       return _decode(response);
     } on SocketException {
-      throw ApiException(
-        'No internet connection. The device cannot reach the network at all. Check Wi-Fi or mobile data.',
-        type: ApiErrorType.noInternet,
-      );
+      throw _connectionFailure(baseUrl);
     } on TimeoutException {
       throw ApiException(
         'Timed out while contacting the Laravel API at $baseUrl.',
         type: ApiErrorType.timeout,
       );
     } on http.ClientException catch (_) {
-      final isNgrok =
-          Uri.tryParse(baseUrl)?.host.toLowerCase().contains('ngrok') == true;
-      throw ApiException(
-        isNgrok
-            ? 'The ngrok tunnel at $baseUrl is unavailable. Check that ngrok is still running and forwarding to http://localhost:8000.'
-            : 'Cannot reach the Laravel API at $baseUrl. Check that the backend is running and restart the app with the correct API URL for this platform.',
-        type: ApiErrorType.cannotConnect,
-      );
+      throw _connectionFailure(baseUrl);
     }
   }
 
@@ -471,6 +529,19 @@ class ApiService {
   }
 
   dynamic _decode(http.Response response) {
+    final contentType = response.headers['content-type']?.toLowerCase() ?? '';
+    final bodyLooksLikeHtml = RegExp(
+      r'^\s*(?:<!doctype\s+html|<html\b)',
+      caseSensitive: false,
+    ).hasMatch(response.body);
+    if (contentType.contains('text/html') || bodyLooksLikeHtml) {
+      throw ApiException(
+        'The server returned an HTML page instead of a JSON API response. Check that API_BASE_URL includes /api and the tunnel forwards to Laravel.',
+        statusCode: response.statusCode,
+        type: ApiErrorType.httpError,
+      );
+    }
+
     dynamic payload;
     try {
       payload = response.body.isEmpty
@@ -478,17 +549,30 @@ class ApiService {
           : jsonDecode(response.body);
     } on FormatException {
       payload = <String, dynamic>{};
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        throw ApiException(
+          'The API returned an invalid JSON response. Check that API_BASE_URL points to Laravel and includes /api.',
+          statusCode: response.statusCode,
+          type: ApiErrorType.httpError,
+        );
+      }
     }
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      var message = 'Request failed. Please try again.';
+      var message = response.statusCode >= 500
+          ? 'The StudentMart API is temporarily unavailable. Please try again later.'
+          : 'Request failed. Please try again.';
       if (payload is Map) {
-        message = valueOf(payload['message']).isEmpty
-            ? message
-            : valueOf(payload['message']);
-        final errors = payload['errors'];
-        if (errors is Map && errors.isNotEmpty) {
-          final first = errors.values.first;
-          if (first is List && first.isNotEmpty) message = valueOf(first.first);
+        if (response.statusCode < 500) {
+          message = valueOf(payload['message']).isEmpty
+              ? message
+              : valueOf(payload['message']);
+          final errors = payload['errors'];
+          if (errors is Map && errors.isNotEmpty) {
+            final first = errors.values.first;
+            if (first is List && first.isNotEmpty) {
+              message = valueOf(first.first);
+            }
+          }
         }
       }
       throw ApiException(
@@ -1018,9 +1102,17 @@ class MarketplaceState extends ChangeNotifier {
   List<ProductCategory> categories = [];
   final List<String> recentSearches = <String>[];
   bool loading = false;
+  bool loadingMoreProducts = false;
   bool categoriesLoading = false;
   String? error;
+  String? loadMoreProductsError;
   String? categoriesError;
+  int productsPage = 0;
+  int productsLastPage = 1;
+  int _productsRequestGeneration = 0;
+
+  bool get hasMoreProducts =>
+      productsPage > 0 && productsPage < productsLastPage;
 
   void addRecentSearch(String query) {
     final normalized = query.trim();
@@ -1065,23 +1157,69 @@ class MarketplaceState extends ChangeNotifier {
   }
 
   Future<void> loadProducts() async {
+    final requestGeneration = ++_productsRequestGeneration;
     loading = true;
     error = null;
+    loadMoreProductsError = null;
     notifyListeners();
     try {
-      final payload = await api.get('/products');
-      products = listFrom(payload, 'products')
-          .map((item) => Product.fromJson(asMap(item)))
+      final page = await api.catalogProducts(page: 1);
+      if (requestGeneration != _productsRequestGeneration) return;
+      products = page.products
           .where(
             (product) =>
                 product.status == 'active' || product.status == 'sold_out',
           )
           .toList();
+      productsPage = page.currentPage;
+      productsLastPage = page.lastPage;
     } catch (exception) {
-      error = exception.toString();
+      if (requestGeneration == _productsRequestGeneration) {
+        error = exception.toString();
+      }
     } finally {
-      loading = false;
-      notifyListeners();
+      if (requestGeneration == _productsRequestGeneration) {
+        loading = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<void> loadMoreProducts() async {
+    if (loading ||
+        loadingMoreProducts ||
+        !hasMoreProducts ||
+        productsPage <= 0) {
+      return;
+    }
+    final requestGeneration = _productsRequestGeneration;
+    final requestedPage = productsPage + 1;
+    loadingMoreProducts = true;
+    loadMoreProductsError = null;
+    notifyListeners();
+    try {
+      final page = await api.catalogProducts(page: requestedPage);
+      if (requestGeneration != _productsRequestGeneration) return;
+      final knownIds = products.map((product) => product.id).toSet();
+      products = [
+        ...products,
+        ...page.products.where(
+          (product) =>
+              (product.status == 'active' || product.status == 'sold_out') &&
+              knownIds.add(product.id),
+        ),
+      ];
+      productsPage = page.currentPage;
+      productsLastPage = page.lastPage;
+    } catch (exception) {
+      if (requestGeneration == _productsRequestGeneration) {
+        loadMoreProductsError = exception.toString();
+      }
+    } finally {
+      if (requestGeneration == _productsRequestGeneration) {
+        loadingMoreProducts = false;
+        notifyListeners();
+      }
     }
   }
 

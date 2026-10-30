@@ -97,3 +97,69 @@ test('marketplace search matches product, seller, and active category informatio
         ->assertUnprocessable()
         ->assertJsonValidationErrors('search');
 });
+
+test('marketplace pagination is opt-in and returns stable filtered pages', function () {
+    $seller = makeProductVisibilityStudent('PAGINATION-OWNER');
+    $category = Category::create([
+        'name' => 'Books',
+        'description' => 'Course books and notebooks.',
+        'status' => 'active',
+    ]);
+
+    $products = [
+        ['name' => 'Notebook 100', 'price' => 100, 'category_id' => $category->id, 'attributes' => ['condition' => 'New'], 'stock_quantity' => 2],
+        ['name' => 'Notebook 120', 'price' => 120, 'category_id' => $category->id, 'attributes' => ['condition' => 'New'], 'stock_quantity' => 1],
+        ['name' => 'Notebook 90 legacy', 'price' => 90, 'category_id' => null, 'attributes' => ['condition' => 'New'], 'stock_quantity' => 3],
+        ['name' => 'Used notebook', 'price' => 80, 'category_id' => $category->id, 'attributes' => ['condition' => 'Used'], 'stock_quantity' => 2],
+        ['name' => 'Out of stock notebook', 'price' => 85, 'category_id' => $category->id, 'attributes' => ['condition' => 'New'], 'stock_quantity' => 0],
+    ];
+
+    foreach ($products as $attributes) {
+        $product = makeVisibilityTestProduct($seller, 'active');
+        $product->update($attributes + ['category' => 'Books']);
+    }
+    Sanctum::actingAs($seller);
+
+    $query = http_build_query([
+        'category_id' => $category->id,
+        'min_price' => 80,
+        'max_price' => 120,
+        'condition' => 'new',
+        'in_stock' => 1,
+        'sort' => 'price_asc',
+        'per_page' => 2,
+    ]);
+
+    $this->getJson('/api/products?'.$query.'&page=1')
+        ->assertOk()
+        ->assertJsonPath('total', 3)
+        ->assertJsonPath('pagination.current_page', 1)
+        ->assertJsonPath('pagination.last_page', 2)
+        ->assertJsonPath('products.0.name', 'Notebook 90 legacy')
+        ->assertJsonPath('products.1.name', 'Notebook 100');
+
+    $this->getJson('/api/products?'.$query.'&page=2')
+        ->assertOk()
+        ->assertJsonPath('pagination.current_page', 2)
+        ->assertJsonPath('products.0.name', 'Notebook 120');
+
+    $this->getJson('/api/products')
+        ->assertOk()
+        ->assertJsonMissingPath('pagination');
+});
+
+test('marketplace rejects invalid pagination and price ranges', function () {
+    Sanctum::actingAs(makeProductVisibilityStudent('PAGINATION-VALIDATION'));
+
+    $this->getJson('/api/products?page=0')
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('page');
+
+    $this->getJson('/api/products?sort=unknown')
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('sort');
+
+    $this->getJson('/api/products?min_price=200&max_price=100')
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('min_price');
+});

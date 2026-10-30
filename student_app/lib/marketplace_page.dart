@@ -183,6 +183,15 @@ class _HomePageState extends State<HomePage> {
     final products = state.products
         .where((product) => product.status.toLowerCase() == 'active')
         .toList(growable: false);
+    if (products.isEmpty &&
+        state.hasMoreProducts &&
+        !state.loadingMoreProducts) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && state.hasMoreProducts && !state.loadingMoreProducts) {
+          unawaited(state.loadMoreProducts());
+        }
+      });
+    }
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -193,6 +202,13 @@ class _HomePageState extends State<HomePage> {
               ? ErrorMessage(
                   message: state.error!,
                   onRetry: () => unawaited(state.loadProducts()),
+                )
+              : state.loadingMoreProducts && products.isEmpty
+              ? const Center(child: CircularProgressIndicator())
+              : state.loadMoreProductsError != null && products.isEmpty
+              ? ErrorMessage(
+                  message: state.loadMoreProductsError!,
+                  onRetry: () => unawaited(state.loadMoreProducts()),
                 )
               : Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -243,9 +259,23 @@ class _HomePageState extends State<HomePage> {
                 physics: const BouncingScrollPhysics(
                   parent: PageScrollPhysics(),
                 ),
-                itemCount: products.length,
-                onPageChanged: (index) => setState(() => _currentPage = index),
+                itemCount: products.length + (state.hasMoreProducts ? 1 : 0),
+                onPageChanged: (index) {
+                  setState(() => _currentPage = index);
+                  if (index >= products.length - 3 &&
+                      state.hasMoreProducts &&
+                      !state.loadingMoreProducts) {
+                    unawaited(state.loadMoreProducts());
+                  }
+                },
                 itemBuilder: (context, index) {
+                  if (index >= products.length) {
+                    return _FeedLoadMorePage(
+                      loading: state.loadingMoreProducts,
+                      error: state.loadMoreProductsError,
+                      onRetry: () => unawaited(state.loadMoreProducts()),
+                    );
+                  }
                   final product = products[index];
                   final isOwnListing = isOwnProduct(product, currentUserId);
                   final followStatus =
@@ -277,6 +307,39 @@ class _HomePageState extends State<HomePage> {
       },
     );
   }
+}
+
+class _FeedLoadMorePage extends StatelessWidget {
+  const _FeedLoadMorePage({
+    required this.loading,
+    required this.error,
+    required this.onRetry,
+  });
+
+  final bool loading;
+  final String? error;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) => Center(
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (loading || error == null)
+          const CircularProgressIndicator()
+        else ...[
+          const Icon(Icons.cloud_off_outlined, size: 36),
+          const SizedBox(height: 8),
+          const Text('More listings could not be loaded.'),
+          TextButton.icon(
+            onPressed: onRetry,
+            icon: const Icon(Icons.refresh),
+            label: const Text('Try again'),
+          ),
+        ],
+      ],
+    ),
+  );
 }
 
 class _ImmersiveProductPage extends StatefulWidget {
@@ -546,12 +609,15 @@ class _ImmersiveProductPageState extends State<_ImmersiveProductPage>
   Widget _sellerRail(BuildContext context, String sellerName, bool ownListing) {
     final statusFuture = widget.sellerStatus;
     if (ownListing || statusFuture == null) {
-      return InkWell(
-        onTap: _openSeller,
-        customBorder: const CircleBorder(),
-        child: _feedSellerAvatar(
-          sellerName,
-          widget.product.sellerProfilePicture,
+      return Tooltip(
+        message: 'Open seller profile',
+        child: InkWell(
+          onTap: _openSeller,
+          customBorder: const CircleBorder(),
+          child: _feedSellerAvatar(
+            sellerName,
+            widget.product.sellerProfilePicture,
+          ),
         ),
       );
     }
@@ -577,13 +643,16 @@ class _ImmersiveProductPageState extends State<_ImmersiveProductPage>
               Positioned(
                 left: 0,
                 top: 0,
-                child: Semantics(
-                  button: true,
-                  label: 'Open seller profile',
-                  child: InkWell(
-                    onTap: _openSeller,
-                    customBorder: const CircleBorder(),
-                    child: _feedSellerAvatar(displayName, imagePath),
+                child: Tooltip(
+                  message: 'Open seller profile',
+                  child: Semantics(
+                    button: true,
+                    label: 'Open seller profile',
+                    child: InkWell(
+                      onTap: _openSeller,
+                      customBorder: const CircleBorder(),
+                      child: _feedSellerAvatar(displayName, imagePath),
+                    ),
                   ),
                 ),
               ),
@@ -1232,14 +1301,166 @@ class MarketplacePage extends StatefulWidget {
 
 class _MarketplacePageState extends State<MarketplacePage> {
   final _search = TextEditingController();
+  Timer? _filterDebounce;
   String _category = 'All categories';
   String _sort = 'Recently added';
   bool _gridView = true;
+  List<Product> _filteredProducts = <Product>[];
+  bool _filterLoading = false;
+  bool _filterLoadingMore = false;
+  String? _filterError;
+  String? _filterMoreError;
+  int _filterPage = 0;
+  int _filterLastPage = 1;
+  int _filterRequestGeneration = 0;
+
+  bool get _hasActiveQuery =>
+      _search.text.trim().isNotEmpty ||
+      _category != 'All categories' ||
+      _sort != 'Recently added';
 
   @override
   void dispose() {
+    _filterDebounce?.cancel();
     _search.dispose();
     super.dispose();
+  }
+
+  int? _categoryId(MarketplaceState state) {
+    if (_category == 'All categories') return null;
+    for (final category in state.categories) {
+      if (category.name == _category) return category.id;
+    }
+    return null;
+  }
+
+  void _scheduleFilteredProducts({bool debounce = false}) {
+    _filterDebounce?.cancel();
+    final requestGeneration = ++_filterRequestGeneration;
+    if (!_hasActiveQuery) {
+      setState(() {
+        _filteredProducts = <Product>[];
+        _filterLoading = false;
+        _filterLoadingMore = false;
+        _filterError = null;
+        _filterMoreError = null;
+        _filterPage = 0;
+        _filterLastPage = 1;
+      });
+      return;
+    }
+    setState(() {
+      _filteredProducts = <Product>[];
+      _filterLoading = true;
+      _filterLoadingMore = false;
+      _filterError = null;
+      _filterMoreError = null;
+      _filterPage = 0;
+      _filterLastPage = 1;
+    });
+    void load() =>
+        unawaited(_loadFilteredProducts(requestGeneration: requestGeneration));
+    if (debounce) {
+      _filterDebounce = Timer(const Duration(milliseconds: 300), load);
+    } else {
+      load();
+    }
+  }
+
+  Future<void> _loadFilteredProducts({
+    required int requestGeneration,
+    bool append = false,
+  }) async {
+    if (!mounted || requestGeneration != _filterRequestGeneration) return;
+    if (append &&
+        (_filterLoading ||
+            _filterLoadingMore ||
+            _filterPage == 0 ||
+            _filterPage >= _filterLastPage)) {
+      return;
+    }
+    final requestedPage = append ? _filterPage + 1 : 1;
+    final marketplace = context.read<MarketplaceState>();
+    if (append) {
+      setState(() {
+        _filterLoadingMore = true;
+        _filterMoreError = null;
+      });
+    }
+    try {
+      final result = await context.read<ApiService>().catalogProducts(
+        page: requestedPage,
+        search: _search.text,
+        category: _category == 'All categories' ? null : _category,
+        categoryId: _categoryId(marketplace),
+        sort: switch (_sort) {
+          'Price: low to high' => 'price_asc',
+          'Price: high to low' => 'price_desc',
+          _ => 'newest',
+        },
+      );
+      if (!mounted || requestGeneration != _filterRequestGeneration) return;
+      final received = result.products.where(
+        (product) => product.status == 'active' || product.status == 'sold_out',
+      );
+      final knownIds = append
+          ? _filteredProducts.map((product) => product.id).toSet()
+          : <int>{};
+      setState(() {
+        if (append) {
+          _filteredProducts.addAll(
+            received.where((product) => knownIds.add(product.id)),
+          );
+        } else {
+          _filteredProducts = received.toList();
+        }
+        _filterPage = result.currentPage;
+        _filterLastPage = result.lastPage;
+        _filterError = null;
+        _filterMoreError = null;
+      });
+    } catch (error) {
+      if (!mounted || requestGeneration != _filterRequestGeneration) return;
+      setState(() {
+        if (append) {
+          _filterMoreError = error.toString();
+        } else {
+          _filterError = error.toString();
+        }
+      });
+    } finally {
+      if (mounted && requestGeneration == _filterRequestGeneration) {
+        setState(() {
+          if (append) {
+            _filterLoadingMore = false;
+          } else {
+            _filterLoading = false;
+          }
+        });
+      }
+    }
+  }
+
+  Future<void> _loadMoreFilteredProducts() => _loadFilteredProducts(
+    requestGeneration: _filterRequestGeneration,
+    append: true,
+  );
+
+  Future<void> _refreshProducts(MarketplaceState marketplace) async {
+    _filterDebounce?.cancel();
+    if (_hasActiveQuery) {
+      final requestGeneration = ++_filterRequestGeneration;
+      setState(() {
+        _filterLoading = true;
+        _filterError = null;
+        _filterMoreError = null;
+        _filterPage = 0;
+        _filterLastPage = 1;
+      });
+      await _loadFilteredProducts(requestGeneration: requestGeneration);
+    } else {
+      await marketplace.loadProducts();
+    }
   }
 
   @override
@@ -1253,29 +1474,40 @@ class _MarketplacePageState extends State<MarketplacePage> {
             .toSet()
             .toList()
           ..sort();
-    final query = _search.text.trim().toLowerCase();
-    final visible = state.products.where((product) {
-      final matchesQuery =
-          query.isEmpty ||
-          product.name.toLowerCase().contains(query) ||
-          product.description.toLowerCase().contains(query) ||
-          product.category.toLowerCase().contains(query) ||
-          product.sellerName.toLowerCase().contains(query) ||
-          product.sellerUsername.toLowerCase().contains(query);
-      final matchesCategory =
-          _category == 'All categories' || product.category == _category;
-      return matchesQuery && matchesCategory;
-    }).toList();
-    if (_sort == 'Price: low to high') {
-      visible.sort((first, second) => first.price.compareTo(second.price));
-    } else if (_sort == 'Price: high to low') {
-      visible.sort((first, second) => second.price.compareTo(first.price));
+    final activeFilters = _hasActiveQuery;
+    final visible = activeFilters ? _filteredProducts : state.products;
+    final isLoading = activeFilters ? _filterLoading : state.loading;
+    final error = activeFilters ? _filterError : state.error;
+    final hasMore = activeFilters
+        ? _filterPage > 0 && _filterPage < _filterLastPage
+        : state.hasMoreProducts;
+    final loadingMore = activeFilters
+        ? _filterLoadingMore
+        : state.loadingMoreProducts;
+    final moreError = activeFilters
+        ? _filterMoreError
+        : state.loadMoreProductsError;
+
+    Future<void> loadMore() async {
+      if (activeFilters) {
+        await _loadMoreFilteredProducts();
+      } else {
+        await state.loadMoreProducts();
+      }
     }
 
-    final activeFilters =
-        _search.text.trim().isNotEmpty ||
-        _category != 'All categories' ||
-        _sort != 'Recently added';
+    Widget moreIndicator() {
+      if (moreError != null) {
+        return Center(
+          child: TextButton.icon(
+            onPressed: () => unawaited(loadMore()),
+            icon: const Icon(Icons.refresh),
+            label: const Text('Retry loading products'),
+          ),
+        );
+      }
+      return const Center(child: CircularProgressIndicator());
+    }
 
     return LayoutBuilder(
       builder: (context, pageConstraints) => Column(
@@ -1300,7 +1532,10 @@ class _MarketplacePageState extends State<MarketplacePage> {
                             child: TextField(
                               key: const ValueKey('shop-search-input'),
                               controller: _search,
-                              onChanged: (_) => setState(() {}),
+                              onChanged: (_) {
+                                setState(() {});
+                                _scheduleFilteredProducts(debounce: true);
+                              },
                               textInputAction: TextInputAction.search,
                               decoration: InputDecoration(
                                 hintText:
@@ -1316,6 +1551,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
                                         onPressed: () {
                                           _search.clear();
                                           setState(() {});
+                                          _scheduleFilteredProducts();
                                         },
                                         icon: const Icon(Icons.close),
                                       ),
@@ -1385,9 +1621,10 @@ class _MarketplacePageState extends State<MarketplacePage> {
                                 child: Text('Price: high to low'),
                               ),
                             ],
-                            onChanged: (value) => setState(
-                              () => _sort = value ?? 'Recently added',
-                            ),
+                            onChanged: (value) {
+                              setState(() => _sort = value ?? 'Recently added');
+                              _scheduleFilteredProducts();
+                            },
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -1419,6 +1656,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
                               _category = 'All categories';
                               _sort = 'Recently added';
                             });
+                            _scheduleFilteredProducts();
                           },
                           icon: const Icon(Icons.filter_alt_off_outlined),
                           label: const Text('Clear filters'),
@@ -1431,13 +1669,13 @@ class _MarketplacePageState extends State<MarketplacePage> {
           ),
           Expanded(
             child: RefreshIndicator(
-              onRefresh: state.loadProducts,
-              child: state.loading && state.products.isEmpty
+              onRefresh: () => _refreshProducts(state),
+              child: isLoading && visible.isEmpty
                   ? const Center(child: CircularProgressIndicator())
-                  : state.error != null && state.products.isEmpty
+                  : error != null && visible.isEmpty
                   ? ErrorMessage(
-                      message: state.error!,
-                      onRetry: state.loadProducts,
+                      message: error,
+                      onRetry: () => _refreshProducts(state),
                     )
                   : visible.isEmpty
                   ? ListView(
@@ -1466,89 +1704,122 @@ class _MarketplacePageState extends State<MarketplacePage> {
                         final imageHeight = (cardWidth * .48)
                             .clamp(150.0, 218.0)
                             .toDouble();
-                        return Center(
-                          child: SizedBox(
-                            width: contentWidth,
-                            child: _gridView
-                                ? GridView.builder(
-                                    key: const ValueKey('shop-product-grid'),
-                                    padding: const EdgeInsets.fromLTRB(
-                                      14,
-                                      2,
-                                      14,
-                                      20,
-                                    ),
-                                    itemCount: visible.length,
-                                    gridDelegate:
-                                        SliverGridDelegateWithFixedCrossAxisCount(
-                                          crossAxisCount: columns,
-                                          mainAxisExtent: imageHeight + 220,
-                                          crossAxisSpacing: 12,
-                                          mainAxisSpacing: 12,
-                                        ),
-                                    itemBuilder: (context, index) {
-                                      final product = visible[index];
-                                      final ownListing = isOwnProduct(
-                                        product,
-                                        currentUserId,
-                                      );
-                                      return ProductCard(
-                                        key: ValueKey(
-                                          'shop-product-${product.id}',
-                                        ),
-                                        product: product,
-                                        imageHeight: imageHeight,
-                                        isOwnListing: ownListing,
-                                        showSeller: true,
-                                        showSellerAvatar: true,
-                                        showViewAction: true,
-                                        onSellerTap: product.userId > 0
-                                            ? () => _openSellerProfile(product)
-                                            : null,
-                                        onTap: () => _openProduct(product),
-                                        onAdd: () => _addProductToCart(
-                                          context,
+                        return NotificationListener<ScrollNotification>(
+                          onNotification: (notification) {
+                            if (notification.metrics.extentAfter < 600 &&
+                                hasMore &&
+                                !loadingMore) {
+                              unawaited(loadMore());
+                            }
+                            return false;
+                          },
+                          child: Center(
+                            child: SizedBox(
+                              width: contentWidth,
+                              child: _gridView
+                                  ? GridView.builder(
+                                      key: const ValueKey('shop-product-grid'),
+                                      padding: const EdgeInsets.fromLTRB(
+                                        14,
+                                        2,
+                                        14,
+                                        20,
+                                      ),
+                                      itemCount:
+                                          visible.length +
+                                          ((hasMore ||
+                                                  loadingMore ||
+                                                  moreError != null)
+                                              ? 1
+                                              : 0),
+                                      gridDelegate:
+                                          SliverGridDelegateWithFixedCrossAxisCount(
+                                            crossAxisCount: columns,
+                                            mainAxisExtent: imageHeight + 220,
+                                            crossAxisSpacing: 12,
+                                            mainAxisSpacing: 12,
+                                          ),
+                                      itemBuilder: (context, index) {
+                                        if (index >= visible.length) {
+                                          return moreIndicator();
+                                        }
+                                        final product = visible[index];
+                                        final ownListing = isOwnProduct(
                                           product,
                                           currentUserId,
-                                        ),
-                                      );
-                                    },
-                                  )
-                                : ListView.separated(
-                                    key: const ValueKey('shop-product-list'),
-                                    padding: const EdgeInsets.fromLTRB(
-                                      14,
-                                      2,
-                                      14,
-                                      20,
-                                    ),
-                                    itemCount: visible.length,
-                                    separatorBuilder: (_, _) =>
-                                        const SizedBox(height: 10),
-                                    itemBuilder: (context, index) {
-                                      final product = visible[index];
-                                      final ownListing = isOwnProduct(
-                                        product,
-                                        currentUserId,
-                                      );
-                                      return _MarketplaceListItem(
-                                        key: ValueKey(
-                                          'shop-list-product-${product.id}',
-                                        ),
-                                        product: product,
-                                        isOwnListing: ownListing,
-                                        onTap: () => _openProduct(product),
-                                        onSellerTap: product.userId > 0
-                                            ? () => _openSellerProfile(product)
-                                            : null,
-                                        onAdd: () => _addProductToCart(
-                                          context,
+                                        );
+                                        return ProductCard(
+                                          key: ValueKey(
+                                            'shop-product-${product.id}',
+                                          ),
+                                          product: product,
+                                          imageHeight: imageHeight,
+                                          isOwnListing: ownListing,
+                                          showSeller: true,
+                                          showSellerAvatar: true,
+                                          showViewAction: true,
+                                          onSellerTap: product.userId > 0
+                                              ? () =>
+                                                    _openSellerProfile(product)
+                                              : null,
+                                          onTap: () => _openProduct(product),
+                                          onAdd: () => _addProductToCart(
+                                            context,
+                                            product,
+                                            currentUserId,
+                                          ),
+                                        );
+                                      },
+                                    )
+                                  : ListView.separated(
+                                      key: const ValueKey('shop-product-list'),
+                                      padding: const EdgeInsets.fromLTRB(
+                                        14,
+                                        2,
+                                        14,
+                                        20,
+                                      ),
+                                      itemCount:
+                                          visible.length +
+                                          ((hasMore ||
+                                                  loadingMore ||
+                                                  moreError != null)
+                                              ? 1
+                                              : 0),
+                                      separatorBuilder: (_, _) =>
+                                          const SizedBox(height: 10),
+                                      itemBuilder: (context, index) {
+                                        if (index >= visible.length) {
+                                          return SizedBox(
+                                            height: 76,
+                                            child: moreIndicator(),
+                                          );
+                                        }
+                                        final product = visible[index];
+                                        final ownListing = isOwnProduct(
                                           product,
                                           currentUserId,
-                                        ),
-                                      );
-                                    },
-                                  ),
+                                        );
+                                        return _MarketplaceListItem(
+                                          key: ValueKey(
+                                            'shop-list-product-${product.id}',
+                                          ),
+                                          product: product,
+                                          isOwnListing: ownListing,
+                                          onTap: () => _openProduct(product),
+                                          onSellerTap: product.userId > 0
+                                              ? () =>
+                                                    _openSellerProfile(product)
+                                              : null,
+                                          onAdd: () => _addProductToCart(
+                                            context,
+                                            product,
+                                            currentUserId,
+                                          ),
+                                        );
+                                      },
+                                    ),
+                            ),
                           ),
                         );
                       },
@@ -1568,7 +1839,10 @@ class _MarketplacePageState extends State<MarketplacePage> {
         key: ValueKey('shop-category-$label'),
         label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
         selected: _category == label,
-        onSelected: (_) => setState(() => _category = label),
+        onSelected: (_) {
+          setState(() => _category = label);
+          _scheduleFilteredProducts();
+        },
         selectedColor: TmcPalette.deepNavy,
         backgroundColor: TmcPalette.white,
         labelStyle: TextStyle(

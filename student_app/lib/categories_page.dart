@@ -19,7 +19,12 @@ class _CategoriesPageState extends State<CategoriesPage> {
   List<ProductCategory> _categories = <ProductCategory>[];
   List<Product> _products = <Product>[];
   bool _loading = false;
+  bool _loadingMore = false;
   String? _error;
+  String? _loadMoreError;
+  int _page = 0;
+  int _lastPage = 1;
+  int _requestGeneration = 0;
 
   @override
   void initState() {
@@ -49,28 +54,71 @@ class _CategoriesPageState extends State<CategoriesPage> {
 
   Future<void> _loadProductsForCategory() async {
     if (_selected == null) return;
+    final requestGeneration = ++_requestGeneration;
     setState(() {
       _loading = true;
       _error = null;
+      _loadMoreError = null;
       _products = <Product>[];
+      _page = 0;
+      _lastPage = 1;
     });
     try {
-      final response = await context.read<ApiService>().get(
-        "/products?category=",
+      final selected = _selected!;
+      final result = await context.read<ApiService>().catalogProducts(
+        page: 1,
+        category: selected.name,
+        categoryId: selected.id,
       );
-      if (!mounted) return;
-      final raw = response["products"];
-      final products = raw is List
-          ? raw.map((row) => Product.fromJson(asMap(row))).toList()
-          : <Product>[];
+      if (!mounted || requestGeneration != _requestGeneration) return;
       setState(() {
-        _products = products;
+        _products = result.products;
+        _page = result.currentPage;
+        _lastPage = result.lastPage;
       });
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || requestGeneration != _requestGeneration) return;
       setState(() => _error = error.toString());
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && requestGeneration == _requestGeneration) {
+        setState(() => _loading = false);
+      }
+    }
+  }
+
+  Future<void> _loadMoreProducts() async {
+    final selected = _selected;
+    if (selected == null || _loading || _loadingMore || _page >= _lastPage) {
+      return;
+    }
+    final requestGeneration = _requestGeneration;
+    final requestedPage = _page + 1;
+    setState(() {
+      _loadingMore = true;
+      _loadMoreError = null;
+    });
+    try {
+      final result = await context.read<ApiService>().catalogProducts(
+        page: requestedPage,
+        category: selected.name,
+        categoryId: selected.id,
+      );
+      if (!mounted || requestGeneration != _requestGeneration) return;
+      final knownIds = _products.map((product) => product.id).toSet();
+      setState(() {
+        _products.addAll(
+          result.products.where((product) => knownIds.add(product.id)),
+        );
+        _page = result.currentPage;
+        _lastPage = result.lastPage;
+      });
+    } catch (error) {
+      if (!mounted || requestGeneration != _requestGeneration) return;
+      setState(() => _loadMoreError = error.toString());
+    } finally {
+      if (mounted && requestGeneration == _requestGeneration) {
+        setState(() => _loadingMore = false);
+      }
     }
   }
 
@@ -84,10 +132,14 @@ class _CategoriesPageState extends State<CategoriesPage> {
   }
 
   void _showAllCategories() {
+    _requestGeneration++;
     setState(() {
       _selected = null;
       _products = <Product>[];
       _error = null;
+      _loadMoreError = null;
+      _page = 0;
+      _lastPage = 1;
     });
   }
 
@@ -279,6 +331,11 @@ class _CategoriesPageState extends State<CategoriesPage> {
         Expanded(
           child: _loading && _products.isEmpty
               ? const Center(child: CircularProgressIndicator())
+              : _error != null && _products.isEmpty
+              ? ErrorMessage(
+                  message: _error!,
+                  onRetry: _loadProductsForCategory,
+                )
               : _products.isEmpty
               ? EmptyMessage(
                   icon: Icons.storefront_outlined,
@@ -286,43 +343,72 @@ class _CategoriesPageState extends State<CategoriesPage> {
                   message:
                       "There are no approved products in this category right now.",
                 )
-              : GridView.builder(
-                  padding: const EdgeInsets.all(16),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    childAspectRatio: 0.78,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                  ),
-                  itemCount: _products.length,
-                  itemBuilder: (context, index) {
-                    final product = _products[index];
-                    return ProductCard(
-                      product: product,
-                      isOwnListing:
-                          product.userId == context.read<AuthState>().user?.id,
-                      onTap: () => Navigator.of(context).push<void>(
-                        MaterialPageRoute<void>(
-                          builder: (_) =>
-                              ProductDetailsPage(productId: product.id),
-                        ),
-                      ),
-                      onAdd:
-                          product.userId !=
-                                  context.read<AuthState>().user?.id &&
-                              product.status == "active"
-                          ? () {
-                              context.read<CartState>().add(
-                                product,
-                                currentUserId: context
-                                    .read<AuthState>()
-                                    .user!
-                                    .id,
-                              );
-                            }
-                          : null,
-                    );
+              : NotificationListener<ScrollNotification>(
+                  onNotification: (notification) {
+                    if (notification.metrics.extentAfter < 500 &&
+                        _page < _lastPage &&
+                        !_loadingMore) {
+                      _loadMoreProducts();
+                    }
+                    return false;
                   },
+                  child: GridView.builder(
+                    padding: const EdgeInsets.all(16),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          childAspectRatio: 0.78,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                        ),
+                    itemCount:
+                        _products.length +
+                        ((_page < _lastPage ||
+                                _loadingMore ||
+                                _loadMoreError != null)
+                            ? 1
+                            : 0),
+                    itemBuilder: (context, index) {
+                      if (index >= _products.length) {
+                        return Center(
+                          child: _loadMoreError != null
+                              ? TextButton.icon(
+                                  onPressed: _loadMoreProducts,
+                                  icon: const Icon(Icons.refresh),
+                                  label: const Text('Retry loading products'),
+                                )
+                              : const CircularProgressIndicator(),
+                        );
+                      }
+                      final product = _products[index];
+                      return ProductCard(
+                        product: product,
+                        isOwnListing:
+                            product.userId ==
+                            context.read<AuthState>().user?.id,
+                        onTap: () => Navigator.of(context).push<void>(
+                          MaterialPageRoute<void>(
+                            builder: (_) =>
+                                ProductDetailsPage(productId: product.id),
+                          ),
+                        ),
+                        onAdd:
+                            product.userId !=
+                                    context.read<AuthState>().user?.id &&
+                                product.status == "active"
+                            ? () {
+                                context.read<CartState>().add(
+                                  product,
+                                  currentUserId: context
+                                      .read<AuthState>()
+                                      .user!
+                                      .id,
+                                );
+                              }
+                            : null,
+                      );
+                    },
+                  ),
                 ),
         ),
       ],
