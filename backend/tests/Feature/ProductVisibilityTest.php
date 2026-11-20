@@ -66,6 +66,39 @@ test('students can read another seller active marketplace product', function () 
         ->assertJsonPath('product.status', 'active');
 });
 
+test('marketplace feed includes own and other active listings but hides pending listings', function () {
+    $owner = makeProductVisibilityStudent('FEED-OWNER');
+    $otherSeller = makeProductVisibilityStudent('FEED-OTHER');
+    $ownActive = makeVisibilityTestProduct($owner, 'active');
+    $ownActive->update(['stock_quantity' => 3]);
+    $otherActive = makeVisibilityTestProduct($otherSeller, 'active');
+    $otherActive->update(['stock_quantity' => 2]);
+    $pending = makeVisibilityTestProduct($owner, 'pending');
+    $pending->update(['stock_quantity' => 4]);
+    Sanctum::actingAs($owner);
+
+    $this->getJson('/api/products?per_page=24')
+        ->assertOk()
+        ->assertJsonPath('total', 2)
+        ->assertJsonFragment(['id' => $ownActive->id])
+        ->assertJsonFragment(['id' => $otherActive->id])
+        ->assertJsonMissing(['id' => $pending->id]);
+});
+
+test('my products endpoint returns only the authenticated student listings', function () {
+    $owner = makeProductVisibilityStudent('MINE-OWNER');
+    $otherSeller = makeProductVisibilityStudent('MINE-OTHER');
+    $ownPending = makeVisibilityTestProduct($owner, 'pending');
+    $otherListing = makeVisibilityTestProduct($otherSeller, 'active');
+    Sanctum::actingAs($owner);
+
+    $this->getJson('/api/my-products')
+        ->assertOk()
+        ->assertJsonPath('total', 1)
+        ->assertJsonPath('products.0.id', $ownPending->id)
+        ->assertJsonMissing(['id' => $otherListing->id]);
+});
+
 test('marketplace search matches product, seller, and active category information', function () {
     $seller = makeProductVisibilityStudent('SEARCH-OWNER');
     $seller->update([

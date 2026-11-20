@@ -18,6 +18,11 @@ class Order extends Model
         'status',
         'seller_response_deadline_at',
         'needs_attention',
+        'product_subtotal',
+        'tax_name',
+        'tax_enabled',
+        'tax_rate_percent',
+        'tax_amount',
         'total_amount',
         'payment_method_id',
         'payment_method_name_snapshot',
@@ -37,6 +42,10 @@ class Order extends Model
     protected function casts(): array
     {
         return [
+            'product_subtotal' => 'decimal:2',
+            'tax_enabled' => 'boolean',
+            'tax_rate_percent' => 'decimal:4',
+            'tax_amount' => 'decimal:2',
             'total_amount' => 'decimal:2',
             'seller_response_deadline_at' => 'datetime',
             'needs_attention' => 'boolean',

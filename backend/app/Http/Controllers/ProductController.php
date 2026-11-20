@@ -7,6 +7,7 @@ use App\Models\Category;
 use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -47,7 +48,7 @@ class ProductController extends Controller
         }
 
         $visibleSoldOutCutoff = now()->subHour();
-        $query = Product::with(['user:id,name,username,bio,course,profile_picture,student_id,contact_number,share_contact_info,facebook_url,instagram_url,tiktok_url', 'images', 'categoryRecord:id,name', 'variants' => fn ($query) => $query->where('is_active', true)])
+        $query = $this->withPublicReviewSummary(Product::with(['user:id,name,username,bio,course,profile_picture,student_id,contact_number,share_contact_info,facebook_url,instagram_url,tiktok_url', 'images', 'categoryRecord:id,name', 'variants' => fn ($query) => $query->where('is_active', true)]))
             ->where(function ($query) use ($visibleSoldOutCutoff): void {
                 $query->whereRaw('LOWER(status) = ?', ['active'])
                     ->orWhere(function ($soldOut) use ($visibleSoldOutCutoff): void {
@@ -155,7 +156,7 @@ class ProductController extends Controller
 
     public function myProducts(Request $request): JsonResponse
     {
-        $products = Product::where('user_id', $request->user()->id)
+        $products = $this->withPublicReviewSummary(Product::where('user_id', $request->user()->id))
             ->with(['user:id,name,username,bio,course,profile_picture,student_id,contact_number,share_contact_info,facebook_url,instagram_url,tiktok_url', 'images', 'categoryRecord:id,name', 'variants' => fn ($query) => $query->where('is_active', true)])
             ->orderByDesc('created_at')
             ->get()
@@ -275,7 +276,12 @@ class ProductController extends Controller
     {
         abort_unless($student->isStudent() && $student->isActive(), 404);
 
-        $products = Product::query()
+        $filters = $request->validate([
+            'active_only' => ['sometimes', 'boolean'],
+            'exclude_product_id' => ['sometimes', 'integer', 'min:1'],
+        ]);
+
+        $products = $this->withPublicReviewSummary(Product::query())
             ->where('user_id', $student->id)
             ->whereIn('status', ['active', 'sold_out'])
             ->with([
@@ -284,6 +290,17 @@ class ProductController extends Controller
                 'categoryRecord:id,name',
                 'variants' => fn ($query) => $query->where('is_active', true),
             ])
+            ->when(isset($filters['exclude_product_id']), fn (Builder $query) => $query
+                ->whereKeyNot((int) $filters['exclude_product_id']))
+            ->when($request->boolean('active_only'), function (Builder $query): void {
+                $query->whereRaw('LOWER(status) = ?', ['active'])
+                    ->where('stock_quantity', '>', 0)
+                    ->whereNull('archived_at')
+                    ->where(function (Builder $categoryQuery): void {
+                        $categoryQuery->whereNull('category_id')
+                            ->orWhereHas('categoryRecord', fn (Builder $category) => $category->where('status', 'active'));
+                    });
+            })
             ->orderByRaw("CASE WHEN status = 'active' THEN 0 ELSE 1 END")
             ->orderByDesc('created_at')
             ->paginate(12);
@@ -890,6 +907,24 @@ class ProductController extends Controller
 
     private function productData(Product $product): array
     {
+        $attributes = $product->getAttributes();
+        if (! array_key_exists('reviews_count', $attributes)
+            || ! array_key_exists('average_rating', $attributes)) {
+            $reviews = $product->reviews()->whereHas('reviewer', fn (Builder $query) => $query
+                ->where('role', 'student')
+                ->where('status', 'active'));
+            $product->setAttribute('reviews_count', (clone $reviews)->count());
+            $product->setAttribute(
+                'average_rating',
+                round((float) (clone $reviews)->avg('rating'), 2)
+            );
+        } else {
+            $product->setAttribute(
+                'average_rating',
+                round((float) ($attributes['average_rating'] ?? 0), 2)
+            );
+        }
+
         $viewerIsOwner = (int) Auth::id() === (int) $product->user_id;
         $product->loadMissing(['user:id,name,username,bio,course,profile_picture,student_id,contact_number,share_contact_info,facebook_url,instagram_url,tiktok_url', 'images', 'categoryRecord:id,name', 'variants' => fn ($query) => $query->where('is_active', true)]);
         if ($viewerIsOwner) {
@@ -948,6 +983,17 @@ class ProductController extends Controller
         }
 
         return $data;
+    }
+
+    private function withPublicReviewSummary(Builder $products): Builder
+    {
+        $visibleReviews = static fn (Builder $reviews) => $reviews->whereHas('reviewer', static fn (Builder $reviewer) => $reviewer
+            ->where('role', 'student')
+            ->where('status', 'active'));
+
+        return $products
+            ->withCount(['reviews as reviews_count' => $visibleReviews])
+            ->withAvg(['reviews as average_rating' => $visibleReviews], 'rating');
     }
 
     /** @param list<array{id?: int|null, label: string, attributes?: array<string, string>, stock_quantity: int}> $variants */

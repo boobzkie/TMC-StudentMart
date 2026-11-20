@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   BadgePercent,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   CheckCircle2,
@@ -20,6 +19,7 @@ import { useNavigate } from "react-router-dom";
 
 import AdminLayout from "./components/AdminLayout";
 import AdminPageHero from "./components/AdminPageHero";
+import Modal from "./ui/Modal";
 import { API_URL } from "./utils/api";
 
 import "./AdminCommission.css";
@@ -30,6 +30,12 @@ const EMPTY_SUMMARY = {
   total_uncollected: "0.00",
   unconfigured_orders: 0,
   completed_orders: 0,
+};
+const EMPTY_TAX_SUMMARY = {
+  total_demo_tax_collected: "0.00",
+  collected_order_count: 0,
+  by_date: [],
+  recent_orders: [],
 };
 
 const RECORD_PAGE_SIZES = [10, 25, 50];
@@ -81,12 +87,19 @@ function AdminCommission() {
   const [showAllRates, setShowAllRates] = useState(false);
   const [records, setRecords] = useState([]);
   const [tax, setTax] = useState({ status: "unconfigured", message: "Tax is not configured." });
+  const [taxHistory, setTaxHistory] = useState([]);
+  const [taxMetrics, setTaxMetrics] = useState(EMPTY_TAX_SUMMARY);
   const [rateDraft, setRateDraft] = useState("");
   const [editingRateId, setEditingRateId] = useState(null);
+  const [taxDraft, setTaxDraft] = useState("");
+  const [taxEnabledDraft, setTaxEnabledDraft] = useState(false);
+  const [taxDraftDirty, setTaxDraftDirty] = useState(false);
+  const [policyConfirmation, setPolicyConfirmation] = useState(null);
   const [collectionDraft, setCollectionDraft] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [savingRate, setSavingRate] = useState(false);
+  const [savingTax, setSavingTax] = useState(false);
   const [deactivatingRateId, setDeactivatingRateId] = useState(null);
   const [savingCollection, setSavingCollection] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
@@ -99,6 +112,7 @@ function AdminCommission() {
   const [recordPage, setRecordPage] = useState(1);
   const [referenceTime, setReferenceTime] = useState(null);
   const requestSequenceRef = useRef(0);
+  const taxDraftInitializedRef = useRef(false);
 
   const loadData = useCallback(async (showRefresh = false, signal) => {
     if (signal?.aborted) return;
@@ -142,7 +156,15 @@ function AdminCommission() {
       setCurrentRate(payload.current_rate || null);
       setRates(Array.isArray(payload.rates) ? payload.rates : []);
       setRecords(Array.isArray(payload.records) ? payload.records : []);
-      setTax(payload.tax || { status: "unconfigured", message: "Tax is not configured." });
+      const nextTax = payload.tax || { status: "unconfigured", message: "Tax is not configured." };
+      setTax(nextTax);
+      setTaxHistory(Array.isArray(payload.tax_history) ? payload.tax_history : []);
+      setTaxMetrics({ ...EMPTY_TAX_SUMMARY, ...(payload.tax_summary || {}) });
+      if (!taxDraftInitializedRef.current) {
+        setTaxDraft(nextTax.rate_percent ?? "");
+        setTaxEnabledDraft(Boolean(nextTax.is_active));
+        taxDraftInitializedRef.current = true;
+      }
       setHasLoaded(true);
     } catch (loadError) {
       if (!signal?.aborted && loadError?.name !== "AbortError" && requestSequence === requestSequenceRef.current) {
@@ -165,7 +187,7 @@ function AdminCommission() {
     };
   }, [loadData]);
 
-  const saveRate = async (event) => {
+  const saveRate = (event) => {
     event.preventDefault();
     setError("");
     setSuccess("");
@@ -176,46 +198,20 @@ function AdminCommission() {
       return;
     }
 
-    const rateLabel = `${parsedRate}%`;
-    const isEditing = editingRateId !== null;
-    const confirmation = isEditing
-      ? `Update the commission rate to ${rateLabel} now?`
-      : `Activate a ${rateLabel} commission rate now?`;
-    if (!window.confirm(`${confirmation} This creates a new effective version and only affects orders completed from now on. Earlier history and order snapshots remain unchanged.`)) {
+    if (currentRate && editingRateId === null) {
+      setError("Edit the active rate in the history list before saving a replacement.");
       return;
     }
 
-    setSavingRate(true);
-    try {
-      const response = await fetch(
-        isEditing
-          ? `${API_URL}/admin/commission/rates/${editingRateId}`
-          : API_URL + "/admin/commission/rates",
-        {
-          method: isEditing ? "PUT" : "POST",
-          headers: {
-            Accept: "application/json",
-            "Content-Type": "application/json",
-            Authorization: "Bearer " + localStorage.getItem("token"),
-          },
-          body: JSON.stringify({ rate_percent: parsedRate }),
-        },
-      );
-      const payload = await response.json();
-      if (!response.ok) {
-        const firstError = Object.values(payload.errors || {})[0];
-        throw new Error(firstError?.[0] || payload.message || "Unable to save the commission rate.");
-      }
-
-      setRateDraft("");
-      setEditingRateId(null);
-      setSuccess(payload.message || (isEditing ? "Commission rate updated." : "Commission rate activated."));
-      await loadData(true);
-    } catch (saveError) {
-      setError(saveError.message || "Unable to save the commission rate.");
-    } finally {
-      setSavingRate(false);
-    }
+    const nextRate = `${parsedRate}%`;
+    setPolicyConfirmation({
+      kind: "commission-rate",
+      ratePercent: parsedRate,
+      rateId: editingRateId,
+      title: editingRateId === null ? "Set the commission rate?" : "Update the commission rate?",
+      message: `${editingRateId === null ? `Activate ${nextRate}` : `Change the rate to ${nextRate}`} for future eligible orders. This will create a new history record; existing order commission snapshots will not change.`,
+      confirmLabel: editingRateId === null ? "Set rate" : "Save rate change",
+    });
   };
 
   const editRate = (rate) => {
@@ -230,34 +226,98 @@ function AdminCommission() {
     setEditingRateId(null);
   };
 
-  const deactivateRate = async (rate) => {
-    if (!window.confirm("Deactivate the current commission rate? Orders completed from now on will have no commission due. The rate history and completed-order snapshots will be preserved.")) {
+  const deactivateRate = (rate) => {
+    setError("");
+    setSuccess("");
+    setPolicyConfirmation({
+      kind: "commission-deactivate",
+      rateId: rate.id,
+      title: "Deactivate the commission rate?",
+      message: "Future eligible orders will have no commission due. The rate history and existing order snapshots will be preserved.",
+      confirmLabel: "Deactivate rate",
+      destructive: true,
+    });
+  };
+
+  const saveTax = (event) => {
+    event.preventDefault();
+    setError("");
+    setSuccess("");
+
+    const parsedRate = Number(taxDraft);
+    if (!Number.isFinite(parsedRate) || parsedRate < 0 || parsedRate > 100 || !/^\d+(\.\d{1,4})?$/.test(taxDraft)) {
+      setError("Enter a tax rate from 0 to 100 percent with no more than four decimal places.");
       return;
     }
 
+    setPolicyConfirmation({
+      kind: "tax-rate",
+      ratePercent: parsedRate,
+      isActive: taxEnabledDraft,
+      title: taxEnabledDraft ? "Enable StudentMart Demo Tax?" : "Save demo tax settings?",
+      message: `Save a ${parsedRate}% demo rate${taxEnabledDraft ? " and apply it to future orders" : "; future orders will not include demo tax"}. Existing orders keep their saved tax details.`,
+      confirmLabel: taxEnabledDraft ? "Enable demo tax" : "Save demo settings",
+    });
+  };
+
+  const confirmPolicyChange = async () => {
+    if (!policyConfirmation) return;
+    const confirmation = policyConfirmation;
+    const token = localStorage.getItem("token");
     setError("");
     setSuccess("");
-    setDeactivatingRateId(rate.id);
+
+    if (confirmation.kind === "commission-rate") setSavingRate(true);
+    if (confirmation.kind === "commission-deactivate") setDeactivatingRateId(confirmation.rateId);
+      if (confirmation.kind === "tax-rate") setSavingTax(true);
+
     try {
-      const response = await fetch(`${API_URL}/admin/commission/rates/${rate.id}`, {
-        method: "DELETE",
+      const isTax = confirmation.kind === "tax-rate";
+      const isDeactivation = confirmation.kind === "commission-deactivate";
+      const isEditing = confirmation.kind === "commission-rate" && confirmation.rateId !== null;
+      const endpoint = isTax
+        ? `${API_URL}/admin/commission/tax`
+        : isDeactivation
+          ? `${API_URL}/admin/commission/rates/${confirmation.rateId}`
+          : isEditing
+            ? `${API_URL}/admin/commission/rates/${confirmation.rateId}`
+            : `${API_URL}/admin/commission/rates`;
+      const response = await fetch(endpoint, {
+        method: isTax ? "PUT" : isDeactivation ? "DELETE" : isEditing ? "PUT" : "POST",
         headers: {
           Accept: "application/json",
-          Authorization: "Bearer " + localStorage.getItem("token"),
+          ...(isDeactivation ? {} : { "Content-Type": "application/json" }),
+          Authorization: "Bearer " + token,
         },
+        ...(isDeactivation ? {} : {
+          body: JSON.stringify(isTax
+            ? { rate_percent: confirmation.ratePercent, is_active: confirmation.isActive }
+            : { rate_percent: confirmation.ratePercent }),
+        }),
       });
       const payload = await response.json();
       if (!response.ok) {
         const firstError = Object.values(payload.errors || {})[0];
-        throw new Error(firstError?.[0] || payload.message || "Unable to deactivate the commission rate.");
+        throw new Error(firstError?.[0] || payload.message || "Unable to save the policy change.");
       }
 
-      cancelRateEdit();
-      setSuccess(payload.message || "Commission rate deactivated for future orders.");
+      if (isTax) {
+        setTaxDraft(payload.tax?.rate_percent ?? String(confirmation.ratePercent));
+        setTaxEnabledDraft(Boolean(payload.tax?.is_active));
+        setTaxDraftDirty(false);
+      } else {
+        setRateDraft("");
+        setEditingRateId(null);
+      }
+      setSuccess(payload.message || "Policy change saved.");
+      setPolicyConfirmation(null);
       await loadData(true);
-    } catch (deactivationError) {
-      setError(deactivationError.message || "Unable to deactivate the commission rate.");
+    } catch (saveError) {
+      setError(saveError.message || "Unable to save the policy change.");
+      setPolicyConfirmation(null);
     } finally {
+      setSavingRate(false);
+      setSavingTax(false);
       setDeactivatingRateId(null);
     }
   };
@@ -301,12 +361,24 @@ function AdminCommission() {
 
   const metricsPending = loading && !hasLoaded;
   const metricsUnavailable = !loading && !hasLoaded;
-  const taxStatusLabel = metricsPending ? "Loading" : metricsUnavailable ? "Unavailable" : "Not configured";
-  const taxSummary = metricsPending
-    ? "Tax information is loading."
+  const taxStatusLabel = metricsPending
+    ? "Loading"
     : metricsUnavailable
-      ? "Tax information could not be loaded."
-      : "No approved tax rule is active; tax is not calculated or added to orders.";
+      ? "Unavailable"
+      : tax.status === "inactive"
+        ? "Inactive"
+        : tax.status === "active"
+          ? "Active"
+          : "Not configured";
+  const taxSummary = metricsPending
+    ? "Demo tax information is loading."
+    : metricsUnavailable
+      ? "Demo tax information could not be loaded."
+      : tax.status === "inactive"
+        ? "The demo rate is saved, but StudentMart Demo Tax is disabled for new orders."
+        : tax.status === "active"
+          ? "StudentMart Demo Tax is enabled for future orders."
+          : "Demo tax is not configured and is not added to orders.";
   const filteredRecords = useMemo(() => {
     const query = recordSearch.trim().toLocaleLowerCase();
     const rangeDays = Number(recordDateFilter);
@@ -375,7 +447,7 @@ function AdminCommission() {
           refreshing={loading || refreshing}
           autoRefreshIntervalMs={120_000}
           autoRefreshKey="commission"
-          autoRefreshPaused={Boolean(rateDraft || editingRateId || collectionDraft || savingRate || savingCollection || deactivatingRateId)}
+          autoRefreshPaused={Boolean(rateDraft || editingRateId || taxDraftDirty || policyConfirmation || collectionDraft || savingRate || savingTax || savingCollection || deactivatingRateId)}
         />
 
         {error && <div className="commission-alert error" role="alert">{error}</div>}
@@ -384,7 +456,7 @@ function AdminCommission() {
         <p className="commission-summary-note">
           The commission summary cards show all-time ledger totals. Record filters below only affect the rows and chart in this view.
         </p>
-        <section className="commission-overview-grid" aria-label="All-time commission summary">
+        <section className="commission-overview-grid" aria-label="Commission and DEMO TAX summary">
           <MetricCard
             icon={Coins}
             label="Commission earned"
@@ -413,6 +485,20 @@ function AdminCommission() {
             description="Used for future completed orders"
             loading={metricsPending}
           />
+          <MetricCard
+            icon={AlertTriangle}
+            label="DEMO TAX rate"
+            value={metricsPending ? "Loading…" : metricsUnavailable ? "Unavailable" : tax.rate_percent === null || tax.rate_percent === undefined ? "Not configured" : formatRate(tax.rate_percent)}
+            description={metricsPending || metricsUnavailable ? "Demo activation status" : tax.status === "inactive" ? "Disabled for future orders" : tax.status === "active" ? "Enabled for future orders" : "Not configured"}
+            loading={metricsPending}
+          />
+          <MetricCard
+            icon={Coins}
+            label="DEMO TAX on orders marked paid"
+            value={metricsPending ? "Loading…" : metricsUnavailable ? "Unavailable" : formatCurrency(taxMetrics.total_demo_tax_collected)}
+            description={`${Number(taxMetrics.collected_order_count) || 0} orders; academic demo values only`}
+            loading={metricsPending}
+          />
         </section>
 
         <section className="commission-panel commission-config-panel">
@@ -431,10 +517,10 @@ function AdminCommission() {
                     : "No rate active"}
             </span>
           </div>
-          <p className="commission-muted-copy">A new rate takes effect immediately for orders completed from that time forward. Existing rate snapshots are kept unchanged. Commission is based on the order total and is recorded when the seller completes the handover.</p>
+          <p className="commission-muted-copy">A new rate applies to orders the seller confirms from that time forward. The order's product subtotal before tax is used for commission, and the rate snapshot is kept unchanged. Commission is recorded when the seller completes the handover.</p>
           <form className="commission-rate-form" onSubmit={saveRate}>
             <label>
-              <span>{editingRateId === null ? "New commission rate (%)" : "Updated commission rate (%)"}</span>
+              <span>{editingRateId === null ? currentRate ? "Edit the active commission rate (%)" : "Initial commission rate (%)" : "Replacement commission rate (%)"}</span>
               <input
                 type="number"
                 min="0"
@@ -443,14 +529,14 @@ function AdminCommission() {
                 inputMode="decimal"
                 value={rateDraft}
                 onChange={(event) => setRateDraft(event.target.value)}
-                placeholder={editingRateId === null ? "Enter an Admin-approved rate" : "Enter the replacement rate"}
+                placeholder={editingRateId === null ? currentRate ? "Select Edit in the active history row" : "Enter an Admin-approved rate" : "Enter the replacement rate"}
                 required
-                disabled={savingRate || deactivatingRateId !== null}
+                disabled={savingRate || deactivatingRateId !== null || (currentRate !== null && editingRateId === null)}
               />
             </label>
-            <button type="submit" className="commission-primary-button" disabled={savingRate || deactivatingRateId !== null || !rateDraft}>
+            <button type="submit" className="commission-primary-button" disabled={savingRate || deactivatingRateId !== null || !rateDraft || (currentRate !== null && editingRateId === null)}>
               <Save size={16} />
-              {savingRate ? "Saving" : editingRateId === null ? "Activate rate" : "Save new version"}
+              {savingRate ? "Saving" : editingRateId === null ? "Set commission rate" : "Save rate change"}
             </button>
             {editingRateId !== null && (
               <button
@@ -475,8 +561,8 @@ function AdminCommission() {
           <div className="commission-history-heading">
             <strong>Rate history</strong>
             <span>
-              Audit history cannot be deleted. Only the active rate can be
-              deactivated; past order snapshots remain unchanged.
+              Historical records are read-only. Edit or deactivate the active
+              rate; each policy action is attributed and time-stamped.
             </span>
           </div>
           {metricsPending ? (
@@ -490,6 +576,9 @@ function AdminCommission() {
                   <strong>{rate.is_deactivation ? "Deactivated" : formatRate(rate.rate_percent)}</strong>
                   <span>Effective {formatDate(rate.effective_at)}</span>
                   <small>{rate.is_deactivation ? "Deactivated by" : "Configured by"} {rate.configured_by || "Admin account"}</small>
+                  <span className={`commission-status-badge ${rate.is_active ? "status-active" : rate.is_deactivation ? "status-deactivated" : "status-history"}`}>
+                    {rate.is_active ? "Active" : rate.is_deactivation ? "Deactivated" : "History"}
+                  </span>
                   {currentRate?.id === rate.id && !rate.is_deactivation && (
                     <div className="commission-rate-actions">
                       <button
@@ -535,28 +624,155 @@ function AdminCommission() {
           )}
         </section>
 
-        <details className="commission-panel commission-tax-notice">
-          <summary className="commission-tax-summary">
-            <span className="commission-tax-icon"><AlertTriangle size={20} aria-hidden="true" /></span>
-            <span className="commission-tax-summary-copy">
-              <strong>Tax configuration</strong>
-              <span>{taxSummary}</span>
-            </span>
-            <span className={`commission-status-badge ${metricsUnavailable ? "status-unavailable" : "status-unconfigured"}`}>
+        <section className="commission-panel commission-tax-panel" aria-labelledby="commission-tax-heading">
+          <div className="commission-section-heading">
+            <div>
+              <span className="commission-eyebrow">ADMIN POLICY</span>
+              <h3 id="commission-tax-heading">Tax configuration</h3>
+            </div>
+            <span className={`commission-status-badge ${tax.status === "inactive" ? "status-inactive" : tax.status === "active" ? "status-active" : metricsUnavailable ? "status-unavailable" : "status-unconfigured"}`}>
               {taxStatusLabel}
             </span>
-            <ChevronDown className="commission-tax-chevron" size={17} aria-hidden="true" />
-          </summary>
-          <div className="commission-tax-details">
-            <p>
-              {metricsPending
-                ? "Tax information will appear when commission records finish loading."
-                : metricsUnavailable
-                  ? "Refresh the page to try loading the tax status again."
-                  : `${tax.message || "No approved tax rule has been configured."} No tax is added to orders, withheld, or reported as collected. Configure tax only after the applicable rule and responsible party are approved.`}
-            </p>
           </div>
-        </details>
+          <p className="commission-muted-copy">{metricsPending ? "Tax configuration is loading." : metricsUnavailable ? "Tax configuration is unavailable. Refresh the page to try again." : taxSummary}</p>
+          <div className="commission-tax-policy-note" role="note">
+            <AlertTriangle size={18} aria-hidden="true" />
+            <p>{tax.message || "StudentMart Demo Tax is an internal academic simulation, not government tax."} {tax.status === "active" ? "New orders use the current demo rate." : "New orders do not include demo tax while it is disabled."}</p>
+          </div>
+          <form className="commission-rate-form commission-tax-form" onSubmit={saveTax}>
+            <label>
+              <span>DEMO TAX rate (%)</span>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="0.0001"
+                inputMode="decimal"
+                value={taxDraft}
+                onChange={(event) => {
+                  setTaxDraft(event.target.value);
+                  setTaxDraftDirty(true);
+                }}
+                placeholder="5.00"
+                required
+                disabled={metricsPending || metricsUnavailable || savingTax}
+              />
+            </label>
+            <label className="commission-tax-toggle">
+              <input
+                type="checkbox"
+                checked={taxEnabledDraft}
+                onChange={(event) => {
+                  setTaxEnabledDraft(event.target.checked);
+                  setTaxDraftDirty(true);
+                }}
+                disabled={metricsPending || metricsUnavailable || savingTax}
+              />
+              <span>Enable StudentMart Demo Tax for future orders</span>
+            </label>
+            <button type="submit" className="commission-primary-button" disabled={metricsPending || metricsUnavailable || savingTax || !taxDraft || !taxDraftDirty}>
+              <Save size={16} />
+              {savingTax ? "Saving" : "Save demo tax settings"}
+            </button>
+            {taxDraftDirty && (
+              <button
+                type="button"
+                className="commission-secondary-button"
+                onClick={() => {
+                  setTaxDraft(tax.rate_percent ?? "");
+                  setTaxEnabledDraft(Boolean(tax.is_active));
+                  setTaxDraftDirty(false);
+                }}
+                disabled={savingTax}
+              >
+                <X size={16} />
+                Cancel
+              </button>
+            )}
+          </form>
+          <div className="commission-history-heading">
+            <strong>DEMO TAX change history</strong>
+            <span>Rate and activation changes retain the administrator and timestamp.</span>
+          </div>
+          {metricsPending ? (
+            <p className="commission-inline-empty" role="status">Loading tax history…</p>
+          ) : metricsUnavailable ? (
+            <p className="commission-inline-empty" role="status">Tax history is unavailable. Refresh the page to try again.</p>
+          ) : taxHistory.length > 0 ? (
+            <div className="commission-tax-history">
+              {taxHistory.map((entry) => (
+                <article className="commission-tax-history-row" key={entry.id}>
+                  <strong>
+                    {entry.action === "activated" ? "Enabled" : entry.action === "deactivated" ? "Disabled" : entry.previous_rate_percent === null ? "Configured" : "Rate updated"}: {entry.previous_rate_percent === null ? "No prior rate" : formatRate(entry.previous_rate_percent)} → {formatRate(entry.rate_percent)}
+                  </strong>
+                  <span>{formatDate(entry.changed_at)}</span>
+                  <small>Changed by {entry.changed_by || "Admin account"}</small>
+                  <span className={`commission-status-badge ${entry.is_active ? "status-active" : "status-inactive"}`}>
+                    {entry.action === "activated" ? "Enabled" : entry.action === "deactivated" ? "Disabled" : entry.is_active ? "Enabled" : "Disabled"}
+                  </span>
+                </article>
+              ))}
+            </div>
+          ) : <p className="commission-inline-empty">No tax changes have been recorded.</p>}
+
+          <div className="commission-tax-report-grid">
+            <section className="commission-tax-report-section" aria-labelledby="demo-tax-by-date-heading">
+              <div className="commission-history-heading">
+                <strong id="demo-tax-by-date-heading">DEMO TAX on paid orders by date</strong>
+                <span>Grouped by order date; totals include orders Admin marked paid.</span>
+              </div>
+              {metricsPending ? (
+                <p className="commission-inline-empty" role="status">Loading demo tax amounts…</p>
+              ) : metricsUnavailable ? (
+                <p className="commission-inline-empty" role="status">Demo tax amounts are unavailable.</p>
+              ) : taxMetrics.by_date.length > 0 ? (
+                <div className="commission-tax-table-wrap">
+                  <table className="commission-tax-table commission-tax-table-dates">
+                    <thead><tr><th scope="col">Order date</th><th scope="col">Paid orders</th><th scope="col">DEMO TAX amount</th></tr></thead>
+                    <tbody>
+                      {taxMetrics.by_date.map((row) => (
+                        <tr key={row.date}>
+                          <td>{row.date}</td>
+                          <td>{row.order_count}</td>
+                          <td>{formatCurrency(row.tax_amount)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : <p className="commission-inline-empty">No paid orders with demo tax have been recorded.</p>}
+            </section>
+
+            <section className="commission-tax-report-section" aria-labelledby="recent-demo-tax-orders-heading">
+              <div className="commission-history-heading">
+                <strong id="recent-demo-tax-orders-heading">Recent orders · DEMO TAX breakdown</strong>
+                <span>Saved order snapshots remain unchanged when settings are edited.</span>
+              </div>
+              {metricsPending ? (
+                <p className="commission-inline-empty" role="status">Loading recent orders…</p>
+              ) : metricsUnavailable ? (
+                <p className="commission-inline-empty" role="status">Recent order tax details are unavailable.</p>
+              ) : taxMetrics.recent_orders.length > 0 ? (
+                <div className="commission-tax-table-wrap">
+                  <table className="commission-tax-table commission-tax-table-orders">
+                    <thead><tr><th scope="col">Order</th><th scope="col">Subtotal</th><th scope="col">Rate / status</th><th scope="col">DEMO TAX</th><th scope="col">Total</th></tr></thead>
+                    <tbody>
+                      {taxMetrics.recent_orders.map((order) => (
+                        <tr key={order.id}>
+                          <td><strong>{order.order_number}</strong><small>{formatDate(order.created_at)} · {order.payment_status}</small></td>
+                          <td>{formatCurrency(order.product_subtotal)}</td>
+                          <td>{order.tax_enabled ? `${formatRate(order.tax_rate_percent)} · Enabled` : `${formatRate(order.tax_rate_percent)} · Disabled`}</td>
+                          <td>{formatCurrency(order.tax_amount)}</td>
+                          <td>{formatCurrency(order.total_amount)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : <p className="commission-inline-empty">No orders are available yet.</p>}
+            </section>
+          </div>
+        </section>
 
         <section className="commission-panel commission-records-panel">
           <div className="commission-section-heading">
@@ -691,9 +907,10 @@ function AdminCommission() {
                   <tr>
                     <th scope="col">Order / seller</th>
                     <th scope="col">Completed</th>
-                    <th scope="col">Sale total</th>
+                    <th scope="col">Product subtotal</th>
                     <th scope="col">Rate</th>
                     <th scope="col">Commission</th>
+                    <th scope="col">Seller earnings</th>
                     <th scope="col">Collection</th>
                     <th scope="col">Action</th>
                   </tr>
@@ -706,6 +923,7 @@ function AdminCommission() {
                       <td>{formatCurrency(record.sale_amount)}</td>
                       <td>{formatRate(record.rate_percent)}</td>
                       <td>{record.commission_amount === null ? "—" : formatCurrency(record.commission_amount)}</td>
+                      <td>{record.seller_earnings === null ? "—" : formatCurrency(record.seller_earnings)}</td>
                       <td>
                         <span className={`commission-status-badge status-${record.status}`}>{statusLabel(record.status)}</span>
                         {record.collected_at && <small className="commission-cell-detail">{formatDate(record.collected_at)}{record.collector ? ` · ${record.collector}` : ""}</small>}
@@ -769,6 +987,22 @@ function AdminCommission() {
             <p className="commission-history-warning"><ShieldCheck size={16} /> {summary.unconfigured_orders} completed order(s) do not have an applicable rate snapshot. No estimated commission is assigned to them.</p>
           )}
         </section>
+
+        <Modal
+          isOpen={Boolean(policyConfirmation)}
+          onClose={() => setPolicyConfirmation(null)}
+          title={policyConfirmation?.title || "Confirm policy change"}
+          descriptionId="commission-policy-confirmation-copy"
+          className="tmc-modal commission-policy-modal"
+          confirmLabel={policyConfirmation?.confirmLabel || "Confirm"}
+          cancelLabel="Review change"
+          onConfirm={confirmPolicyChange}
+          loading={savingRate || savingTax || deactivatingRateId !== null}
+          destructive={policyConfirmation?.destructive}
+          closeOnBackdrop={false}
+        >
+          <p id="commission-policy-confirmation-copy" className="commission-policy-confirmation-copy">{policyConfirmation?.message}</p>
+        </Modal>
 
         {collectionDraft && (
           <div className="commission-modal-backdrop" role="presentation">

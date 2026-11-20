@@ -69,7 +69,58 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(harness.cart.itemCount, 1);
+    await tester.scrollUntilVisible(
+      find.text('This seller has no other active listings.'),
+      260,
+    );
+    expect(
+      find.text('This seller has no other active listings.'),
+      findsOneWidget,
+    );
   });
+
+  testWidgets(
+    'shows seller listings and real listing details without refresh',
+    (tester) async {
+      await _pumpProductDetails(
+        tester,
+        currentUserId: 1,
+        sellerId: 20,
+        stock: 4,
+        attributes: const {'condition': 'Good'},
+        sellerListings: const [
+          {
+            'id': 32,
+            'name': 'Hidden seller listing name',
+            'price': 75,
+            'status': 'active',
+            'stock_quantity': 2,
+            'user_id': 20,
+          },
+        ],
+      );
+
+      expect(find.byTooltip('Refresh product details'), findsNothing);
+      expect(find.byTooltip('Copy product details to share'), findsOneWidget);
+
+      await tester.scrollUntilVisible(find.text('About This Listing'), 260);
+      await tester.pumpAndSettle();
+      expect(find.text('More from this seller'), findsOneWidget);
+      expect(find.text('Hidden seller listing name'), findsNothing);
+      expect(find.text('Category'), findsOneWidget);
+      expect(find.text('Books'), findsOneWidget);
+      expect(find.text('Condition'), findsOneWidget);
+      expect(find.text('Good'), findsOneWidget);
+      expect(find.text('Description'), findsOneWidget);
+
+      final sellerListingCard = find.byKey(const ValueKey('seller-listing-32'));
+      await tester.drag(find.byType(Scrollable).first, const Offset(0, 300));
+      await tester.pumpAndSettle();
+      await tester.tap(sellerListingCard);
+      await tester.pumpAndSettle();
+      expect(find.text('Seller listing details'), findsOneWidget);
+    },
+  );
 
   testWidgets(
     'variant stock remains available when another option is sold out',
@@ -86,12 +137,28 @@ void main() {
       );
 
       expect(find.text('Choose option'), findsOneWidget);
-      expect(find.text('Sold out'), findsOneWidget);
-      final unavailableVariant = tester.widget<CheckboxListTile>(
-        find.widgetWithText(CheckboxListTile, 'Large'),
+      await tester.tap(find.text('Choose option'));
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(
+          of: find.byType(BottomSheet),
+          matching: find.text('Sold out'),
+        ),
+        findsOneWidget,
       );
-      expect(unavailableVariant.onChanged, isNull);
-      await tester.tap(find.text('Small'));
+      final unavailableVariant = tester.widget<ListTile>(
+        find.descendant(
+          of: find.byType(BottomSheet),
+          matching: find.widgetWithText(ListTile, 'Large'),
+        ),
+      );
+      expect(unavailableVariant.onTap, isNull);
+      await tester.tap(
+        find.descendant(
+          of: find.byType(BottomSheet),
+          matching: find.widgetWithText(ListTile, 'Small'),
+        ),
+      );
       await tester.pumpAndSettle();
       expect(find.text('Add to cart'), findsOneWidget);
     },
@@ -139,6 +206,8 @@ Future<_ProductDetailsHarness> _pumpProductDetails(
   required int stock,
   String status = 'active',
   List<Map<String, Object?>> variants = const [],
+  List<Map<String, Object?>> sellerListings = const [],
+  Map<String, String> attributes = const {},
   Size viewport = const Size(390, 844),
 }) async {
   tester.view.devicePixelRatio = 1;
@@ -167,18 +236,29 @@ Future<_ProductDetailsHarness> _pumpProductDetails(
         );
       }
       if (request.method == 'GET' &&
-          request.url.path.endsWith('/products/$productId')) {
+          request.url.path.endsWith('/students/$sellerId/products')) {
+        return http.Response(jsonEncode({'products': sellerListings}), 200);
+      }
+      final productDetailsMatch = RegExp(
+        r'/products/(\d+)$',
+      ).firstMatch(request.url.path);
+      if (request.method == 'GET' && productDetailsMatch != null) {
+        final requestedProductId =
+            int.tryParse(productDetailsMatch.group(1) ?? '') ?? productId;
         return http.Response(
           jsonEncode({
             'success': true,
             'product': {
-              'id': productId,
-              'name': 'Course textbook',
+              'id': requestedProductId,
+              'name': requestedProductId == productId
+                  ? 'Course textbook'
+                  : 'Seller listing details',
               'description': 'A used textbook in good condition.',
-              'price': 180,
+              'price': requestedProductId == productId ? 180 : 75,
               'category': 'Books',
               'status': status,
               'stock_quantity': stock,
+              'attributes': attributes,
               'user_id': sellerId,
               'user': {
                 'id': sellerId,

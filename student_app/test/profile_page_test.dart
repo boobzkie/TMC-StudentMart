@@ -68,6 +68,47 @@ void main() {
     expect(find.text('Your listings'), findsOneWidget);
   });
 
+  testWidgets('my listings show the authenticated student product stock', (
+    tester,
+  ) async {
+    final harness = await _pumpProfile(tester);
+    harness.marketplace.myProducts = [
+      const Product(
+        id: 71,
+        name: 'My approved listing',
+        description: 'Student owned product.',
+        price: 125,
+        category: 'Books',
+        status: 'active',
+        stockQuantity: 4,
+        userId: 1,
+      ),
+    ];
+    harness.marketplace.notifyListeners();
+    await tester.pumpAndSettle();
+
+    expect(find.text('My approved listing'), findsOneWidget);
+    expect(find.text('₱125.00'), findsOneWidget);
+    expect(find.text('4 in stock'), findsOneWidget);
+  });
+
+  testWidgets('Sales opens the existing seller sales dashboard', (
+    tester,
+  ) async {
+    final harness = await _pumpProfile(tester);
+
+    await tester.tap(find.text('Sales'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sales overview'), findsOneWidget);
+    expect(
+      harness.requests.any(
+        (request) => request.url.path.endsWith('/seller/orders'),
+      ),
+      isTrue,
+    );
+  });
+
   testWidgets('following statistic opens the real connections list', (
     tester,
   ) async {
@@ -170,6 +211,19 @@ Future<_ProfileHarness> _pumpProfile(WidgetTester tester) async {
       );
     }
     if (request.method == 'GET' &&
+        request.url.path.endsWith('/seller/orders')) {
+      return http.Response(
+        jsonEncode({
+          'success': true,
+          'orders': <Object?>[],
+          'summary': <String, Object?>{},
+          'pagination': {'total': 0, 'current_page': 1, 'last_page': 1},
+        }),
+        200,
+        headers: {'content-type': 'application/json'},
+      );
+    }
+    if (request.method == 'GET' &&
         request.url.path.endsWith('/user/following')) {
       return http.Response(
         jsonEncode({
@@ -225,11 +279,12 @@ Future<_ProfileHarness> _pumpProfile(WidgetTester tester) async {
   );
   await tester.pumpAndSettle();
 
-  return _ProfileHarness(requests: requests);
+  return _ProfileHarness(requests: requests, marketplace: marketplace);
 }
 
 class _ProfileHarness {
-  const _ProfileHarness({required this.requests});
+  const _ProfileHarness({required this.requests, required this.marketplace});
 
   final List<http.Request> requests;
+  final MarketplaceState marketplace;
 }

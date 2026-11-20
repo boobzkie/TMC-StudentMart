@@ -46,4 +46,26 @@ class OrderCommission extends Model
     {
         return $this->belongsTo(User::class, 'collected_by');
     }
+
+    public function sellerEarningsAmount(): ?string
+    {
+        if ($this->sale_amount === null || $this->commission_amount === null) {
+            return null;
+        }
+
+        $saleCents = $this->moneyToCents((string) $this->sale_amount);
+        $commissionCents = $this->moneyToCents((string) $this->commission_amount);
+        $earningsCents = $saleCents - $commissionCents;
+
+        return intdiv($earningsCents, 100).'.'.str_pad((string) ($earningsCents % 100), 2, '0', STR_PAD_LEFT);
+    }
+
+    private function moneyToCents(string $amount): int
+    {
+        if (! preg_match('/^(\d+)(?:\.(\d{1,2}))?$/', $amount, $matches)) {
+            throw new \LogicException('Cannot calculate seller earnings from an invalid saved amount.');
+        }
+
+        return ((int) $matches[1] * 100) + (int) str_pad($matches[2] ?? '', 2, '0');
+    }
 }

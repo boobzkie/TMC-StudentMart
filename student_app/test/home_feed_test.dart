@@ -47,33 +47,59 @@ void main() {
     expect(find.text('Second book'), findsOneWidget);
   });
 
-  testWidgets('Feed actions stay collapsed until product actions are opened', (
+  testWidgets('Feed actions and vertical browsing cue are visible', (
     tester,
   ) async {
     _setPhoneViewport(tester);
     await _pumpHome(tester, [_product(id: 9, name: 'Action menu listing')]);
 
-    expect(find.byTooltip('Product actions'), findsOneWidget);
-    expect(find.byTooltip('Add to cart'), findsNothing);
-    expect(find.byTooltip('Details'), findsNothing);
-
-    await tester.tap(find.byTooltip('Product actions'));
-    await tester.tap(find.byTooltip('Product actions'));
-    await tester.pumpAndSettle();
-
     expect(find.byTooltip('Add to cart'), findsOneWidget);
     expect(find.byTooltip('Details'), findsOneWidget);
+    expect(find.byTooltip('Open seller profile'), findsOneWidget);
     expect(find.byIcon(Icons.add_shopping_cart_outlined), findsOneWidget);
     expect(find.byIcon(Icons.info_outline), findsOneWidget);
-    expect(find.text('Add to cart'), findsNothing);
-    expect(find.text('Details'), findsNothing);
-    expect(find.text('Seller 20'), findsNothing);
-    expect(find.text('Your listing'), findsNothing);
+    expect(find.text('1 / 1'), findsNothing);
     expect(
-      find.byKey(const ValueKey('feed-speed-dial-backdrop')),
+      find.byKey(const ValueKey('home-product-preview-9')),
       findsOneWidget,
     );
+    expect(find.text('Books'), findsNothing);
+    expect(
+      find.text('A real listing description for Action menu listing.'),
+      findsNothing,
+    );
   });
+
+  testWidgets(
+    'Home shows own active listings and the compact card opens details',
+    (tester) async {
+      _setPhoneViewport(tester);
+      await _pumpHome(tester, [
+        _product(
+          id: 51,
+          name: 'My active textbook',
+          sellerId: 1,
+          stockQuantity: 3,
+        ),
+      ], currentUserId: 1);
+
+      expect(
+        find.byKey(const ValueKey('home-product-preview-51')),
+        findsOneWidget,
+      );
+      expect(
+        find.byTooltip('Your listing · open your seller profile'),
+        findsOneWidget,
+      );
+      expect(find.text('My active textbook'), findsOneWidget);
+      expect(find.text('₱250.00'), findsOneWidget);
+      expect(find.text('3 available'), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('home-product-preview-51')));
+      await _settleAsyncWork(tester);
+      expect(find.text('Product details'), findsWidgets);
+    },
+  );
 
   testWidgets('Follow uses the existing API and cart action uses CartState', (
     tester,
@@ -83,11 +109,9 @@ void main() {
       _product(id: 2, name: 'Course book', sellerId: 20),
     ]);
 
-    await tester.tap(find.byTooltip('Product actions'));
-    await tester.pumpAndSettle();
     expect(find.byTooltip('Follow seller'), findsOneWidget);
     await tester.tap(find.byTooltip('Follow seller'));
-    await tester.pumpAndSettle();
+    await _settleAsyncWork(tester);
 
     expect(find.byTooltip('Following seller'), findsOneWidget);
     expect(
@@ -121,10 +145,8 @@ void main() {
       ),
     ]);
 
-    await tester.tap(find.byTooltip('Product actions'));
-    await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Details'));
-    await tester.pumpAndSettle();
+    await _settleAsyncWork(tester);
     expect(find.text('Product details'), findsWidgets);
     expect(find.text('Used calculator'), findsNWidgets(2));
 
@@ -143,13 +165,37 @@ void main() {
 
     await tester.pageBack();
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Sold by Seller 40'));
-    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Open seller profile'));
+    await _settleAsyncWork(tester);
 
     expect(find.text('Seller profile'), findsOneWidget);
-    expect(find.text('Listings'), findsNWidgets(2));
+    expect(find.text('Active listings'), findsOneWidget);
+    expect(find.text('Products sold'), findsOneWidget);
+    expect(find.text('1'), findsOneWidget);
+    expect(find.text('35'), findsOneWidget);
     expect(find.text('TMC Student · BSIT'), findsOneWidget);
   });
+
+  testWidgets(
+    'seller listing cards show public product rating and review count',
+    (tester) async {
+      _setPhoneViewport(tester);
+      await _pumpHome(tester, [
+        _product(
+          id: 46,
+          name: 'Reviewed listing',
+          sellerId: 40,
+          reviewsCount: 12,
+          averageRating: 4.5,
+        ),
+      ]);
+
+      await tester.tap(find.byTooltip('Open seller profile'));
+      await _settleAsyncWork(tester);
+
+      expect(find.text('4.5 (12)'), findsOneWidget);
+    },
+  );
 
   testWidgets(
     'Home feed seller link opens the profile without adding to cart',
@@ -159,13 +205,127 @@ void main() {
         _product(id: 40, name: 'Seller link listing', sellerId: 40),
       ]);
 
-      await tester.tap(find.text('Sold by Seller 40'));
-      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Open seller profile'));
+      await _settleAsyncWork(tester);
 
       expect(find.text('Seller profile'), findsOneWidget);
       expect(harness.cart.itemCount, 0);
     },
   );
+
+  testWidgets(
+    'seller profile adds the selected in-stock variant and blocks sold-out options',
+    (tester) async {
+      _setPhoneViewport(tester);
+      final harness = await _pumpHome(tester, [
+        _product(
+          id: 42,
+          name: 'Variant listing',
+          sellerId: 40,
+          stockQuantity: 0,
+          variants: const [
+            ProductVariant(
+              id: 420,
+              label: 'Standard',
+              attributes: {'size': 'M'},
+              stockQuantity: 3,
+            ),
+            ProductVariant(id: 421, label: 'Large', stockQuantity: 0),
+          ],
+        ),
+      ]);
+
+      await tester.tap(find.byTooltip('Open seller profile'));
+      await _settleAsyncWork(tester);
+      expect(find.text('3 available'), findsOneWidget);
+
+      await tester.tap(find.text('Add to cart'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Choose an option'), findsOneWidget);
+      final soldOutTile = tester.widget<ListTile>(
+        find.widgetWithText(ListTile, 'Sold out'),
+      );
+      expect(soldOutTile.enabled, isFalse);
+      await tester.tap(find.text('Sold out'));
+      await tester.pumpAndSettle();
+      expect(find.text('Choose an option'), findsOneWidget);
+      expect(harness.cart.itemCount, 0);
+
+      await tester.tap(find.text('Standard'));
+      await tester.pumpAndSettle();
+
+      expect(harness.cart.itemCount, 1);
+      expect(harness.cart.entries.single.variant?.id, 420);
+      expect(harness.cart.entries.single.variant?.label, 'Standard');
+      expect(find.text('Added Standard to your cart.'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'seller profile keeps direct add-to-cart for listings without variants',
+    (tester) async {
+      _setPhoneViewport(tester);
+      final harness = await _pumpHome(tester, [
+        _product(id: 43, name: 'Simple listing', sellerId: 40),
+      ]);
+
+      await tester.tap(find.byTooltip('Open seller profile'));
+      await _settleAsyncWork(tester);
+      await tester.tap(find.text('Add to cart'));
+      await tester.pumpAndSettle();
+
+      expect(harness.cart.itemCount, 1);
+      expect(harness.cart.entries.single.variant, isNull);
+      expect(find.text('Added Simple listing to your cart.'), findsOneWidget);
+      expect(find.text('Choose an option'), findsNothing);
+    },
+  );
+
+  testWidgets('tapping another seller listing card area opens details only', (
+    tester,
+  ) async {
+    _setPhoneViewport(tester);
+    final harness = await _pumpHome(tester, [
+      _product(id: 45, name: 'Open details listing', sellerId: 40),
+    ]);
+
+    await tester.tap(find.byTooltip('Open seller profile'));
+    await _settleAsyncWork(tester);
+    await tester.tap(find.text('Open details listing'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Product details'), findsOneWidget);
+    expect(harness.cart.itemCount, 0);
+  });
+
+  testWidgets('seller profile prevents adding when all variants are sold out', (
+    tester,
+  ) async {
+    _setPhoneViewport(tester);
+    final harness = await _pumpHome(tester, [
+      _product(
+        id: 44,
+        name: 'Unavailable variants',
+        sellerId: 40,
+        stockQuantity: 0,
+        variants: const [
+          ProductVariant(id: 440, label: 'Small', stockQuantity: 0),
+          ProductVariant(id: 441, label: 'Large', stockQuantity: 0),
+        ],
+      ),
+    ]);
+
+    await tester.tap(find.byTooltip('Open seller profile'));
+    await _settleAsyncWork(tester);
+
+    expect(find.text('No units available'), findsOneWidget);
+    expect(find.text('Sold out'), findsOneWidget);
+    await tester.tap(find.text('Sold out'));
+    await tester.pumpAndSettle();
+    expect(harness.cart.itemCount, 0);
+    expect(find.text('Choose an option'), findsNothing);
+  });
 
   testWidgets(
     'Seller avatar opens and follows profile without adding to cart',
@@ -175,17 +335,15 @@ void main() {
         _product(id: 41, name: 'Seller follow listing', sellerId: 40),
       ]);
 
-      await tester.tap(find.byTooltip('Product actions'));
-      await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('Open seller profile'));
-      await tester.pumpAndSettle();
+      await _settleAsyncWork(tester);
 
       expect(find.byTooltip('Follow seller'), findsOneWidget);
       expect(find.text('Follow'), findsNothing);
       expect(harness.cart.itemCount, 0);
 
       await tester.tap(find.byTooltip('Follow seller'));
-      await tester.pumpAndSettle();
+      await _settleAsyncWork(tester);
 
       expect(find.byTooltip('Unfollow seller'), findsOneWidget);
       expect(
@@ -235,10 +393,8 @@ void main() {
       _product(id: 7, name: 'Verified review listing'),
     ], canReview: true);
 
-    await tester.tap(find.byTooltip('Product actions'));
-    await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Details'));
-    await tester.pumpAndSettle();
+    await _settleAsyncWork(tester);
     expect(
       harness.requests.any(
         (request) => request.url.path.endsWith('/products/7/reviews'),
@@ -276,6 +432,48 @@ void main() {
     );
   });
 
+  testWidgets(
+    'students without purchase eligibility can read existing reviews',
+    (tester) async {
+      _setPhoneViewport(tester);
+      await _pumpHome(
+        tester,
+        [_product(id: 47, name: 'Public review listing')],
+        publicReviews: const [
+          {
+            'id': 1,
+            'rating': 5,
+            'title': 'Helpful',
+            'comment': 'Existing review visible to other students.',
+            'created_at': '2026-10-29T12:00:00Z',
+            'reviewer': {
+              'id': 20,
+              'name': 'Verified Student',
+              'profile_picture': null,
+            },
+          },
+        ],
+        averageRating: 5,
+      );
+
+      await tester.tap(find.byTooltip('Details'));
+      await _settleAsyncWork(tester);
+      await tester.scrollUntilVisible(
+        find.text('Existing review visible to other students.'),
+        350,
+        scrollable: find.byType(Scrollable).last,
+      );
+
+      expect(find.text('Verified Student'), findsOneWidget);
+      expect(
+        find.text('Existing review visible to other students.'),
+        findsOneWidget,
+      );
+      expect(find.text('Complete an order to review.'), findsOneWidget);
+      expect(find.text('Submit verified review'), findsNothing);
+    },
+  );
+
   testWidgets('Home feed lays out without overflow from phone to desktop', (
     tester,
   ) async {
@@ -307,8 +505,6 @@ void main() {
     await _pumpHome(tester, [
       _product(id: 8, name: 'Responsive detail listing'),
     ]);
-    await tester.tap(find.byTooltip('Product actions'));
-    await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Details'));
     await tester.pumpAndSettle();
 
@@ -339,6 +535,8 @@ Future<_HomeHarness> _pumpHome(
   WidgetTester tester,
   List<Product> products, {
   bool canReview = false,
+  List<Map<String, Object?>> publicReviews = const [],
+  double averageRating = 0,
   int currentUserId = 1,
 }) async {
   final requests = <http.Request>[];
@@ -365,6 +563,7 @@ Future<_HomeHarness> _pumpHome(
           'followers_count': 5,
           'following_count': 2,
           'products_count': 1,
+          'products_sold': 35,
           'reviews_count': 0,
           'average_rating': 0,
           'is_following': false,
@@ -410,11 +609,11 @@ Future<_HomeHarness> _pumpHome(
       return http.Response(
         jsonEncode({
           'success': true,
-          'reviews': <Map<String, Object?>>[],
-          'total': 0,
+          'reviews': publicReviews,
+          'total': publicReviews.length,
           'current_page': 1,
           'last_page': 1,
-          'average_rating': 0,
+          'average_rating': averageRating,
           'can_review': canReview,
           'already_reviewed': false,
           'eligibility_message': 'Complete an order to review.',
@@ -486,8 +685,16 @@ Future<_HomeHarness> _pumpHome(
     ),
   );
   await tester.pumpAndSettle();
+  await _settleAsyncWork(tester);
 
   return _HomeHarness(requests: requests, cart: cart);
+}
+
+Future<void> _settleAsyncWork(WidgetTester tester) async {
+  await tester.runAsync(
+    () => Future<void>.delayed(const Duration(milliseconds: 100)),
+  );
+  await tester.pumpAndSettle();
 }
 
 void _noop() {}
@@ -498,6 +705,10 @@ Product _product({
   int sellerId = 20,
   String status = 'active',
   List<ProductImage> images = const [],
+  int stockQuantity = 2,
+  List<ProductVariant> variants = const [],
+  int reviewsCount = 0,
+  double averageRating = 0,
 }) => Product(
   id: id,
   name: name,
@@ -507,9 +718,12 @@ Product _product({
   status: status,
   sellerName: 'Seller $sellerId',
   userId: sellerId,
-  stockQuantity: 2,
+  stockQuantity: stockQuantity,
   attributes: const {'condition': 'Used - Good', 'brand': 'TMC'},
   images: images,
+  variants: variants,
+  reviewsCount: reviewsCount,
+  averageRating: averageRating,
 );
 
 Map<String, Object?> _productJson(Product product) => {
@@ -532,7 +746,9 @@ Map<String, Object?> _productJson(Product product) => {
       .toList(),
   'stock_quantity': product.stockQuantity,
   'attributes': product.attributes,
-  'variants': const [],
+  'variants': product.variants.map((variant) => variant.toJson()).toList(),
+  'reviews_count': product.reviewsCount,
+  'average_rating': product.averageRating,
   'user_id': product.userId,
   'user': {
     'id': product.userId,

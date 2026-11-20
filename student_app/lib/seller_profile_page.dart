@@ -381,8 +381,13 @@ class _SellerProfilePageState extends State<SellerProfilePage> {
                     onTap: () => _openConnections(false),
                   ),
                   _countButton(
-                    label: 'Listings',
+                    label: 'Active listings',
                     count: payload['products_count'],
+                    onTap: () => setState(() => _showReviews = false),
+                  ),
+                  _countButton(
+                    label: 'Products sold',
+                    count: payload['products_sold'],
                     onTap: () => setState(() => _showReviews = false),
                   ),
                   _countButton(
@@ -543,8 +548,17 @@ class _SellerProfilePageState extends State<SellerProfilePage> {
                   onAdd: () async {
                     if (isOwnProduct(product, currentUserId)) return;
                     try {
+                      ProductVariant? variant;
+                      if (product.variants.isNotEmpty) {
+                        variant = await showProductVariantPicker(
+                          context,
+                          product,
+                        );
+                        if (!context.mounted || variant == null) return;
+                      }
                       final added = await context.read<CartState>().add(
                         product,
+                        variant: variant,
                         currentUserId: currentUserId,
                       );
                       if (!context.mounted) return;
@@ -552,7 +566,7 @@ class _SellerProfilePageState extends State<SellerProfilePage> {
                         SnackBar(
                           content: Text(
                             added
-                                ? 'Added ${product.name} to your cart.'
+                                ? 'Added ${variant?.label ?? product.name} to your cart.'
                                 : 'This listing is unavailable or at its stock limit.',
                           ),
                         ),

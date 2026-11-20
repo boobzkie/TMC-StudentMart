@@ -64,6 +64,27 @@ return [
             ]) : [],
         ],
 
+        // Use only for explicit schema migrations. Keep these credentials
+        // separate from the application's runtime DB_USERNAME/DB_PASSWORD.
+        'mysql_migration' => [
+            'driver' => 'mysql',
+            'host' => env('DB_MIGRATION_HOST', env('DB_HOST', '127.0.0.1')),
+            'port' => env('DB_MIGRATION_PORT', env('DB_PORT', '3306')),
+            'database' => env('DB_MIGRATION_DATABASE', env('DB_DATABASE', 'laravel')),
+            'username' => env('DB_MIGRATION_USERNAME', ''),
+            'password' => env('DB_MIGRATION_PASSWORD', ''),
+            'unix_socket' => env('DB_MIGRATION_SOCKET', env('DB_SOCKET', '')),
+            'charset' => env('DB_MIGRATION_CHARSET', env('DB_CHARSET', 'utf8mb4')),
+            'collation' => env('DB_MIGRATION_COLLATION', env('DB_COLLATION', 'utf8mb4_unicode_ci')),
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'strict' => true,
+            'engine' => null,
+            'options' => extension_loaded('pdo_mysql') ? array_filter([
+                Mysql::ATTR_SSL_CA => env('DB_MIGRATION_SSL_CA'),
+            ]) : [],
+        ],
+
         'mariadb' => [
             'driver' => 'mariadb',
             'url' => env('DB_URL'),

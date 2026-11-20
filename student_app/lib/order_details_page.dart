@@ -98,6 +98,16 @@ class _OrderDetails extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final status = valueOf(order['status']).toLowerCase();
+    final totalAmount = double.tryParse(valueOf(order['total_amount'])) ?? 0;
+    final productSubtotal =
+        double.tryParse(valueOf(order['product_subtotal'])) ?? totalAmount;
+    final taxAmount = double.tryParse(valueOf(order['tax_amount'])) ?? 0;
+    final taxRate = order['tax_rate_percent'];
+    final taxEnabled =
+        order['tax_enabled'] == true || valueOf(order['tax_enabled']) == '1';
+    final taxRateLabel = taxRate == null
+        ? 'Disabled · not configured'
+        : '${valueOf(taxRate)}%${taxEnabled ? '' : ' · Disabled'}';
     final seller = asMap(order['seller']);
     final buyer = asMap(order['buyer']);
     final paymentMethod = asMap(order['payment_method']);
@@ -214,11 +224,32 @@ class _OrderDetails extends StatelessWidget {
           color: TmcPalette.paleBlue.withValues(alpha: .45),
           child: Column(
             children: [
-              _Info(
-                label: 'Order total',
-                value: peso(
-                  double.tryParse(valueOf(order['total_amount'])) ?? 0,
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'DEMO TAX · Internal academic simulation',
+                  style: TextStyle(
+                    color: TmcPalette.darkGray,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
+              ),
+              const SizedBox(height: 8),
+              _Info(label: 'Product subtotal', value: peso(productSubtotal)),
+              const SizedBox(height: 8),
+              _Info(label: 'Demo tax rate', value: taxRateLabel),
+              const SizedBox(height: 8),
+              _Info(
+                label: valueOf(order['tax_name']).isEmpty
+                    ? 'StudentMart Demo Tax'
+                    : valueOf(order['tax_name']),
+                value: peso(taxAmount),
+              ),
+              const SizedBox(height: 8),
+              _Info(
+                label: 'Final payable total',
+                value: peso(totalAmount),
                 prominent: true,
               ),
               const SizedBox(height: 8),

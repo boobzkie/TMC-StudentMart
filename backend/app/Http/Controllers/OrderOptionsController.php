@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\OrderPaymentMethod;
 use App\Models\PickupLocation;
+use App\Models\TaxConfiguration;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -14,6 +15,8 @@ class OrderOptionsController extends Controller
 {
     public function available(): JsonResponse
     {
+        $taxConfiguration = TaxConfiguration::query()->find(1);
+
         return response()->json([
             'payment_methods' => OrderPaymentMethod::query()
                 ->where('is_active', true)
@@ -25,6 +28,14 @@ class OrderOptionsController extends Controller
                 ->orderBy('sort_order')
                 ->orderBy('name')
                 ->get(['id', 'name', 'building_room', 'campus_area', 'instructions', 'operating_hours']),
+            'demo_tax' => [
+                'name' => 'StudentMart Demo Tax',
+                'status' => $taxConfiguration === null
+                    ? 'unconfigured'
+                    : ($taxConfiguration->is_active ? 'active' : 'inactive'),
+                'rate_percent' => $taxConfiguration?->rate_percent ?? '5.0000',
+                'is_active' => (bool) $taxConfiguration?->is_active,
+            ],
         ]);
     }
 

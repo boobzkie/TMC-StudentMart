@@ -413,7 +413,17 @@ class ApiService {
   Future<Map<String, dynamic>> sellerProducts(
     int studentId, {
     int page = 1,
-  }) async => asMap(await get('/students/$studentId/products?page=$page'));
+    bool activeOnly = false,
+    int? excludeProductId,
+  }) async {
+    final parameters = <String, String>{'page': '$page'};
+    if (activeOnly) parameters['active_only'] = '1';
+    if (excludeProductId != null && excludeProductId > 0) {
+      parameters['exclude_product_id'] = '$excludeProductId';
+    }
+    final query = Uri(queryParameters: parameters).query;
+    return asMap(await get('/students/$studentId/products?$query'));
+  }
 
   Future<Map<String, dynamic>> sellerReviews(
     int studentId, {
@@ -812,6 +822,8 @@ class Product {
     this.archivedAt,
     this.attributes = const {},
     this.variants = const [],
+    this.reviewsCount = 0,
+    this.averageRating = 0,
   });
 
   final int id;
@@ -840,6 +852,16 @@ class Product {
   final String? archivedAt;
   final Map<String, String> attributes;
   final List<ProductVariant> variants;
+  final int reviewsCount;
+  final double averageRating;
+
+  int get availableStock => variants.isEmpty
+      ? stockQuantity
+      : variants.fold<int>(
+          0,
+          (total, variant) =>
+              total + (variant.isActive ? variant.stockQuantity : 0),
+        );
 
   factory Product.fromJson(Map<String, dynamic> json) {
     final seller = asMap(json['user'] ?? json['seller']);
@@ -917,6 +939,8 @@ class Product {
       archivedAt: json['archived_at']?.toString(),
       attributes: parsedAttributes,
       variants: parsedVariants,
+      reviewsCount: int.tryParse(valueOf(json['reviews_count'])) ?? 0,
+      averageRating: double.tryParse(valueOf(json['average_rating'])) ?? 0,
     );
   }
 }
@@ -1109,6 +1133,7 @@ class MarketplaceState extends ChangeNotifier {
   String? categoriesError;
   int productsPage = 0;
   int productsLastPage = 1;
+  int catalogRevision = 0;
   int _productsRequestGeneration = 0;
 
   bool get hasMoreProducts =>
@@ -1173,6 +1198,7 @@ class MarketplaceState extends ChangeNotifier {
           .toList();
       productsPage = page.currentPage;
       productsLastPage = page.lastPage;
+      catalogRevision++;
     } catch (exception) {
       if (requestGeneration == _productsRequestGeneration) {
         error = exception.toString();
@@ -1262,7 +1288,7 @@ class MarketplaceState extends ChangeNotifier {
 
   Future<void> deleteProduct(int id) async {
     await api.delete('/products/$id');
-    await loadMine();
+    await Future.wait([loadMine(), loadProducts()]);
   }
 
   Future<void> updateStock(int id, int quantity, {int? variantId}) async {

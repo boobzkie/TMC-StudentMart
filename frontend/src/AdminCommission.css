@@ -25,7 +25,7 @@
 
 .commission-overview-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 205px), 1fr));
   gap: 12px;
 }
 
@@ -352,7 +352,7 @@
 
 .commission-rate-row {
   display: grid;
-  grid-template-columns: minmax(64px, 0.3fr) minmax(0, 1fr) minmax(0, 1fr) auto;
+  grid-template-columns: minmax(72px, auto) minmax(0, 1.1fr) minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 8px 10px;
   padding: 10px 12px;
@@ -536,6 +536,25 @@
   background: var(--tmc-admin-success-soft);
 }
 
+.commission-status-badge.status-active {
+  border-color: var(--tmc-admin-success-soft);
+  color: var(--tmc-admin-success);
+  background: var(--tmc-admin-success-soft);
+}
+
+.commission-status-badge.status-inactive,
+.commission-status-badge.status-deactivated {
+  border-color: var(--tmc-admin-warning-soft);
+  color: var(--tmc-admin-warning);
+  background: var(--tmc-admin-warning-soft);
+}
+
+.commission-status-badge.status-history {
+  border-color: var(--tmc-admin-border);
+  color: var(--tmc-admin-secondary);
+  background: var(--tmc-admin-bg-muted);
+}
+
 .commission-status-badge.status-uncollected,
 .commission-status-badge.status-unconfigured,
 .commission-status-badge.status-unavailable,
@@ -549,6 +568,175 @@
   border-color: var(--tmc-admin-info-soft);
   color: var(--tmc-admin-info);
   background: var(--tmc-admin-info-soft);
+}
+
+.commission-tax-panel {
+  min-width: 0;
+}
+
+.commission-tax-toggle {
+  display: flex !important;
+  flex: 1 1 100% !important;
+  align-items: center;
+  gap: 10px !important;
+  min-height: 24px;
+  cursor: pointer;
+}
+
+.commission-tax-toggle input {
+  width: 18px !important;
+  min-width: 18px;
+  min-height: 18px !important;
+  margin: 0;
+  accent-color: var(--tmc-admin-primary);
+  box-shadow: none !important;
+}
+
+.commission-tax-toggle span {
+  color: var(--tmc-admin-text);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.commission-tax-report-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+  margin-top: 20px;
+}
+
+.commission-tax-report-section {
+  display: grid;
+  min-width: 0;
+  gap: 10px;
+}
+
+.commission-tax-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--tmc-admin-border);
+  border-radius: 11px;
+  background: var(--tmc-admin-surface);
+}
+
+.commission-tax-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  color: var(--tmc-admin-text);
+  font-size: 13px;
+}
+
+.commission-tax-table-dates {
+  min-width: 460px;
+}
+
+.commission-tax-table-orders {
+  min-width: 760px;
+}
+
+.commission-tax-table th {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--tmc-admin-border);
+  color: var(--tmc-admin-secondary);
+  background: var(--tmc-admin-bg-muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.commission-tax-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--tmc-admin-border);
+  vertical-align: middle;
+}
+
+.commission-tax-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.commission-tax-table td strong,
+.commission-tax-table td small {
+  display: block;
+}
+
+.commission-tax-table td small {
+  margin-top: 3px;
+  color: var(--tmc-admin-secondary);
+  font-size: 12px;
+}
+
+.commission-tax-policy-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0 0 13px;
+  padding: 11px 12px;
+  border: 1px solid var(--tmc-admin-warning-soft);
+  border-radius: 10px;
+  color: var(--tmc-admin-secondary);
+  background: var(--tmc-admin-warning-soft);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.commission-tax-policy-note svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+  color: var(--tmc-admin-warning);
+}
+
+.commission-tax-policy-note p {
+  min-width: 0;
+  margin: 0;
+}
+
+.commission-tax-history {
+  display: grid;
+  gap: 8px;
+}
+
+.commission-tax-history-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 12px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--tmc-admin-border);
+  border-radius: 10px;
+  background: var(--tmc-admin-surface-muted);
+}
+
+@media (min-width: 900px) {
+  .commission-tax-report-grid {
+    grid-template-columns: minmax(0, 0.75fr) minmax(0, 1.25fr);
+  }
+}
+
+.commission-tax-history-row > * {
+  min-width: 0;
+}
+
+.commission-tax-history-row strong {
+  color: var(--tmc-admin-text);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.commission-tax-history-row > span:not(.commission-status-badge),
+.commission-tax-history-row small {
+  color: var(--tmc-admin-secondary);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.commission-policy-confirmation-copy {
+  margin: 0;
+  color: var(--tmc-admin-secondary);
+  font-size: 14px;
+  line-height: 1.55;
 }
 
 .commission-records-panel {
@@ -1032,6 +1220,7 @@
   .commission-overview-grid,
   .commission-config-panel,
   .commission-tax-notice,
+  .commission-tax-panel,
   .commission-records-panel,
   .commission-modal-backdrop {
     grid-column: 1;
@@ -1198,6 +1387,24 @@
       ". badge .";
     gap: 8px 9px;
     padding: 12px;
+  }
+
+  .commission-tax-history-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .commission-tax-history-row strong {
+    grid-column: 1 / -1;
+  }
+
+  .commission-tax-history-row small {
+    grid-column: 1;
+  }
+
+  .commission-tax-history-row .commission-status-badge {
+    grid-column: 2;
+    grid-row: 2 / 4;
+    align-self: center;
   }
 
   .commission-tax-icon {

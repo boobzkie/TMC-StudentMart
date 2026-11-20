@@ -54,15 +54,16 @@ void main() {
       find.textContaining('Long mathematics textbook title'),
       findsOneWidget,
     );
-    expect(find.text('Estimated total'), findsOneWidget);
+    expect(find.text('Final payable total'), findsOneWidget);
+    expect(find.text('5% · Disabled'), findsOneWidget);
 
     final calculatorCheckbox = _selectionCheckbox(
       'Select Scientific calculator',
     );
-    await tester.ensureVisible(calculatorCheckbox);
+    await tester.drag(find.byType(ListView).first, const Offset(0, -300));
+    await tester.pumpAndSettle();
     await tester.tap(calculatorCheckbox);
     await tester.pumpAndSettle();
-    expect(find.text('Selected items (1)'), findsOneWidget);
     expect(find.text('Proceed to Checkout (1)'), findsOneWidget);
 
     await tester.tap(find.text('Proceed to Checkout (1)'));
@@ -84,6 +85,58 @@ void main() {
     expect(harness.cart.entries, hasLength(1));
     expect(harness.cart.entries.single.product.id, 22);
     expect(harness.cart.itemCount, 1);
+    expect(
+      harness.requests.any(
+        (item) => item.method == 'GET' && item.url.path.endsWith('/products'),
+      ),
+      isTrue,
+    );
+    expect(
+      harness.marketplace.products
+          .singleWhere((product) => product.id == 11)
+          .availableStock,
+      4,
+    );
+  });
+
+  testWidgets('cart and checkout preview an enabled DEMO TAX breakdown', (
+    tester,
+  ) async {
+    _setViewport(tester, const Size(390, 844));
+    final product = _product(
+      id: 31,
+      sellerId: 40,
+      sellerName: 'Campus Books',
+      name: 'Demo checkout product',
+      price: 1000,
+    );
+    await _pumpCart(
+      tester,
+      [product],
+      demoTax: const {
+        'name': 'StudentMart Demo Tax',
+        'status': 'active',
+        'rate_percent': '5.0000',
+        'is_active': true,
+      },
+    );
+
+    expect(find.text('Order summary · DEMO TAX'), findsOneWidget);
+    expect(find.text('5%'), findsOneWidget);
+    expect(find.text('₱50.00'), findsOneWidget);
+    expect(find.text('₱1050.00'), findsOneWidget);
+
+    await tester.tap(find.text('Proceed to Checkout (1)'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+    expect(find.text('Choose order arrangements'), findsOneWidget);
+    expect(find.text('Order summary · DEMO TAX'), findsNWidgets(2));
+    expect(
+      find.text(
+        'Internal academic demonstration only. Final amounts are calculated by the server.',
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('quantity controls respect stock and remove supports undo', (
@@ -148,6 +201,9 @@ void main() {
         providers: [
           Provider<ApiService>.value(value: harness.api),
           ChangeNotifierProvider<AuthState>.value(value: harness.auth),
+          ChangeNotifierProvider<MarketplaceState>.value(
+            value: harness.marketplace,
+          ),
           ChangeNotifierProvider<CartState>.value(value: harness.cart),
         ],
         child: MaterialApp(home: CartPage(onBrowse: () => browsed = true)),
@@ -212,8 +268,14 @@ void _setViewport(WidgetTester tester, Size size) {
 
 Future<_CartHarness> _pumpCart(
   WidgetTester tester,
-  List<Product> products,
-) async {
+  List<Product> products, {
+  Map<String, Object?> demoTax = const {
+    'name': 'StudentMart Demo Tax',
+    'status': 'inactive',
+    'rate_percent': '5.0000',
+    'is_active': false,
+  },
+}) async {
   final requests = <http.Request>[];
   final byId = {for (final product in products) product.id: product};
   final client = MockClient((request) async {
@@ -250,6 +312,34 @@ Future<_CartHarness> _pumpCart(
               'building_room': 'Room 1',
             },
           ],
+          'demo_tax': demoTax,
+        }),
+        200,
+        headers: {'content-type': 'application/json'},
+      );
+    }
+    if (request.method == 'GET' && request.url.path.endsWith('/products')) {
+      final products = byId.values
+          .map(
+            (product) => {
+              ..._productJson(product),
+              'stock_quantity': product.id == 11
+                  ? product.stockQuantity - 1
+                  : product.stockQuantity,
+            },
+          )
+          .toList(growable: false);
+      return http.Response(
+        jsonEncode({
+          'success': true,
+          'products': products,
+          'total': products.length,
+          'pagination': {
+            'current_page': 1,
+            'last_page': 1,
+            'per_page': 24,
+            'total': products.length,
+          },
         }),
         200,
         headers: {'content-type': 'application/json'},
@@ -276,6 +366,7 @@ Future<_CartHarness> _pumpCart(
   const storage = FlutterSecureStorage();
   final api = ApiService(client: client, storage: storage);
   final cart = CartState(storage);
+  final marketplace = MarketplaceState(api);
   await cart.load();
   for (final product in products) {
     await cart.add(product, currentUserId: 1);
@@ -293,14 +384,24 @@ Future<_CartHarness> _pumpCart(
       providers: [
         Provider<ApiService>.value(value: api),
         ChangeNotifierProvider<AuthState>.value(value: auth),
+        ChangeNotifierProvider<MarketplaceState>.value(value: marketplace),
         ChangeNotifierProvider<CartState>.value(value: cart),
       ],
       child: const MaterialApp(home: CartPage()),
     ),
   );
+  await tester.runAsync(
+    () => Future<void>.delayed(const Duration(milliseconds: 50)),
+  );
   await tester.pumpAndSettle();
 
-  return _CartHarness(requests: requests, api: api, auth: auth, cart: cart);
+  return _CartHarness(
+    requests: requests,
+    api: api,
+    auth: auth,
+    cart: cart,
+    marketplace: marketplace,
+  );
 }
 
 Product _product({
@@ -345,10 +446,12 @@ class _CartHarness {
     required this.api,
     required this.auth,
     required this.cart,
+    required this.marketplace,
   });
 
   final List<http.Request> requests;
   final ApiService api;
   final AuthState auth;
   final CartState cart;
+  final MarketplaceState marketplace;
 }

@@ -5,6 +5,7 @@ use App\Models\OrderPaymentMethod;
 use App\Models\PickupLocation;
 use App\Models\Product;
 use App\Models\ProductImage;
+use App\Models\TaxConfiguration;
 use App\Models\User;
 use App\Notifications\AccountEnforcementNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -110,6 +111,11 @@ test('checkout trusts database prices and creates one pending order per seller',
     $secondSellerOrder = collect($orders)->firstWhere('seller.id', $sellerTwo->id);
 
     expect($firstSellerOrder['total_amount'])->toBe('331.00')
+        ->and($firstSellerOrder['product_subtotal'])->toBe('331.00')
+        ->and($firstSellerOrder['tax_name'])->toBe('StudentMart Demo Tax')
+        ->and($firstSellerOrder['tax_enabled'])->toBeFalse()
+        ->and($firstSellerOrder['tax_rate_percent'])->toBe('5.0000')
+        ->and($firstSellerOrder['tax_amount'])->toBe('0.00')
         ->and($firstSellerOrder['buyer']['id'])->toBe($buyer->id)
         ->and($firstSellerOrder['status'])->toBe('pending')
         ->and($firstSellerOrder['buyer_note'])->toBe('Please message me about pickup.')
@@ -121,6 +127,11 @@ test('checkout trusts database prices and creates one pending order per seller',
     $this->assertDatabaseHas('orders', [
         'buyer_id' => $buyer->id,
         'seller_id' => $sellerOne->id,
+        'product_subtotal' => '331.00',
+        'tax_name' => 'StudentMart Demo Tax',
+        'tax_enabled' => false,
+        'tax_rate_percent' => '5.0000',
+        'tax_amount' => '0.00',
         'total_amount' => '331.00',
         'status' => 'pending',
     ]);
@@ -130,6 +141,105 @@ test('checkout trusts database prices and creates one pending order per seller',
         'quantity' => 2,
         'line_total' => '251.00',
     ]);
+});
+
+test('checkout snapshots enabled demo tax and keeps earlier orders unchanged after a rate update', function () {
+    $buyer = makeOrderFlowUser('student', 'demo-tax-buyer');
+    $seller = makeOrderFlowUser('student', 'demo-tax-seller');
+    $product = makeOrderFlowProduct($seller, ['price' => '1000.00']);
+    TaxConfiguration::query()->whereKey(1)->update([
+        'rate_percent' => '5.0000',
+        'is_active' => true,
+    ]);
+
+    Sanctum::actingAs($buyer);
+    $firstResponse = postOrderWithDefaultOptions($this, [
+        'total_amount' => 0,
+        'tax_rate_percent' => '0',
+        'tax_amount' => 0,
+        'tax_enabled' => false,
+        'items' => [[
+            'product_id' => $product->id,
+            'quantity' => 1,
+            'unit_price' => 0,
+        ]],
+    ])->assertCreated()
+        ->assertJsonPath('orders.0.product_subtotal', '1000.00')
+        ->assertJsonPath('orders.0.tax_name', 'StudentMart Demo Tax')
+        ->assertJsonPath('orders.0.tax_enabled', true)
+        ->assertJsonPath('orders.0.tax_rate_percent', '5.0000')
+        ->assertJsonPath('orders.0.tax_amount', '50.00')
+        ->assertJsonPath('orders.0.total_amount', '1050.00');
+    $firstOrderId = $firstResponse->json('orders.0.id');
+
+    $admin = makeOrderFlowUser('admin', 'demo-tax-admin');
+    Sanctum::actingAs($admin);
+    $this->putJson('/api/admin/commission/tax', [
+        'rate_percent' => '10',
+        'is_active' => true,
+    ])->assertOk()
+        ->assertJsonPath('tax.name', 'StudentMart Demo Tax')
+        ->assertJsonPath('tax.status', 'active')
+        ->assertJsonPath('tax.rate_percent', '10.0000');
+
+    Sanctum::actingAs($buyer);
+    $secondResponse = postOrderWithDefaultOptions($this, [
+        'items' => [['product_id' => $product->id, 'quantity' => 1]],
+    ])->assertCreated()
+        ->assertJsonPath('orders.0.tax_rate_percent', '10.0000')
+        ->assertJsonPath('orders.0.tax_amount', '100.00')
+        ->assertJsonPath('orders.0.total_amount', '1100.00');
+
+    $this->assertDatabaseHas('orders', [
+        'id' => $firstOrderId,
+        'product_subtotal' => '1000.00',
+        'tax_rate_percent' => '5.0000',
+        'tax_amount' => '50.00',
+        'total_amount' => '1050.00',
+        'tax_enabled' => true,
+    ]);
+    $this->assertDatabaseHas('orders', [
+        'id' => $secondResponse->json('orders.0.id'),
+        'product_subtotal' => '1000.00',
+        'tax_rate_percent' => '10.0000',
+        'tax_amount' => '100.00',
+        'total_amount' => '1100.00',
+        'tax_enabled' => true,
+    ]);
+});
+
+test('demo tax rounds half-up to two decimal places', function () {
+    $buyer = makeOrderFlowUser('student', 'demo-tax-rounding-buyer');
+    $seller = makeOrderFlowUser('student', 'demo-tax-rounding-seller');
+    $product = makeOrderFlowProduct($seller, ['price' => '10.10']);
+    TaxConfiguration::query()->whereKey(1)->update([
+        'rate_percent' => '5.0000',
+        'is_active' => true,
+    ]);
+    Sanctum::actingAs($buyer);
+
+    postOrderWithDefaultOptions($this, [
+        'items' => [['product_id' => $product->id, 'quantity' => 1]],
+    ])->assertCreated()
+        ->assertJsonPath('orders.0.product_subtotal', '10.10')
+        ->assertJsonPath('orders.0.tax_amount', '0.51')
+        ->assertJsonPath('orders.0.total_amount', '10.61');
+});
+
+test('checkout options expose the current demo tax preview without accepting client totals', function () {
+    $buyer = makeOrderFlowUser('student', 'demo-tax-preview');
+    TaxConfiguration::query()->whereKey(1)->update([
+        'rate_percent' => '7.5000',
+        'is_active' => true,
+    ]);
+    Sanctum::actingAs($buyer);
+
+    $this->getJson('/api/order-options')
+        ->assertOk()
+        ->assertJsonPath('demo_tax.name', 'StudentMart Demo Tax')
+        ->assertJsonPath('demo_tax.status', 'active')
+        ->assertJsonPath('demo_tax.rate_percent', '7.5000')
+        ->assertJsonPath('demo_tax.is_active', true);
 });
 
 test('admin can mark COD orders paid without changing order status and repeated requests stay idempotent', function () {
@@ -217,7 +327,7 @@ test('seller dashboard reports paid revenue separately and paginates only the se
         ->assertJsonPath('total', 4)
         ->assertJsonPath('pagination.total', 4)
         ->assertJsonPath('pagination.per_page', 1)
-        ->assertJsonPath('summary.total_orders', 3)
+        ->assertJsonPath('summary.total_orders', 4)
         ->assertJsonPath('summary.pending_orders', 1)
         ->assertJsonPath('summary.completed_orders', 1)
         ->assertJsonPath('summary.gross_order_value', '205.50')
@@ -518,8 +628,17 @@ test('order request notifications are stored once for the seller and can be mark
     $this->putJson('/api/notifications/'.$notification->id.'/read', [])
         ->assertNotFound();
 
-    Sanctum::actingAs(makeOrderFlowUser('admin', 'notifications-admin'));
-    $this->getJson('/api/notifications')->assertForbidden();
+    $admin = makeOrderFlowUser('admin', 'notifications-admin');
+    $admin->notify(new AccountEnforcementNotification('warning', 'Admin-only notice.'));
+    Sanctum::actingAs($admin);
+    $this->getJson('/api/notifications')
+        ->assertOk()
+        ->assertJsonPath('unread_count', 1)
+        ->assertJsonCount(1, 'notifications')
+        ->assertJsonPath('notifications.0.message', 'You have received an account warning. Reason: Admin-only notice.');
+
+    $this->putJson('/api/notifications/'.$notification->id.'/read', [])
+        ->assertNotFound();
 });
 
 test('inbox notifications paginate within the authenticated account and include enforcement details', function () {

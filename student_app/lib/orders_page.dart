@@ -461,6 +461,7 @@ class _OrderCard extends StatelessWidget {
         : <Map<String, dynamic>>[];
     final orderNumber = valueOf(order['order_number']);
     final total = double.tryParse(valueOf(order['total_amount'])) ?? 0;
+    final sellerEarnings = double.tryParse(valueOf(order['seller_earnings']));
     final note = valueOf(selling ? order['buyer_note'] : order['seller_note']);
     final createdAt = DateTime.tryParse(valueOf(order['created_at']));
     final dateLabel = createdAt == null
@@ -509,6 +510,25 @@ class _OrderCard extends StatelessWidget {
                 ),
               ],
             ),
+            if (selling && sellerEarnings != null) ...[
+              const SizedBox(height: 7),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Your earnings',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  Text(
+                    peso(sellerEarnings),
+                    style: const TextStyle(
+                      color: TmcPalette.deepNavy,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ],
             if (note.isNotEmpty) ...[
               const SizedBox(height: 9),
               Text(

@@ -65,6 +65,64 @@ void main() {
     expect(find.byKey(const ValueKey('shop-product-grid')), findsOneWidget);
   });
 
+  testWidgets('shop identifies the authenticated student own listing', (
+    tester,
+  ) async {
+    final harness = await _pumpMarketplace(tester);
+    final original = harness.marketplace.products.first;
+    harness.marketplace.products = [
+      Product(
+        id: original.id,
+        name: original.name,
+        description: original.description,
+        price: original.price,
+        category: original.category,
+        status: original.status,
+        stockQuantity: original.stockQuantity,
+        sellerName: original.sellerName,
+        userId: 1,
+      ),
+      ...harness.marketplace.products.skip(1),
+    ];
+    harness.marketplace.notifyListeners();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Your listing'), findsOneWidget);
+    expect(find.text('Study Notebook'), findsOneWidget);
+    expect(find.text('₱120.00'), findsOneWidget);
+    expect(find.text('2 available'), findsOneWidget);
+  });
+
+  testWidgets('filtered shop refreshes stock after the catalog changes', (
+    tester,
+  ) async {
+    final harness = await _pumpMarketplace(tester);
+    await tester.enterText(
+      find.byKey(const ValueKey('shop-search-input')),
+      'notebook',
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('2 available'), findsOneWidget);
+
+    harness.setNotebookStock(1);
+    await harness.marketplace.loadProducts();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Study Notebook'), findsOneWidget);
+    expect(find.text('1 available'), findsOneWidget);
+    expect(find.text('2 available'), findsNothing);
+    expect(find.text('Canvas Tote'), findsNothing);
+    expect(
+      harness.requests.where(
+        (request) =>
+            request.method == 'GET' &&
+            request.url.path.endsWith('/products') &&
+            request.url.queryParameters['search'] == 'notebook',
+      ),
+      hasLength(2),
+    );
+  });
+
   testWidgets('shop listings fit small mobile through desktop widths', (
     tester,
   ) async {
@@ -96,6 +154,7 @@ Future<_MarketplaceHarness> _pumpMarketplace(WidgetTester tester) async {
   addTearDown(tester.view.resetDevicePixelRatio);
 
   final requests = <http.Request>[];
+  var notebookStock = 2;
   final api = ApiService(
     client: MockClient((request) async {
       requests.add(request);
@@ -113,16 +172,23 @@ Future<_MarketplaceHarness> _pumpMarketplace(WidgetTester tester) async {
                   category: 'Accessories',
                 ),
               ];
+        final withCurrentStock = products
+            .map(
+              (product) => product['id'] == 7
+                  ? {...product, 'stock_quantity': notebookStock}
+                  : product,
+            )
+            .toList(growable: false);
         return http.Response(
           jsonEncode({
             'success': true,
-            'products': products,
-            'total': products.length,
+            'products': withCurrentStock,
+            'total': withCurrentStock.length,
             'pagination': {
               'current_page': int.tryParse(query['page'] ?? '') ?? 1,
               'last_page': 1,
               'per_page': 24,
-              'total': products.length,
+              'total': withCurrentStock.length,
             },
           }),
           200,
@@ -187,7 +253,11 @@ Future<_MarketplaceHarness> _pumpMarketplace(WidgetTester tester) async {
     ),
   );
   await tester.pumpAndSettle();
-  return _MarketplaceHarness(marketplace: marketplace, requests: requests);
+  return _MarketplaceHarness(
+    marketplace: marketplace,
+    requests: requests,
+    setNotebookStock: (value) => notebookStock = value,
+  );
 }
 
 Map<String, Object?> _apiProduct({
@@ -217,8 +287,10 @@ class _MarketplaceHarness {
   const _MarketplaceHarness({
     required this.marketplace,
     required this.requests,
+    required this.setNotebookStock,
   });
 
   final MarketplaceState marketplace;
   final List<http.Request> requests;
+  final void Function(int value) setNotebookStock;
 }

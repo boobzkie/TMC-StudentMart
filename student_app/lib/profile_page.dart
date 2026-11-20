@@ -10,6 +10,7 @@ import 'edit_student_profile_page.dart';
 import 'order_details_page.dart';
 import 'orders_page.dart';
 import 'product_details_page.dart';
+import 'sales_page.dart';
 import 'seller_profile_page.dart';
 import 'sell_page.dart';
 import 'tmc_theme.dart';
@@ -33,10 +34,149 @@ class _CartPageState extends State<CartPage> {
   Set<String>? _selectedKeys;
   Set<String> _knownEntryKeys = {};
   final Set<int> _unavailableProductIds = {};
+  bool _demoTaxLoading = true;
+  bool _orderOptionsLoadStarted = false;
+  Future<Map<String, dynamic>>? _orderOptionsRequest;
+  Map<String, dynamic> _demoTax = const {
+    'name': 'StudentMart Demo Tax',
+    'status': 'inactive',
+    'rate_percent': '5.0000',
+    'is_active': false,
+  };
 
-  Future<Map<String, dynamic>?> _chooseOrderOptions(ApiService api) async {
-    final response = asMap(await api.get('/order-options'));
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_orderOptionsLoadStarted) return;
+    _orderOptionsLoadStarted = true;
+    unawaited(_loadDemoTaxPreview(context.read<ApiService>()));
+  }
+
+  Future<void> _loadDemoTaxPreview(ApiService api) async {
+    try {
+      final response = await _fetchOrderOptions(api);
+      if (!mounted) return;
+      setState(() {
+        _demoTax = _demoTaxFromResponse(response['demo_tax']);
+        _demoTaxLoading = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _demoTaxLoading = false);
+    }
+  }
+
+  Future<Map<String, dynamic>> _fetchOrderOptions(ApiService api) async {
+    final pending = _orderOptionsRequest;
+    if (pending != null) return pending;
+
+    final request = api.get('/order-options').then(asMap);
+    _orderOptionsRequest = request;
+    try {
+      return await request;
+    } catch (_) {
+      _orderOptionsRequest = null;
+      rethrow;
+    }
+  }
+
+  Map<String, dynamic> _demoTaxFromResponse(dynamic raw) {
+    final settings = asMap(raw);
+    if (settings.isEmpty) return _demoTax;
+    return {
+      'name': valueOf(settings['name']).isEmpty
+          ? 'StudentMart Demo Tax'
+          : valueOf(settings['name']),
+      'status': valueOf(settings['status']),
+      'rate_percent': settings['rate_percent'] ?? '5.0000',
+      'is_active':
+          settings['is_active'] == true ||
+          valueOf(settings['is_active']) == '1',
+    };
+  }
+
+  int _demoTaxAmountCents(int subtotalCents, Map<String, dynamic> settings) {
+    if (settings['is_active'] != true) return 0;
+    final rate = double.tryParse(valueOf(settings['rate_percent'])) ?? 0;
+    final rateUnits = (rate * 10000).round();
+    return (subtotalCents * rateUnits + 500000) ~/ 1000000;
+  }
+
+  String _demoTaxRateLabel(Map<String, dynamic> settings) {
+    final rate = (double.tryParse(valueOf(settings['rate_percent'])) ?? 0)
+        .clamp(0, 100)
+        .toDouble();
+    final rateLabel = rate
+        .toStringAsFixed(4)
+        .replaceFirst(RegExp(r'0+$'), '')
+        .replaceFirst(RegExp(r'\.$'), '');
+    return settings['is_active'] == true
+        ? '$rateLabel%'
+        : '$rateLabel% · Disabled';
+  }
+
+  Widget _orderSummaryPreview(int subtotalCents) {
+    final taxCents = _demoTaxAmountCents(subtotalCents, _demoTax);
+    final totalCents = subtotalCents + taxCents;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Text(
+          'Order summary · DEMO TAX',
+          style: TextStyle(fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 9),
+        _summaryRow('Product subtotal', peso(subtotalCents / 100)),
+        const SizedBox(height: 6),
+        _summaryRow('Demo tax rate', _demoTaxRateLabel(_demoTax)),
+        const SizedBox(height: 6),
+        _summaryRow('StudentMart Demo Tax', peso(taxCents / 100)),
+        const Divider(height: 18),
+        _summaryRow(
+          'Final payable total',
+          peso(totalCents / 100),
+          prominent: true,
+        ),
+        const SizedBox(height: 7),
+        const Text(
+          'Internal academic demonstration only. Final amounts are calculated by the server.',
+          style: TextStyle(fontSize: 12, color: TmcPalette.textMuted),
+        ),
+      ],
+    );
+  }
+
+  Widget _summaryRow(String label, String value, {bool prominent = false}) =>
+      Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontWeight: prominent ? FontWeight.w800 : FontWeight.w500,
+              ),
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              color: prominent ? TmcPalette.primary : null,
+            ),
+          ),
+        ],
+      );
+
+  Future<Map<String, dynamic>?> _chooseOrderOptions(
+    ApiService api, {
+    required int subtotalCents,
+  }) async {
+    final response = await _fetchOrderOptions(api);
     if (!mounted) return null;
+    final currentDemoTax = _demoTaxFromResponse(response['demo_tax']);
+    setState(() {
+      _demoTax = currentDemoTax;
+      _demoTaxLoading = false;
+    });
     final rawMethods = response['payment_methods'];
     final rawLocations = response['pickup_locations'];
     final methods = rawMethods is List
@@ -74,6 +214,8 @@ class _CartPageState extends State<CartPage> {
                 const Text(
                   'Select the method and pickup point agreed for this order. The app will not collect or verify payment.',
                 ),
+                const SizedBox(height: 14),
+                _orderSummaryPreview(subtotalCents),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<int>(
                   initialValue: paymentMethodId,
@@ -423,7 +565,16 @@ class _CartPageState extends State<CartPage> {
     setState(() => _placingOrder = true);
     try {
       final api = context.read<ApiService>();
-      final options = await _chooseOrderOptions(api);
+      final marketplace = context.read<MarketplaceState>();
+      final subtotalCents = selectedEntries.fold<int>(
+        0,
+        (total, entry) =>
+            total + (entry.product.price * 100).round() * entry.quantity,
+      );
+      final options = await _chooseOrderOptions(
+        api,
+        subtotalCents: subtotalCents,
+      );
       if (!mounted) return;
       if (options == null) {
         setState(() => _placingOrder = false);
@@ -458,6 +609,7 @@ class _CartPageState extends State<CartPage> {
         buyerId: student.id,
         idempotencyKey: idempotencyKey,
       );
+      await marketplace.loadProducts();
       _selectedKeys?.removeAll(selectedEntries.map((entry) => entry.key));
       if (!mounted) return;
       setState(() => _placingOrder = false);
@@ -876,10 +1028,13 @@ class _CartPageState extends State<CartPage> {
     int selectedQuantity, {
     required bool compact,
   }) {
-    final subtotal = selected.fold<double>(
+    final subtotalCents = selected.fold<int>(
       0,
-      (total, entry) => total + entry.subtotal,
+      (total, entry) =>
+          total + (entry.product.price * 100).round() * entry.quantity,
     );
+    final taxAmountCents = _demoTaxAmountCents(subtotalCents, _demoTax);
+    final payableCents = subtotalCents + taxAmountCents;
     final blocked =
         _placingOrder ||
         _refreshingCart ||
@@ -893,7 +1048,7 @@ class _CartPageState extends State<CartPage> {
         mainAxisSize: MainAxisSize.min,
         children: [
           const Text(
-            'Order summary',
+            'Order summary · DEMO TAX',
             style: TextStyle(
               color: TmcPalette.deepNavy,
               fontSize: 18,
@@ -903,11 +1058,24 @@ class _CartPageState extends State<CartPage> {
           const SizedBox(height: 12),
           Row(
             children: [
-              Expanded(child: Text('Selected items ($selectedQuantity)')),
-              Text(peso(subtotal)),
+              const Expanded(child: Text('Product subtotal')),
+              Text(peso(subtotalCents / 100)),
             ],
           ),
-          const SizedBox(height: 9),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              const Expanded(child: Text('Demo tax rate')),
+              Text(_demoTaxLoading ? 'Checking…' : _demoTaxRateLabel(_demoTax)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              const Expanded(child: Text('StudentMart Demo Tax')),
+              Text(peso(taxAmountCents / 100)),
+            ],
+          ),
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 11),
             child: Divider(height: 1),
@@ -916,12 +1084,12 @@ class _CartPageState extends State<CartPage> {
             children: [
               const Expanded(
                 child: Text(
-                  'Estimated total',
+                  'Final payable total',
                   style: TextStyle(fontWeight: FontWeight.w800),
                 ),
               ),
               Text(
-                peso(subtotal),
+                peso(payableCents / 100),
                 style: const TextStyle(
                   color: TmcPalette.primary,
                   fontSize: 19,
@@ -932,7 +1100,7 @@ class _CartPageState extends State<CartPage> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'This estimate uses current listing prices. Pickup and payment arrangements are chosen for the order request. No payment is collected or verified in the app.',
+            'DEMO TAX is an internal academic simulation, not a government tax.',
             style: TextStyle(color: TmcPalette.textMuted, fontSize: 12),
           ),
           if (selected.isEmpty && cart.entries.isNotEmpty) ...[
@@ -1240,6 +1408,10 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   void _selectTab(int tab) {
+    if (tab == 2) {
+      _open(context, const SalesPage());
+      return;
+    }
     if (tab == _selectedTab) return;
     if (tab == 1 && _ordersFuture == null) {
       _ordersFuture = context.read<ApiService>().get('/orders');
@@ -1313,6 +1485,14 @@ class _ProfilePageState extends State<ProfilePage> {
                   icon: Icons.shopping_bag_outlined,
                   selected: _selectedTab == 1,
                   onTap: () => _selectTab(1),
+                ),
+              ),
+              Expanded(
+                child: _ProfileTab(
+                  label: 'Sales',
+                  icon: Icons.storefront_outlined,
+                  selected: false,
+                  onTap: () => _selectTab(2),
                 ),
               ),
             ],

@@ -63,8 +63,8 @@ test('only a completed order with a completion timestamp allows a product review
     $seller = makeVerifiedReviewStudent('ELIGIBILITY-SELLER');
     $product = makeVerifiedReviewProduct($seller);
 
-    foreach (['pending', 'confirmed', 'ready_for_pickup', 'cancelled', 'completed'] as $index => $status) {
-        makeReviewOrder($buyer, $seller, $product, $status, $index !== 4);
+    foreach (['pending', 'confirmed', 'ready_for_pickup', 'declined', 'cancelled', 'completed'] as $index => $status) {
+        makeReviewOrder($buyer, $seller, $product, $status, $index !== 5);
     }
 
     Sanctum::actingAs($buyer);
@@ -117,6 +117,11 @@ test('verified buyers can submit one review per product and ratings aggregate co
         ->assertJsonPath('can_review', false)
         ->assertJsonPath('reviews.0.reviewer.name', $firstBuyer->name);
 
+    $this->getJson('/api/products')
+        ->assertOk()
+        ->assertJsonPath('products.0.reviews_count', 1)
+        ->assertJsonPath('products.0.average_rating', 4);
+
     Sanctum::actingAs($secondBuyer);
     $this->postJson('/api/products/'.$product->id.'/reviews', [
         'rating' => 5,
@@ -128,7 +133,52 @@ test('verified buyers can submit one review per product and ratings aggregate co
         ->assertJsonPath('average_rating', 4.5)
         ->assertJsonPath('total', 2);
 
+    $this->getJson('/api/products')
+        ->assertOk()
+        ->assertJsonPath('products.0.reviews_count', 2)
+        ->assertJsonPath('products.0.average_rating', 4.5);
+
     $this->assertDatabaseCount('product_reviews', 2);
+});
+
+test('review access is scoped to the authenticated student and exact purchased product', function () {
+    $seller = makeVerifiedReviewStudent('SCOPE-SELLER');
+    $buyer = makeVerifiedReviewStudent('SCOPE-BUYER');
+    $otherStudent = makeVerifiedReviewStudent('SCOPE-READER');
+    $productA = makeVerifiedReviewProduct($seller, 'Purchased product');
+    $productB = makeVerifiedReviewProduct($seller, 'Unpurchased product');
+    $orderA = makeReviewOrder($buyer, $seller, $productA, 'completed');
+
+    Sanctum::actingAs($buyer);
+    $this->postJson('/api/products/'.$productA->id.'/reviews', [
+        'rating' => 5,
+        'comment' => 'Received this product and it works well.',
+    ])->assertCreated();
+
+    $this->postJson('/api/products/'.$productB->id.'/reviews', [
+        'order_id' => $orderA->id,
+        'rating' => 5,
+        'comment' => 'An order for a different product must not qualify.',
+    ])->assertUnprocessable()->assertJsonValidationErrors('eligibility');
+
+    $this->assertDatabaseCount('product_reviews', 1);
+
+    Sanctum::actingAs($otherStudent);
+    $this->getJson('/api/products/'.$productA->id.'/reviews')
+        ->assertOk()
+        ->assertJsonPath('can_review', false)
+        ->assertJsonPath('already_reviewed', false)
+        ->assertJsonPath('total', 1)
+        ->assertJsonPath('reviews.0.reviewer.name', $buyer->name)
+        ->assertJsonPath('reviews.0.comment', 'Received this product and it works well.');
+
+    $this->postJson('/api/products/'.$productA->id.'/reviews', [
+        'order_id' => $orderA->id,
+        'rating' => 4,
+        'comment' => 'Another student cannot use the buyer’s order.',
+    ])->assertUnprocessable()->assertJsonValidationErrors('eligibility');
+
+    $this->assertDatabaseCount('product_reviews', 1);
 });
 
 test('review requests require a student, a valid rating and a verified completed order', function () {

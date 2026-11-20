@@ -2,11 +2,13 @@
 
 use App\Http\Middleware\AdminMiddleware;
 use App\Http\Middleware\AdminOrStaffMiddleware;
+use App\Http\Middleware\SanitizeApiServerErrors;
 use App\Http\Middleware\StaffMiddleware;
 use App\Http\Middleware\StudentMiddleware;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
 
 return Application::configure(
     basePath: dirname(__DIR__)
@@ -24,8 +26,14 @@ return Application::configure(
             'staff' => StaffMiddleware::class,
             'student' => StudentMiddleware::class,
         ]);
+
+        $middleware->api(append: [SanitizeApiServerErrors::class]);
     })
-    ->withExceptions(function (Exceptions $exceptions) {
-        //
+    ->withExceptions(function (Exceptions $exceptions): void {
+        $isApiRequest = fn (Request $request): bool => $request->is('api', 'api/*');
+
+        $exceptions->shouldRenderJsonWhen(
+            fn (Request $request, Throwable $exception): bool => $isApiRequest($request) || $request->expectsJson()
+        );
     })
     ->create();

@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class SellerProfileController extends Controller
 {
@@ -21,6 +22,22 @@ class SellerProfileController extends Controller
                 ->where('status', 'active'));
         $reviewCount = (clone $reviews)->count();
         $averageRating = (float) ((clone $reviews)->avg('rating') ?? 0);
+        $activeListings = $student->products()
+            ->whereRaw('LOWER(status) = ?', ['active'])
+            ->where('stock_quantity', '>', 0)
+            ->whereNull('archived_at')
+            ->where(function (Builder $query): void {
+                $query->whereNull('category_id')
+                    ->orWhereHas('categoryRecord', fn (Builder $category) => $category->where('status', 'active'));
+            })
+            ->count();
+        $productsSold = DB::table('order_items')
+            ->join('orders', 'orders.id', '=', 'order_items.order_id')
+            ->where('orders.seller_id', $student->id)
+            ->where('orders.status', 'completed')
+            ->whereNotNull('orders.completed_at')
+            ->where('orders.payment_status', 'paid')
+            ->sum('order_items.quantity');
 
         return response()->json([
             'success' => true,
@@ -41,9 +58,8 @@ class SellerProfileController extends Controller
                 ->where('users.role', 'student')
                 ->where('users.status', 'active')
                 ->count(),
-            'products_count' => $student->products()
-                ->whereIn('status', ['active', 'sold_out'])
-                ->count(),
+            'products_count' => $activeListings,
+            'products_sold' => (int) $productsSold,
             'reviews_count' => $reviewCount,
             'average_rating' => round($averageRating, 2),
             'is_following' => $request->user()->following()

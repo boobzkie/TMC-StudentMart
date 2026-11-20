@@ -3,6 +3,65 @@ import 'package:flutter/material.dart';
 import 'data.dart';
 import 'tmc_theme.dart';
 
+Future<ProductVariant?> showProductVariantPicker(
+  BuildContext context,
+  Product product,
+) => showModalBottomSheet<ProductVariant>(
+  context: context,
+  isScrollControlled: true,
+  builder: (sheetContext) => SafeArea(
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Choose an option',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: TmcPalette.text,
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Each option has its own available stock.',
+            style: TextStyle(fontSize: 13, color: TmcPalette.textMuted),
+          ),
+          const SizedBox(height: 12),
+          ...product.variants.map((variant) {
+            final available = variant.isActive && variant.stockQuantity > 0;
+            final attributes = variant.attributes.entries
+                .map((entry) => '${entry.key}: ${entry.value}')
+                .join(' · ');
+            return ListTile(
+              contentPadding: EdgeInsets.zero,
+              enabled: available,
+              title: Text(
+                variant.label,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              subtitle: attributes.isEmpty ? null : Text(attributes),
+              trailing: Text(
+                available ? '${variant.stockQuantity} available' : 'Sold out',
+                style: TextStyle(
+                  color: available ? TmcPalette.textMuted : TmcPalette.error,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              onTap: available
+                  ? () => Navigator.pop(sheetContext, variant)
+                  : null,
+            );
+          }),
+          const SizedBox(height: 12),
+        ],
+      ),
+    ),
+  ),
+);
+
 class BrandLogo extends StatelessWidget {
   const BrandLogo({super.key, this.size = 42});
   final double size;
@@ -591,7 +650,6 @@ class ProductCard extends StatelessWidget {
     this.management = false,
     this.imageHeight = 132,
     this.showSeller = false,
-    this.showSellerAvatar = false,
     this.showViewAction = false,
     this.onSellerTap,
   });
@@ -602,14 +660,14 @@ class ProductCard extends StatelessWidget {
   final bool management;
   final double imageHeight;
   final bool showSeller;
-  final bool showSellerAvatar;
   final bool showViewAction;
   final VoidCallback? onSellerTap;
 
   @override
   Widget build(BuildContext context) {
     final cardRadius = BorderRadius.circular(TmcRadius.lg);
-    final soldOut = product.status == 'sold_out' || product.stockQuantity <= 0;
+    final availableStock = product.availableStock;
+    final soldOut = product.status == 'sold_out' || availableStock <= 0;
     return Container(
       decoration: BoxDecoration(
         color: TmcPalette.white,
@@ -637,26 +695,44 @@ class ProductCard extends StatelessWidget {
                         top: 8,
                         child: StatusBadge(product.status),
                       ),
-                    if (product.images.length > 1)
+                    if (product.reviewsCount > 0)
                       Positioned(
-                        left: 8,
+                        right: 8,
                         bottom: 8,
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            color: TmcPalette.deepNavy.withValues(alpha: .86),
-                            borderRadius: BorderRadius.circular(TmcRadius.pill),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
+                        child: Semantics(
+                          container: true,
+                          label:
+                              'Rated ${product.averageRating.toStringAsFixed(1)} out of 5 from ${product.reviewsCount} reviews',
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: TmcPalette.white.withValues(alpha: .94),
+                              borderRadius: BorderRadius.circular(
+                                TmcRadius.pill,
+                              ),
                             ),
-                            child: Text(
-                              '${product.images.length} photos',
-                              style: const TextStyle(
-                                color: TmcPalette.white,
-                                fontSize: TmcTypography.labelSize,
-                                fontWeight: FontWeight.w700,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Icons.star_rounded,
+                                    size: 14,
+                                    color: TmcPalette.warning,
+                                  ),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    '${product.averageRating.toStringAsFixed(1)} (${product.reviewsCount})',
+                                    style: const TextStyle(
+                                      color: TmcPalette.deepNavyBlack,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
@@ -683,79 +759,53 @@ class ProductCard extends StatelessWidget {
                     fontSize: 16,
                   ),
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  product.category.isEmpty
-                      ? 'Marketplace listing'
-                      : product.category,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: TmcPalette.darkGray,
-                    fontSize: 12,
+                if (isOwnListing) ...[
+                  const SizedBox(height: 2),
+                  const Text(
+                    'Your listing',
+                    style: TextStyle(
+                      color: TmcPalette.primary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                ),
+                ],
                 if (showSeller && product.sellerName.isNotEmpty) ...[
-                  SizedBox(height: showSellerAvatar ? 6 : 3),
-                  if (showSellerAvatar)
-                    InkWell(
-                      onTap: onSellerTap,
-                      borderRadius: BorderRadius.circular(TmcRadius.pill),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 2),
-                        child: Row(
-                          children: [
-                            _ProductSellerAvatar(product: product, size: 30),
-                            const SizedBox(width: 7),
-                            Expanded(
-                              child: Text(
-                                product.sellerName,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: TmcPalette.text,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                            if (onSellerTap != null)
-                              const Icon(
-                                Icons.chevron_right,
-                                size: 18,
-                                color: TmcPalette.textSoft,
-                              ),
-                          ],
+                  const SizedBox(height: 3),
+                  InkWell(
+                    onTap: onSellerTap,
+                    borderRadius: BorderRadius.circular(6),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Text(
+                        'Sold by ${product.sellerName}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: TmcPalette.textSoft,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                    )
-                  else
-                    Text(
-                      'Sold by ${product.sellerName}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: TmcPalette.textSoft,
-                        fontSize: 12,
-                      ),
-                    ),
-                ],
-                if (!management) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    product.status == 'sold_out'
-                        ? 'No units available'
-                        : '${product.stockQuantity} available',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: product.status == 'sold_out'
-                          ? TmcPalette.error
-                          : TmcPalette.darkGray,
-                      fontSize: TmcTypography.labelSize,
                     ),
                   ),
                 ],
+                const SizedBox(height: 3),
+                Text(
+                  management
+                      ? availableStock > 0
+                            ? '$availableStock in stock'
+                            : 'Out of stock'
+                      : soldOut
+                      ? 'No units available'
+                      : '$availableStock available',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: soldOut ? TmcPalette.error : TmcPalette.darkGray,
+                    fontSize: TmcTypography.labelSize,
+                  ),
+                ),
                 if (onAdd != null) ...[
                   const Spacer(),
                   const SizedBox(height: 7),
@@ -836,51 +886,6 @@ class ProductCard extends StatelessWidget {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _ProductSellerAvatar extends StatelessWidget {
-  const _ProductSellerAvatar({required this.product, required this.size});
-
-  final Product product;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    final nameParts = product.sellerName
-        .trim()
-        .split(RegExp(r'\s+'))
-        .where((part) => part.isNotEmpty)
-        .take(2);
-    final initials = nameParts.map((part) => part[0].toUpperCase()).join();
-    final fallback = CircleAvatar(
-      radius: size / 2,
-      backgroundColor: TmcPalette.paleBlue,
-      child: Text(
-        initials.isEmpty ? 'S' : initials,
-        style: TextStyle(
-          color: TmcPalette.deepNavy,
-          fontSize: size * .28,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-    );
-    final path = product.sellerProfilePicture;
-    final url = path == null || path.isEmpty
-        ? ''
-        : ApiService.imageUrlFor(path);
-    if (url.isEmpty) return fallback;
-    return ClipOval(
-      child: Image.network(
-        url,
-        width: size,
-        height: size,
-        fit: BoxFit.cover,
-        cacheWidth: (size * MediaQuery.devicePixelRatioOf(context)).round(),
-        cacheHeight: (size * MediaQuery.devicePixelRatioOf(context)).round(),
-        errorBuilder: (_, _, _) => fallback,
       ),
     );
   }

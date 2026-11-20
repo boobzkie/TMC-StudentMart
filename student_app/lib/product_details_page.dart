@@ -27,6 +27,7 @@ class ProductDetailsPage extends StatefulWidget {
 
 class _ProductDetailsPageState extends State<ProductDetailsPage> {
   late Future<Product> _future;
+  late Future<List<Product>> _sellerListingsFuture;
   ProductVariant? _selectedVariant;
   bool _descriptionExpanded = false;
   final _reviewFormKey = GlobalKey<FormState>();
@@ -51,6 +52,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
   void initState() {
     super.initState();
     _future = _load();
+    _sellerListingsFuture = _loadSellerListings(_future);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _loadReviews(reset: true);
     });
@@ -73,9 +75,40 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
     return Product.fromJson(rawProduct);
   }
 
+  Future<List<Product>> _loadSellerListings(
+    Future<Product> productFuture,
+  ) async {
+    final api = context.read<ApiService>();
+    final product = await productFuture;
+    if (product.userId <= 0) return const [];
+
+    final response = await api.sellerProducts(
+      product.userId,
+      page: 1,
+      activeOnly: true,
+      excludeProductId: product.id,
+    );
+    final rawListings = response['products'];
+    if (rawListings is! List) return const [];
+
+    return rawListings
+        .whereType<Map>()
+        .map((item) => Product.fromJson(Map<String, dynamic>.from(item)))
+        .where(
+          (listing) =>
+              listing.userId == product.userId &&
+              listing.id != product.id &&
+              listing.status.trim().toLowerCase() == 'active' &&
+              listing.stockQuantity > 0,
+        )
+        .toList(growable: false);
+  }
+
   void _refresh() {
+    final productFuture = _load();
     setState(() {
-      _future = _load();
+      _future = productFuture;
+      _sellerListingsFuture = _loadSellerListings(productFuture);
       _selectedVariant = null;
     });
     _loadReviews(reset: true);
@@ -387,9 +420,8 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
     final productContent = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (product.attributes.values.any((value) => value.trim().isNotEmpty))
-          _attributesSection(product),
-        _descriptionSection(product),
+        _sellerListingsSection(product),
+        _aboutListingSection(product),
         _reviewsSection(),
         _relatedProducts(product),
       ],
@@ -518,11 +550,6 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                     ),
             ),
             IconButton(
-              tooltip: "Refresh product details",
-              onPressed: _refresh,
-              icon: const Icon(Icons.refresh),
-            ),
-            IconButton(
               tooltip: "Copy product details to share",
               onPressed: () async {
                 await Clipboard.setData(
@@ -542,22 +569,38 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
           ],
         ),
         const Divider(height: 18),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Expanded(
-              child: Text(
-                peso(product.price),
-                style: const TextStyle(
-                  fontSize: 28,
-                  height: 1.1,
-                  fontWeight: FontWeight.w900,
-                  color: TmcPalette.primary,
-                ),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final price = Text(
+              peso(product.price),
+              style: TextStyle(
+                fontSize: constraints.maxWidth < 360 ? 24 : 28,
+                height: 1.1,
+                fontWeight: FontWeight.w900,
+                color: TmcPalette.primary,
               ),
-            ),
-            _stockBadge(product, unavailable),
-          ],
+            );
+            if (constraints.maxWidth < 360) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  price,
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: _stockBadge(product, unavailable),
+                  ),
+                ],
+              );
+            }
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(child: price),
+                _stockBadge(product, unavailable),
+              ],
+            );
+          },
         ),
       ],
     ),
@@ -603,21 +646,176 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
     );
   }
 
-  Widget _descriptionSection(Product product) {
+  Widget _sellerListingsSection(Product product) =>
+      FutureBuilder<List<Product>>(
+        future: _sellerListingsFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            return const Padding(
+              padding: EdgeInsets.only(bottom: 18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SectionHeading("More from this seller"),
+                  SizedBox(height: 12),
+                  LinearProgressIndicator(),
+                ],
+              ),
+            );
+          }
+          if (snapshot.hasError) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SectionHeading("More from this seller"),
+                  const SizedBox(height: 8),
+                  TmcPanel(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text("Seller listings could not be loaded."),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: () => setState(
+                              () => _sellerListingsFuture = _loadSellerListings(
+                                _future,
+                              ),
+                            ),
+                            child: const Text("Try again"),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          final listings = snapshot.data ?? const <Product>[];
+          if (listings.isEmpty) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SectionHeading("More from this seller"),
+                  const SizedBox(height: 8),
+                  const TmcPanel(
+                    padding: EdgeInsets.all(14),
+                    child: Text("This seller has no other active listings."),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SectionHeading("More from this seller"),
+                const SizedBox(height: 8),
+                SizedBox(
+                  height: 188,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: listings.length,
+                    separatorBuilder: (_, _) => const SizedBox(width: 12),
+                    itemBuilder: (context, index) {
+                      final listing = listings[index];
+                      return SizedBox(
+                        width: 148,
+                        child: Card(
+                          clipBehavior: Clip.antiAlias,
+                          margin: EdgeInsets.zero,
+                          child: Semantics(
+                            button: true,
+                            label: "${listing.name}, ${peso(listing.price)}",
+                            child: InkWell(
+                              key: ValueKey("seller-listing-${listing.id}"),
+                              onTap: () => Navigator.of(context).push<void>(
+                                MaterialPageRoute<void>(
+                                  builder: (_) =>
+                                      ProductDetailsPage(productId: listing.id),
+                                ),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Expanded(
+                                    child: ProductPhoto(
+                                      product: listing,
+                                      height: 140,
+                                    ),
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.all(10),
+                                    child: Text(
+                                      peso(listing.price),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: TmcPalette.primary,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+
+  Widget _aboutListingSection(Product product) {
     final description = product.description.trim();
     final longDescription = description.length > 180;
+    final attributes = product.attributes.entries
+        .where((entry) => entry.value.trim().isNotEmpty)
+        .toList(growable: false);
+    final category = product.category.trim();
     return Padding(
       padding: const EdgeInsets.only(bottom: 18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SectionHeading("About this product"),
+          const SectionHeading("About This Listing"),
           const SizedBox(height: 8),
           TmcPanel(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (category.isNotEmpty || attributes.isNotEmpty) ...[
+                  if (category.isNotEmpty)
+                    _listingDetailRow("Category", category),
+                  ...attributes.map(
+                    (entry) => _listingDetailRow(
+                      _attributeLabel(entry.key),
+                      entry.value,
+                    ),
+                  ),
+                  const Divider(height: 22),
+                ],
+                const Text(
+                  "Description",
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 6),
                 Text(
                   description.isEmpty
                       ? "No description provided."
@@ -651,44 +849,24 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
     );
   }
 
-  Widget _attributesSection(Product product) => Padding(
-    padding: const EdgeInsets.only(bottom: 18),
-    child: Column(
+  Widget _listingDetailRow(String label, String value) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 6),
+    child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionHeading("Product details"),
-        const SizedBox(height: 8),
-        TmcPanel(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-          child: Column(
-            children: product.attributes.entries
-                .where((entry) => entry.value.trim().isNotEmpty)
-                .map(
-                  (entry) => Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          flex: 2,
-                          child: Text(
-                            _attributeLabel(entry.key),
-                            style: const TextStyle(color: TmcPalette.textMuted),
-                          ),
-                        ),
-                        Expanded(
-                          flex: 3,
-                          child: Text(
-                            entry.value,
-                            textAlign: TextAlign.end,
-                            style: const TextStyle(fontWeight: FontWeight.w700),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-                .toList(),
+        Expanded(
+          flex: 2,
+          child: Text(
+            label,
+            style: const TextStyle(color: TmcPalette.textMuted),
+          ),
+        ),
+        Expanded(
+          flex: 3,
+          child: Text(
+            value,
+            textAlign: TextAlign.end,
+            style: const TextStyle(fontWeight: FontWeight.w700),
           ),
         ),
       ],
@@ -705,31 +883,34 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
         child: Column(
           children: product.variants.map((variant) {
             final selected = _selectedVariant?.id == variant.id;
-            return CheckboxListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 7),
-              title: Text(variant.label),
-              subtitle: Text(
-                variant.attributes.entries
-                    .map((entry) => "${entry.key}: ${entry.value}")
-                    .join(" · "),
-              ),
-              value: selected,
-              onChanged: unavailable || variant.stockQuantity <= 0
-                  ? null
-                  : (value) {
-                      if (value == true) {
-                        setState(() => _selectedVariant = variant);
-                      }
-                    },
-              secondary: Text(
-                variant.stockQuantity > 0
-                    ? "${variant.stockQuantity} left"
-                    : "Sold out",
-                style: TextStyle(
-                  color: variant.stockQuantity > 0
-                      ? TmcPalette.textMuted
-                      : TmcPalette.error,
-                  fontSize: 12,
+            return Material(
+              color: Colors.transparent,
+              child: CheckboxListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 7),
+                title: Text(variant.label),
+                subtitle: Text(
+                  variant.attributes.entries
+                      .map((entry) => "${entry.key}: ${entry.value}")
+                      .join(" · "),
+                ),
+                value: selected,
+                onChanged: unavailable || variant.stockQuantity <= 0
+                    ? null
+                    : (value) {
+                        if (value == true) {
+                          setState(() => _selectedVariant = variant);
+                        }
+                      },
+                secondary: Text(
+                  variant.stockQuantity > 0
+                      ? "${variant.stockQuantity} left"
+                      : "Sold out",
+                  style: TextStyle(
+                    color: variant.stockQuantity > 0
+                        ? TmcPalette.textMuted
+                        : TmcPalette.error,
+                    fontSize: 12,
+                  ),
                 ),
               ),
             );

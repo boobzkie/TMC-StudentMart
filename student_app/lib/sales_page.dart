@@ -1150,6 +1150,17 @@ class _SalesOrderCard extends StatelessWidget {
                       fontSize: 17,
                     ),
                   ),
+                  if (order['seller_earnings'] != null) ...[
+                    const SizedBox(height: 3),
+                    Text(
+                      'You earn ${_money(order['seller_earnings'])}',
+                      style: const TextStyle(
+                        color: TmcPalette.textMuted,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 6),
                   _StatusBadge(label: _statusLabel(status), color: statusColor),
                 ],

@@ -487,6 +487,11 @@ Route::middleware('auth:sanctum')->group(function () {
                 'deactivateRate',
             ]);
 
+            Route::put('/commission/tax', [
+                AdminCommissionController::class,
+                'updateTax',
+            ]);
+
             Route::put(
                 '/order-commissions/{orderCommission}/collect',
                 [AdminCommissionController::class, 'collect']

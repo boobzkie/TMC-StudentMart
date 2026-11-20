@@ -1,8 +1,6 @@
 import 'dart:async';
-import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import 'components.dart';
@@ -284,7 +282,6 @@ class _HomePageState extends State<HomePage> {
                           product.userId > 0
                       ? _sellerStatusFuture(product.userId)
                       : null;
-
                   return _ImmersiveProductPage(
                     key: ValueKey(product.id),
                     product: product,
@@ -368,78 +365,18 @@ class _ImmersiveProductPage extends StatefulWidget {
   State<_ImmersiveProductPage> createState() => _ImmersiveProductPageState();
 }
 
-enum _FeedSpeedDialPhase { closed, animatingOpen, open, animatingClosed }
-
-class _ImmersiveProductPageState extends State<_ImmersiveProductPage>
-    with SingleTickerProviderStateMixin {
-  static const _speedDialButtonSize = 56.0;
-  static const _speedDialGap = 12.0;
-  // The Scaffold body already ends above the app's bottom navigation bar.
-  static const _speedDialBottomInset = 12.0;
-
-  late final AnimationController _speedDialController;
-  _FeedSpeedDialPhase _speedDialPhase = _FeedSpeedDialPhase.closed;
+class _ImmersiveProductPageState extends State<_ImmersiveProductPage> {
   int _imageIndex = 0;
   bool _savingFollow = false;
   bool _addingToCart = false;
   bool? _followingOverride;
   DateTime? _lastCartActionAt;
 
-  @override
-  void initState() {
-    super.initState();
-    _speedDialController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 220),
-    )..addStatusListener(_handleSpeedDialAnimationStatus);
-  }
-
-  @override
-  void dispose() {
-    _speedDialController.dispose();
-    super.dispose();
-  }
-
-  void _handleSpeedDialAnimationStatus(AnimationStatus status) {
-    final nextPhase = switch (status) {
-      AnimationStatus.completed => _FeedSpeedDialPhase.open,
-      AnimationStatus.dismissed => _FeedSpeedDialPhase.closed,
-      _ => null,
-    };
-    if (nextPhase != null && mounted && _speedDialPhase != nextPhase) {
-      setState(() => _speedDialPhase = nextPhase);
-    }
-  }
-
-  bool get _speedDialVisible => _speedDialPhase != _FeedSpeedDialPhase.closed;
-
-  bool get _speedDialTransitioning =>
-      _speedDialPhase == _FeedSpeedDialPhase.animatingOpen ||
-      _speedDialPhase == _FeedSpeedDialPhase.animatingClosed;
-
-  void _toggleSpeedDial() {
-    if (_speedDialTransitioning) return;
-    if (_speedDialPhase == _FeedSpeedDialPhase.open) {
-      _closeSpeedDial();
-      return;
-    }
-    setState(() => _speedDialPhase = _FeedSpeedDialPhase.animatingOpen);
-    _speedDialController.forward(from: 0);
-  }
-
-  void _closeSpeedDial() {
-    if (_speedDialPhase != _FeedSpeedDialPhase.open) return;
-    setState(() => _speedDialPhase = _FeedSpeedDialPhase.animatingClosed);
-    _speedDialController.reverse();
-  }
-
   void _openSeller() {
-    _closeSpeedDial();
     widget.onOpenSeller();
   }
 
   void _openDetails() {
-    _closeSpeedDial();
     widget.onOpenDetails();
   }
 
@@ -454,7 +391,6 @@ class _ImmersiveProductPageState extends State<_ImmersiveProductPage>
     }
 
     _lastCartActionAt = startedAt;
-    _closeSpeedDial();
     setState(() => _addingToCart = true);
     try {
       await widget.onAddToCart();
@@ -578,7 +514,7 @@ class _ImmersiveProductPageState extends State<_ImmersiveProductPage>
     ),
   );
 
-  Widget _speedDialAction({
+  Widget _feedActionButton({
     required IconData icon,
     required String label,
     required VoidCallback? onPressed,
@@ -591,7 +527,10 @@ class _ImmersiveProductPageState extends State<_ImmersiveProductPage>
       style: IconButton.styleFrom(
         fixedSize: const Size(56, 56),
         padding: EdgeInsets.zero,
+        backgroundColor: Colors.black.withValues(alpha: .62),
         foregroundColor: TmcPalette.white,
+        side: BorderSide(color: TmcPalette.white.withValues(alpha: .65)),
+        shape: const CircleBorder(),
         overlayColor: TmcPalette.white.withValues(alpha: .14),
       ),
       icon: loading
@@ -610,7 +549,9 @@ class _ImmersiveProductPageState extends State<_ImmersiveProductPage>
     final statusFuture = widget.sellerStatus;
     if (ownListing || statusFuture == null) {
       return Tooltip(
-        message: 'Open seller profile',
+        message: ownListing
+            ? 'Your listing · open your seller profile'
+            : 'Open seller profile',
         child: InkWell(
           onTap: _openSeller,
           customBorder: const CircleBorder(),
@@ -711,29 +652,6 @@ class _ImmersiveProductPageState extends State<_ImmersiveProductPage>
     ),
   );
 
-  Widget _metaChip(String label, {bool highlighted = false}) => DecoratedBox(
-    decoration: BoxDecoration(
-      color: highlighted
-          ? TmcPalette.tealBlue.withValues(alpha: .9)
-          : Colors.black.withValues(alpha: .42),
-      borderRadius: BorderRadius.circular(TmcRadius.pill),
-      border: Border.all(color: TmcPalette.white.withValues(alpha: .5)),
-    ),
-    child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      child: Text(
-        label,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(
-          color: TmcPalette.white,
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    ),
-  );
-
   @override
   Widget build(BuildContext context) {
     final product = widget.product;
@@ -742,157 +660,121 @@ class _ImmersiveProductPageState extends State<_ImmersiveProductPage>
         ? 'TMC Student Seller'
         : product.sellerName.trim();
     final images = _imagePaths;
-    final condition = product.attributes['condition']?.trim() ?? '';
-    final brand = product.attributes['brand']?.trim() ?? '';
-    final size = product.attributes['size']?.trim() ?? '';
-    final stock = product.stockQuantity;
+    final stock = product.availableStock;
     final canAddToCart = !ownListing && stock > 0;
 
-    return Focus(
-      onKeyEvent: (_, event) {
-        if (event is KeyDownEvent &&
-            event.logicalKey == LogicalKeyboardKey.escape &&
-            _speedDialVisible) {
-          _closeSpeedDial();
-          return KeyEventResult.handled;
-        }
-        return KeyEventResult.ignored;
-      },
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          if (images.isEmpty)
-            _fallbackProductImage()
-          else
-            Semantics(
-              button: true,
-              label: 'Open product images full screen',
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => _openImageViewer(images),
-                child: PageView.builder(
-                  itemCount: images.length,
-                  onPageChanged: (index) => setState(() => _imageIndex = index),
-                  itemBuilder: (context, index) => _productImage(images[index]),
-                ),
-              ),
-            ),
-          const IgnorePointer(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  stops: [0, .3, .56, 1],
-                  colors: [
-                    Color(0x5C001D39),
-                    Colors.transparent,
-                    Color(0x52001D39),
-                    Color(0xF0001020),
-                  ],
-                ),
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        if (images.isEmpty)
+          _fallbackProductImage()
+        else
+          Semantics(
+            button: true,
+            label: 'Open product images full screen',
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => _openImageViewer(images),
+              child: PageView.builder(
+                itemCount: images.length,
+                onPageChanged: (index) => setState(() => _imageIndex = index),
+                itemBuilder: (context, index) => _productImage(images[index]),
               ),
             ),
           ),
-          SafeArea(
-            top: false,
-            child: Stack(
-              children: [
-                if (images.length > 1)
-                  Positioned(
-                    top: 12,
-                    left: 14,
-                    right: 112,
-                    child: Row(
-                      children: [
-                        for (var index = 0; index < images.length; index++)
-                          Expanded(
-                            child: Container(
-                              height: 3,
-                              margin: EdgeInsets.only(
-                                right: index == images.length - 1 ? 0 : 5,
-                              ),
-                              decoration: BoxDecoration(
-                                color: index == _imageIndex
-                                    ? TmcPalette.white
-                                    : TmcPalette.white.withValues(alpha: .4),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
+        const IgnorePointer(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                stops: [0, .3, .56, 1],
+                colors: [
+                  Color(0x5C001D39),
+                  Colors.transparent,
+                  Color(0x52001D39),
+                  Color(0xF0001020),
+                ],
+              ),
+            ),
+          ),
+        ),
+        SafeArea(
+          top: false,
+          bottom: true,
+          child: Stack(
+            children: [
+              if (images.length > 1)
                 Positioned(
+                  top: 50,
                   left: 12,
-                  right: 88,
-                  bottom: 12,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
+                  right: 12,
+                  child: Row(
                     children: [
-                      Container(
-                        padding: const EdgeInsets.fromLTRB(10, 8, 10, 9),
-                        decoration: BoxDecoration(
-                          color: const Color(0xD9001426),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: TmcPalette.white.withValues(alpha: .16),
+                      for (var index = 0; index < images.length; index++)
+                        Expanded(
+                          child: Container(
+                            height: 3,
+                            margin: EdgeInsets.only(
+                              right: index == images.length - 1 ? 0 : 5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: index == _imageIndex
+                                  ? TmcPalette.white
+                                  : TmcPalette.white.withValues(alpha: .4),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
                           ),
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Wrap(
-                              spacing: 5,
-                              runSpacing: 4,
-                              children: [
-                                if (product.category.isNotEmpty)
-                                  _metaChip(product.category),
-                                if (condition.isNotEmpty) _metaChip(condition),
-                                if (brand.isNotEmpty) _metaChip(brand),
-                                if (size.isNotEmpty) _metaChip('Size $size'),
-                              ],
-                            ),
-                            const SizedBox(height: 5),
-                            Text(
-                              product.name,
-                              maxLines: 2,
+                    ],
+                  ),
+                ),
+              Positioned(
+                left: 12,
+                right: 100,
+                bottom: 12,
+                child: Semantics(
+                  button: true,
+                  label:
+                      '${ownListing ? 'Your listing. ' : ''}${product.name}, ${peso(product.price)}, ${stock > 0 ? '$stock available' : 'out of stock'}',
+                  child: Material(
+                    color: Colors.transparent,
+                    elevation: 3,
+                    shadowColor: Colors.black.withValues(alpha: .3),
+                    borderRadius: BorderRadius.circular(16),
+                    child: InkWell(
+                      key: ValueKey('home-product-preview-${product.id}'),
+                      onTap: _openDetails,
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xE6001426),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: ownListing
+                                ? TmcPalette.tealBlue
+                                : TmcPalette.white.withValues(alpha: .24),
+                            width: ownListing ? 2 : 1,
+                          ),
+                        ),
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            final price = Text(
+                              peso(product.price),
+                              maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
                                 color: TmcPalette.white,
-                                fontSize: 17,
-                                height: 1.08,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              peso(product.price),
-                              style: const TextStyle(
-                                color: TmcPalette.white,
-                                fontSize: 20,
+                                fontSize: 18,
                                 height: 1.1,
                                 fontWeight: FontWeight.w900,
                               ),
-                            ),
-                            if (product.description.trim().isNotEmpty) ...[
-                              const SizedBox(height: 3),
-                              Text(
-                                product.description.trim(),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: TmcPalette.white,
-                                  fontSize: 12,
-                                  height: 1.2,
-                                ),
-                              ),
-                            ],
-                            const SizedBox(height: 4),
-                            Text(
+                            );
+                            final available = Text(
                               stock > 0 ? '$stock available' : 'Out of stock',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 color: stock > 0
                                     ? TmcPalette.paleBlue
@@ -900,172 +782,81 @@ class _ImmersiveProductPageState extends State<_ImmersiveProductPage>
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
                               ),
-                            ),
-                            InkWell(
-                              onTap: _openSeller,
-                              borderRadius: BorderRadius.circular(8),
-                              child: Padding(
-                                padding: const EdgeInsets.only(
-                                  top: 3,
-                                  right: 3,
+                            );
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  product.name,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: TmcPalette.white,
+                                    fontSize: 15,
+                                    height: 1.15,
+                                    fontWeight: FontWeight.w800,
+                                  ),
                                 ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(
-                                      Icons.storefront_outlined,
-                                      size: 14,
-                                      color: TmcPalette.white,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Flexible(
-                                      child: Text(
-                                        'Sold by $sellerName',
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          color: TmcPalette.white,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w700,
+                                const SizedBox(height: 6),
+                                if (constraints.maxWidth < 240) ...[
+                                  price,
+                                  const SizedBox(height: 3),
+                                  available,
+                                ] else
+                                  Row(
+                                    children: [
+                                      Flexible(child: price),
+                                      const SizedBox(width: 8),
+                                      Flexible(
+                                        child: Align(
+                                          alignment: Alignment.centerRight,
+                                          child: available,
                                         ),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
+                                    ],
+                                  ),
+                              ],
+                            );
+                          },
                         ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                right: 12,
+                bottom: 12,
+                child: FocusTraversalGroup(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      _sellerRail(context, sellerName, ownListing),
+                      const SizedBox(height: 12),
+                      _feedActionButton(
+                        icon: Icons.add_shopping_cart_outlined,
+                        label: 'Add to cart',
+                        loading: _addingToCart,
+                        onPressed: canAddToCart && !_addingToCart
+                            ? () => unawaited(_addProductToCart())
+                            : null,
+                      ),
+                      const SizedBox(height: 12),
+                      _feedActionButton(
+                        icon: Icons.info_outline,
+                        label: 'Details',
+                        onPressed: _openDetails,
                       ),
                     ],
                   ),
                 ),
-                if (_speedDialVisible)
-                  Positioned.fill(
-                    child: AnimatedBuilder(
-                      animation: _speedDialController,
-                      builder: (context, _) {
-                        final progress = Curves.easeOutCubic.transform(
-                          _speedDialController.value,
-                        );
-                        return GestureDetector(
-                          key: const ValueKey('feed-speed-dial-backdrop'),
-                          behavior: HitTestBehavior.opaque,
-                          onTap: _closeSpeedDial,
-                          child: BackdropFilter(
-                            filter: ImageFilter.blur(
-                              sigmaX: 4 * progress,
-                              sigmaY: 4 * progress,
-                            ),
-                            child: ColoredBox(
-                              color: Colors.black.withValues(
-                                alpha: .16 * progress,
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                Positioned(
-                  right: 12,
-                  bottom:
-                      _speedDialBottomInset +
-                      _speedDialButtonSize +
-                      _speedDialGap,
-                  child: Visibility(
-                    visible: _speedDialVisible,
-                    maintainState: true,
-                    maintainAnimation: true,
-                    child: AnimatedBuilder(
-                      animation: _speedDialController,
-                      builder: (context, child) {
-                        final progress = Curves.easeOutCubic.transform(
-                          _speedDialController.value,
-                        );
-                        return IgnorePointer(
-                          ignoring: _speedDialPhase != _FeedSpeedDialPhase.open,
-                          child: ExcludeSemantics(
-                            excluding:
-                                _speedDialPhase != _FeedSpeedDialPhase.open,
-                            child: Opacity(
-                              opacity: progress,
-                              child: Transform.translate(
-                                offset: Offset(0, 18 * (1 - progress)),
-                                child: child,
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                      child: FocusTraversalGroup(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            _sellerRail(context, sellerName, ownListing),
-                            const SizedBox(height: _speedDialGap),
-                            _speedDialAction(
-                              icon: Icons.add_shopping_cart_outlined,
-                              label: 'Add to cart',
-                              loading: _addingToCart,
-                              onPressed: canAddToCart && !_addingToCart
-                                  ? () => unawaited(_addProductToCart())
-                                  : null,
-                            ),
-                            const SizedBox(height: _speedDialGap),
-                            _speedDialAction(
-                              icon: Icons.info_outline,
-                              label: 'Details',
-                              onPressed: _openDetails,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  right: 12,
-                  bottom: _speedDialBottomInset,
-                  child: Semantics(
-                    button: true,
-                    expanded:
-                        _speedDialPhase == _FeedSpeedDialPhase.open ||
-                        _speedDialPhase == _FeedSpeedDialPhase.animatingOpen,
-                    label: 'Product actions menu',
-                    child: SizedBox.square(
-                      dimension: _speedDialButtonSize,
-                      child: FloatingActionButton(
-                        heroTag: 'feed-actions-${product.id}',
-                        tooltip: 'Product actions',
-                        onPressed: _speedDialTransitioning
-                            ? null
-                            : _toggleSpeedDial,
-                        backgroundColor: TmcPalette.deepNavy,
-                        foregroundColor: TmcPalette.white,
-                        elevation: 5,
-                        child: AnimatedRotation(
-                          turns: _speedDialPhase == _FeedSpeedDialPhase.open
-                              ? .125
-                              : 0,
-                          duration: const Duration(milliseconds: 180),
-                          child: Icon(
-                            _speedDialVisible
-                                ? Icons.close_rounded
-                                : Icons.more_horiz_rounded,
-                            size: 27,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -1313,6 +1104,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
   int _filterPage = 0;
   int _filterLastPage = 1;
   int _filterRequestGeneration = 0;
+  int _lastCatalogRevision = 0;
 
   bool get _hasActiveQuery =>
       _search.text.trim().isNotEmpty ||
@@ -1467,6 +1259,12 @@ class _MarketplacePageState extends State<MarketplacePage> {
   Widget build(BuildContext context) {
     final currentUserId = context.watch<AuthState>().user?.id ?? 0;
     final state = context.watch<MarketplaceState>();
+    if (state.catalogRevision != _lastCatalogRevision) {
+      _lastCatalogRevision = state.catalogRevision;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _hasActiveQuery) _scheduleFilteredProducts();
+      });
+    }
     final categories =
         state.categories
             .map((category) => category.name.trim())
@@ -1756,7 +1554,6 @@ class _MarketplacePageState extends State<MarketplacePage> {
                                           imageHeight: imageHeight,
                                           isOwnListing: ownListing,
                                           showSeller: true,
-                                          showSellerAvatar: true,
                                           showViewAction: true,
                                           onSellerTap: product.userId > 0
                                               ? () =>
@@ -1921,7 +1718,8 @@ class _MarketplaceListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final soldOut = product.status == 'sold_out' || product.stockQuantity <= 0;
+    final availableStock = product.availableStock;
+    final soldOut = product.status == 'sold_out' || availableStock <= 0;
     final radius = BorderRadius.circular(TmcRadius.lg);
     return Container(
       decoration: BoxDecoration(
@@ -1968,44 +1766,34 @@ class _MarketplaceListItem extends StatelessWidget {
                           fontWeight: FontWeight.w900,
                         ),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        product.category.isEmpty
-                            ? 'Marketplace listing'
-                            : product.category,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: TmcPalette.textMuted,
-                          fontSize: 12,
+                      if (isOwnListing) ...[
+                        const SizedBox(height: 2),
+                        const Text(
+                          'Your listing',
+                          style: TextStyle(
+                            color: TmcPalette.primary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
-                      ),
+                      ],
                       const SizedBox(height: 5),
                       if (product.sellerName.isNotEmpty)
                         InkWell(
                           onTap: onSellerTap,
                           borderRadius: BorderRadius.circular(TmcRadius.pill),
-                          child: Row(
-                            children: [
-                              _sellerAvatar(
-                                product.sellerName,
-                                product.sellerProfilePicture,
-                                26,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 3),
+                            child: Text(
+                              'Sold by ${product.sellerName}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: TmcPalette.textMuted,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
                               ),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  product.sellerName,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: TmcPalette.text,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ],
+                            ),
                           ),
                         ),
                       const SizedBox(height: 5),
@@ -2015,7 +1803,7 @@ class _MarketplaceListItem extends StatelessWidget {
                             child: Text(
                               soldOut
                                   ? 'Sold out'
-                                  : '${product.stockQuantity} available',
+                                  : '$availableStock available',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(

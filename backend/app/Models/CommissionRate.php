@@ -13,6 +13,7 @@ class CommissionRate extends Model
         'is_deactivation',
         'effective_at',
         'configured_by',
+        'configured_by_name',
     ];
 
     protected function casts(): array

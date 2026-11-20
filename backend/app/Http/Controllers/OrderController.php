@@ -9,13 +9,13 @@ use App\Models\OrderPaymentMethod;
 use App\Models\PickupLocation;
 use App\Models\Product;
 use App\Models\ProductVariant;
+use App\Models\TaxConfiguration;
 use App\Models\User;
 use App\Notifications\OrderEventNotification;
 use App\Services\CommissionRecordingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -267,6 +267,15 @@ class OrderController extends Controller
                 ];
             }
 
+            $taxConfiguration = TaxConfiguration::query()
+                ->whereKey(1)
+                ->lockForUpdate()
+                ->first();
+            $taxRatePercent = $taxConfiguration?->rate_percent ?? '5.0000';
+            $taxEnabled = (bool) $taxConfiguration?->is_active
+                && $taxConfiguration?->rate_percent !== null;
+            $taxRateUnits = $this->percentageToTenThousandths((string) $taxRatePercent);
+
             $createdOrders = collect();
             foreach ($linesBySeller as $sellerId => $sellerLines) {
                 $seller = $products->first(
@@ -284,6 +293,16 @@ class OrderController extends Controller
                     $unitCents = (int) round(((float) $line['product']->price) * 100);
                     $totalCents += $unitCents * $line['quantity'];
                 }
+                $subtotalAmount = number_format($totalCents / 100, 2, '.', '');
+                $taxCents = $taxEnabled
+                    ? intdiv(($totalCents * $taxRateUnits) + 500_000, 1_000_000)
+                    : 0;
+                $payableCents = $totalCents + $taxCents;
+                if ($payableCents > 999_999_999_999) {
+                    throw ValidationException::withMessages([
+                        'items' => ['The order total is above the supported currency limit. Reduce the selected quantities and try again.'],
+                    ]);
+                }
 
                 $order = Order::create([
                     'order_number' => $this->newOrderNumber(),
@@ -293,7 +312,12 @@ class OrderController extends Controller
                     'seller_name_snapshot' => (string) $seller->name,
                     'status' => 'pending',
                     'seller_response_deadline_at' => now()->addHours(48),
-                    'total_amount' => number_format($totalCents / 100, 2, '.', ''),
+                    'product_subtotal' => $subtotalAmount,
+                    'tax_name' => 'StudentMart Demo Tax',
+                    'tax_enabled' => $taxEnabled,
+                    'tax_rate_percent' => number_format($taxRateUnits / 10_000, 4, '.', ''),
+                    'tax_amount' => number_format($taxCents / 100, 2, '.', ''),
+                    'total_amount' => number_format($payableCents / 100, 2, '.', ''),
                     'payment_method_id' => $paymentMethod->id,
                     'payment_method_name_snapshot' => $paymentMethod->name,
                     'payment_method_instructions_snapshot' => $paymentMethod->instructions,
@@ -526,7 +550,7 @@ class OrderController extends Controller
         }
 
         $query = (clone $baseQuery)
-            ->with(['buyer:id,name,student_id', 'seller:id,name,student_id', 'items.product.images'])
+            ->with(['buyer:id,name,student_id', 'seller:id,name,student_id', 'items.product.images', 'commission'])
             ->orderByDesc('created_at')
             ->orderByDesc('id');
 
@@ -567,7 +591,7 @@ class OrderController extends Controller
 
         $payload = [
             'success' => true,
-            'orders' => $orders->map(fn (Order $order): array => $this->orderData($order))->values(),
+            'orders' => $orders->map(fn (Order $order): array => $this->orderData($order, true))->values(),
             'total' => $total,
         ];
 
@@ -667,15 +691,21 @@ class OrderController extends Controller
             }
 
             $lockedOrder->status = $validated['status'];
+            $statusChangedAt = now();
             if ($validated['status'] === 'completed') {
-                $lockedOrder->completed_at = now();
+                $lockedOrder->completed_at = $statusChangedAt;
             }
             if (array_key_exists('seller_note', $validated)) {
                 $lockedOrder->seller_note = $validated['seller_note'];
             }
             $lockedOrder->save();
 
-            if ($validated['status'] === 'completed') {
+            if ($validated['status'] === 'confirmed') {
+                app(CommissionRecordingService::class)->snapshotConfirmedOrder(
+                    $lockedOrder,
+                    $statusChangedAt,
+                );
+            } elseif ($validated['status'] === 'completed') {
                 app(CommissionRecordingService::class)->recordCompletedOrder(
                     $lockedOrder,
                     $lockedOrder->completed_at,
@@ -693,7 +723,7 @@ class OrderController extends Controller
             return $lockedOrder;
         });
 
-        $order->load(['buyer:id,name,student_id', 'seller:id,name,student_id', 'items.product.images']);
+        $order->load(['buyer:id,name,student_id', 'seller:id,name,student_id', 'items.product.images', 'commission']);
 
         $event = match ($order->status) {
             'confirmed' => 'order_accepted',
@@ -709,7 +739,7 @@ class OrderController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Order status updated.',
-            'order' => $this->orderData($order),
+            'order' => $this->orderData($order, true),
         ]);
     }
 
@@ -832,6 +862,7 @@ class OrderController extends Controller
             'total' => $matchingTotal,
         ]);
     }
+
     private function orderItemImage($item): ?string
     {
         $product = $item->product;
@@ -843,6 +874,7 @@ class OrderController extends Controller
             ?? $product->images->first()?->path
             ?? $product->image;
     }
+
     private function newOrderNumber(): string
     {
         return 'TMC-'.now()->format('ymd').'-'.Str::upper(Str::random(8));
@@ -913,8 +945,7 @@ class OrderController extends Controller
                 ]);
             }
 
-            $legacyItems = $productItems->filter(fn (OrderItem $item): bool =>
-                $item->product_variant_id === null && $item->variant_label_snapshot === null
+            $legacyItems = $productItems->filter(fn (OrderItem $item): bool => $item->product_variant_id === null && $item->variant_label_snapshot === null
             );
             $quantity = (int) $legacyItems->sum('quantity');
             if ($quantity > 0) {
@@ -968,14 +999,19 @@ class OrderController extends Controller
         ]);
     }
 
-    private function orderData(Order $order): array
+    private function orderData(Order $order, bool $includeSellerEarnings = false): array
     {
-        return [
+        $data = [
             'id' => $order->id,
             'order_number' => $order->order_number,
             'status' => $order->status,
             'needs_attention' => (bool) $order->needs_attention,
             'seller_response_deadline_at' => $order->seller_response_deadline_at,
+            'product_subtotal' => $order->product_subtotal ?? $order->total_amount,
+            'tax_name' => $order->tax_name,
+            'tax_enabled' => (bool) $order->tax_enabled,
+            'tax_rate_percent' => $order->tax_rate_percent,
+            'tax_amount' => $order->tax_amount ?? '0.00',
             'total_amount' => $order->total_amount,
             'buyer_note' => $order->buyer_note,
             'seller_note' => $order->seller_note,
@@ -1017,5 +1053,19 @@ class OrderController extends Controller
             'created_at' => $order->created_at,
             'updated_at' => $order->updated_at,
         ];
+
+        if ($includeSellerEarnings) {
+            $data['seller_earnings'] = $order->commission?->sellerEarningsAmount();
+        }
+
+        return $data;
+    }
+
+    private function percentageToTenThousandths(string $ratePercent): int
+    {
+        [$whole, $fraction] = array_pad(explode('.', $ratePercent, 2), 2, '');
+        $fraction = str_pad(substr($fraction, 0, 4), 4, '0');
+
+        return ((int) $whole * 10_000) + (int) $fraction;
     }
 }
